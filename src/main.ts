@@ -5,7 +5,7 @@ type Road = { points: Point[]; progress: number; connectsVillageToHighway: boole
 type RoadGraphNode = { id: number; x: number; y: number; edgeIds: string[] };
 type RoadGraphEdge = { id: string; from: number; to: number; width: number; kind: 'highway' | 'local'; source: string };
 type RoadGraph = { nodes: RoadGraphNode[]; edges: RoadGraphEdge[] };
-type Vehicle = { distance: number; speed: number; direction: number; color: string };
+type Vehicle = { path: Point[]; lengths: number[]; routeLength: number; distance: number; speed: number; direction: number; color: string };
 
 const mount = document.querySelector<HTMLDivElement>('#world');
 if (!mount) throw new Error('World mount not found');
@@ -43,18 +43,13 @@ const obstacles = [
 ];
 const builtRoads: Road[] = [];
 const constructionJobs: Road[] = [];
-const route = [{x:-18,y:-13},{x:-1,y:-13},{x:-1,y:5},{x:9,y:5}];
-const routeLengths = route.slice(1).map((p,i)=>distance(p,route[i]!));
-const routeLength = routeLengths.reduce((a,b)=>a+b,0);
-const vehicles: Vehicle[] = [
-  {distance:2,speed:2.25,direction:1,color:'#e9c46a'},
-  {distance:8.5,speed:1.85,direction:1,color:'#78a9b6'}
-];
+const fallbackRoute = [{x:-18,y:-13},{x:-1,y:-13},{x:-1,y:5},{x:11,y:5}];
+const vehicles: Vehicle[] = [];
 const missionCount = document.querySelector<HTMLElement>('.mission-count');
 const missionProgress = document.querySelector<HTMLElement>('.progress span');
 const buildMessage = document.querySelector<HTMLElement>('#build-message');
 const trafficCount = document.querySelector<HTMLElement>('#traffic-count');
-if (trafficCount) trafficCount.textContent = String(vehicles.length);
+
 
 function distance(a: Point,b: Point) { return Math.hypot(a.x-b.x,a.y-b.y); }
 function clamp(v:number,min:number,max:number){return Math.max(min,Math.min(max,v));}
@@ -214,8 +209,8 @@ function drawDecor(){
 }
 function drawCar(vehicle:Vehicle){
   let remaining=vehicle.distance,segment=0;
-  while(segment<routeLengths.length-1&&remaining>routeLengths[segment]!){remaining-=routeLengths[segment]!;segment++;}
-  const a=route[segment]!,b=route[segment+1]!,t=clamp(remaining/(routeLengths[segment]||1),0,1);
+  while(segment<vehicle.lengths.length-1&&remaining>vehicle.lengths[segment]!){remaining-=vehicle.lengths[segment]!;segment++;}
+  const a=vehicle.path[segment]!,b=vehicle.path[segment+1]!,t=clamp(remaining/(vehicle.lengths[segment]||1),0,1);
   const x=lerp(a.x,b.x,t),y=lerp(a.y,b.y,t),angle=Math.atan2(b.y-a.y,b.x-a.x)+(vehicle.direction<0?Math.PI:0),p=worldToScreen({x,y}),s=camera.zoom;
   ctx!.save();ctx!.translate(p.x,p.y);ctx!.rotate(angle);
   ctx!.fillStyle='#344b45';roundedRect(ctx!,-.82*s,-.48*s,1.64*s,.96*s,.24*s);ctx!.fill();
@@ -283,8 +278,44 @@ function rebuildRoadGraph(){
   }
   if(networkStatus)networkStatus.textContent='Сеть: '+roadGraph.nodes.length+' узлов · '+roadGraph.edges.length+' участков';
 }
+// KT-011: graph-based shortest path for all demonstration vehicles.
+function nearestGraphNode(point:Point):RoadGraphNode|null{
+  let best:RoadGraphNode|null=null,bestDistance=Infinity;
+  for(const node of roadGraph.nodes){const d=distance(point,node);if(d<bestDistance){bestDistance=d;best=node;}}
+  return best;
+}
+function findRoadPath(start:Point,end:Point):Point[]|null{
+  const source=nearestGraphNode(start),target=nearestGraphNode(end);
+  if(!source||!target)return null;
+  const queue:number[]=[source.id],previous=new Map<number,number|null>([[source.id,null]]);
+  for(let head=0;head<queue.length;head++){
+    const current=queue[head]!;
+    if(current===target.id)break;
+    const node=roadGraph.nodes[current]!;
+    for(const edgeId of node.edgeIds){
+      const edge=roadGraph.edges.find(item=>item.id===edgeId);
+      if(!edge)continue;
+      const next=edge.from===current?edge.to:edge.from;
+      if(previous.has(next))continue;
+      previous.set(next,current);queue.push(next);
+    }
+  }
+  if(!previous.has(target.id))return null;
+  const ids:number[]=[];let cursor:number|null=target.id;
+  while(cursor!==null){ids.push(cursor);cursor=previous.get(cursor)??null;}
+  ids.reverse();
+  return ids.map(id=>({x:roadGraph.nodes[id]!.x,y:roadGraph.nodes[id]!.y}));
+}
+function createVehicle(path:Point[],speed:number,color:string,offset:number):Vehicle{
+  const lengths=path.slice(1).map((point,index)=>distance(path[index]!,point));
+  return{path,lengths,routeLength:lengths.reduce((sum,value)=>sum+value,0),distance:offset,speed,direction:1,color};
+}
 // KT-010: populate the base network before any road validation can run.
 rebuildRoadGraph();
+const demoPath=findRoadPath({x:-18,y:-13},{x:11,y:5})??fallbackRoute;
+vehicles.push(createVehicle(demoPath,2.25,'#e9c46a',2),createVehicle(demoPath,1.85,'#78a9b6',8.5));
+if(trafficCount)trafficCount.textContent=String(vehicles.length);
+
 function nearestNetworkPoint(p:Point):Point|null{
   let nearest=Infinity,best:Point|null=null;
   for(const edge of roadGraph.edges){
@@ -425,7 +456,7 @@ let previousTime=0;
 function animate(time:number){
   const delta=Math.min((time-previousTime)/1000||0,.05);previousTime=time;
   for(const job of constructionJobs)job.progress=clamp(job.progress+delta/Math.max(1.2,job.points.length*.32),0,1);
-  for(const vehicle of vehicles){vehicle.distance+=vehicle.speed*delta*vehicle.direction;if(vehicle.distance>=routeLength){vehicle.distance=routeLength;vehicle.direction=-1;}if(vehicle.distance<=0){vehicle.distance=0;vehicle.direction=1;}}
+  for(const vehicle of vehicles){vehicle.distance+=vehicle.speed*delta*vehicle.direction;if(vehicle.distance>=vehicle.routeLength){vehicle.distance=vehicle.routeLength;vehicle.direction=-1;}if(vehicle.distance<=0){vehicle.distance=0;vehicle.direction=1;}}
   render();requestAnimationFrame(animate);
 }
 canvas.style.cursor='grab';
