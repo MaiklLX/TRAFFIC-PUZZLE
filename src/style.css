@@ -171,3 +171,8 @@ button:focus-visible { outline: 3px solid #e4b85e; outline-offset: 2px; }
 
 /* KT-009: compact live road-network diagnostics. */
 .network-status { display:block; margin-top:7px; padding-top:7px; border-top:1px solid #e6eadb; color:#879783; font-size:9px; letter-spacing:.15px; }
+
+
+/* KT-023: compact direction selector for planned roads. */
+.road-direction-control { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:9px; color:#647963; font-size:10px; font-weight:800; }
+.road-direction-control select { min-width:0; max-width:62%; min-height:32px; padding:0 8px; border:1px solid #dce6d7; border-radius:8px; background:#f1f5e9; color:#526b56; font:700 10px 'Nunito'; }
