@@ -954,6 +954,9 @@ function nearestBuildingAccess(p:Point):Point|null{
   }
   return best?{...best}:null;
 }
+function isBuildingAccess(p:Point){
+  return trafficDestinations.some(destination=>distance(p,destination.access)<.08);
+}
 function snapRoadEndpoint(p:Point):Point|null{
   const network=nearestNetworkPoint(p);
   const networkDistance=network?distance(p,network):Infinity;
@@ -994,7 +997,8 @@ function validateRoadPath(points:Point[]):RoadValidation{
     const a=points[i-1]!,b=points[i]!,len=distance(a,b),steps=Math.max(2,Math.ceil(len/.2));
     for(let step=0;step<=steps;step++){
       const t=step/steps,p={x:lerp(a.x,b.x,t),y:lerp(a.y,b.y,t)};
-      if(obstacles.some(o=>Math.hypot(p.x-o.x,p.y-o.y)<o.r+roadHalfWidth))return{valid:false,reason:'На пути препятствие: здание, дерево или водоём. Обойди его.'};
+      const atBuildingDriveway=(along<1.05&&isBuildingAccess(points[0]!))||(total-along<1.05&&isBuildingAccess(points[points.length-1]!));
+      if(!atBuildingDriveway&&obstacles.some(o=>Math.hypot(p.x-o.x,p.y-o.y)<o.r+roadHalfWidth))return{valid:false,reason:'На пути препятствие: здание, дерево или водоём. Обойди его.'};
       const along=travelled+len*t;
       const atStart=along<endpointOverlapAllowance,atEnd=total-along<endpointOverlapAllowance;
       const overlapStatic=staticRoads.some(road=>staticRoadPath(road).some((point,index,path)=>index>0&&distanceToSegment(p,path[index-1]!,point)<roadOverlapDistance));
@@ -1040,7 +1044,7 @@ function startRoad(event:PointerEvent){
   const raw=pointerToGrid(event);
   const p=snapRoadEndpoint(raw);
   if(!p){if(buildMessage)buildMessage.textContent='Начинай дорогу от существующей улицы, перекрёстка или въезда в объект.';return;}
-  if(obstacles.some(o=>Math.hypot(p.x-o.x,p.y-o.y)<o.r+roadHalfWidth)){if(buildMessage)buildMessage.textContent='Точка подключения перекрыта препятствием. Выбери другой подъезд.';return;}
+  if(!isBuildingAccess(p)&&obstacles.some(o=>Math.hypot(p.x-o.x,p.y-o.y)<o.r+roadHalfWidth)){if(buildMessage)buildMessage.textContent='Точка подключения перекрыта препятствием. Выбери другой подъезд.';return;}
   drawing=true;pointerId=event.pointerId;draft=[p];canvas.setPointerCapture(event.pointerId);event.preventDefault();render();
 }
 function finishRoad(event:PointerEvent){
