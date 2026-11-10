@@ -33,7 +33,7 @@ let pinchStart: { distance: number; zoom: number; center: Point } | null = null;
 const staticRoads: { a: Point; b: Point; points?: Point[]; width: number; direction?: 'both'|'forward' }[] = [
   // The federal highway remains broad and straight; village streets branch from it organically.
   { a:{x:-18,y:-13}, b:{x:18,y:-13}, width:1.55 },
-  { a:{x:-1,y:-13}, b:{x:0,y:11}, points:[
+  { a:{x:-1,y:-13}, b:{x:-1,y:11}, points:[
     {x:-1,y:-13},{x:-.25,y:-10.5},{x:-.55,y:-7.8},{x:-.2,y:-5},
     {x:.35,y:-2.2},{x:.2,y:.5},{x:-1,y:3.1},{x:-.05,y:5.3},
     {x:.35,y:8.2},{x:-1,y:11}
@@ -49,7 +49,7 @@ const staticRoads: { a: Point; b: Point; points?: Point[]; width: number; direct
     {x:10,y:-15.6},{x:10.45,y:-13.8},{x:9.9,y:-12.1},{x:10.2,y:-10.1}
   ], width:1.5 },
   // The service-station driveway stops at its forecourt instead of crossing the building.
-  { a:{x:-8,y:-13}, b:{x:-8.1,y:-14.55}, points:[
+  { a:{x:-8,y:-13}, b:{x:-8.2,y:-14.55}, points:[
     {x:-8,y:-13},{x:-8.65,y:-13.65},{x:-8.2,y:-14.55}
   ], width:1.12 },
   // Short, curved access roads make the settlement's buildings part of the road network.
@@ -65,7 +65,7 @@ const staticRoads: { a: Point; b: Point; points?: Point[]; width: number; direct
   { a:{x:.35,y:8.2}, b:{x:2.8,y:9.1}, points:[
     {x:.35,y:8.2},{x:1.05,y:8.65},{x:1.9,y:9.05},{x:2.8,y:9.1}
   ], width:.98 },
-  { a:{x:-.45,y:-7.8}, b:{x:-5,y:-8.15}, points:[
+  { a:{x:-.55,y:-7.8}, b:{x:-5,y:-8.15}, points:[
     {x:-.55,y:-7.8},{x:-1.8,y:-7.15},{x:-3.1,y:-7.55},{x:-4.2,y:-8.05},{x:-5,y:-8.15}
   ], width:.98 },
   { a:{x:10.2,y:-10.1}, b:{x:11,y:-3}, points:[
