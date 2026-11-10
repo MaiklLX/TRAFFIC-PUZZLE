@@ -145,7 +145,7 @@ function drawJunctionPatch(center:Point,arms:JunctionArm[]){
     const candidates:Point[]=[];
     for(const arm of arms){
       const half=arm.width/2+extra;
-      const reach=half+.08;
+      const reach=half+.1;
       const normal={x:-arm.direction.y,y:arm.direction.x};
       candidates.push(
         {x:center.x+arm.direction.x*reach+normal.x*half,y:center.y+arm.direction.y*reach+normal.y*half},
@@ -154,13 +154,12 @@ function drawJunctionPatch(center:Point,arms:JunctionArm[]){
     }
     const hull=convexHull(candidates);
     if(hull.length<3)return;
-    // Round every convex corner in world space before projecting to screen.
-    // This keeps the asphalt edge smooth at every zoom level.
+    // Use a larger, edge-limited fillet so diagonal corners read as one road surface.
     const rounded=hull.map((point,index)=>{
       const previous=hull[(index-1+hull.length)%hull.length]!;
       const next=hull[(index+1)%hull.length]!;
       const beforeLength=distance(point,previous),afterLength=distance(point,next);
-      const radius=Math.min(extra > 0 ? 0.28 : 0.22,beforeLength*.32,afterLength*.32);
+      const radius=Math.min(extra > 0 ? .48 : .38,beforeLength*.4,afterLength*.4);
       return{
         before:{x:point.x+(previous.x-point.x)*radius/Math.max(beforeLength,.001),y:point.y+(previous.y-point.y)*radius/Math.max(beforeLength,.001)},
         corner:point,
@@ -168,14 +167,14 @@ function drawJunctionPatch(center:Point,arms:JunctionArm[]){
       };
     });
     ctx!.beginPath();
-    const start=worldToScreen(rounded[0]!.before);ctx!.moveTo(start.x,start.y);
+    const first=worldToScreen(rounded[0]!.before);ctx!.moveTo(first.x,first.y);
     for(let i=0;i<rounded.length;i++){
       const item=rounded[i]!,before=worldToScreen(item.before),corner=worldToScreen(item.corner),after=worldToScreen(item.after);
       ctx!.lineTo(before.x,before.y);ctx!.quadraticCurveTo(corner.x,corner.y,after.x,after.y);
     }
     ctx!.closePath();ctx!.fillStyle=color;ctx!.fill();
   };
-  // Two matching polygon layers create a continuous shoulder and asphalt surface.
+  // The shoulder extends slightly beyond the asphalt, while both layers share one contour.
   drawLayer(.17,'#d9d2b9');
   drawLayer(0,'#59666a');
 }
@@ -185,16 +184,26 @@ function collectRoadJunctions():{center:Point;arms:JunctionArm[]}[]{
     ...builtRoads.filter(road=>road.progress>=.999).flatMap(road=>road.points.slice(1).map((point,index)=>({a:road.points[index]!,b:point,width:road.width})))
   ];
   const junctions:{center:Point;arms:JunctionArm[]}[]=[];
+  const mergeRadius=.2;
   const addArm=(junction:{center:Point;arms:JunctionArm[]},from:Point,to:Point,width:number)=>{
     const dx=to.x-from.x,dy=to.y-from.y,len=Math.hypot(dx,dy);
-    if(len<.001)return;
+    if(len<.12)return;
     const direction={x:dx/len,y:dy/len};
-    if(!junction.arms.some(arm=>Math.abs(arm.direction.x-direction.x)<.015&&Math.abs(arm.direction.y-direction.y)<.015))
-      junction.arms.push({direction,width});
+    // Adjacent samples on a curved road are one arm, not separate junction branches.
+    const existing=junction.arms.find(arm=>arm.direction.x*direction.x+arm.direction.y*direction.y>.985);
+    if(existing){existing.width=Math.max(existing.width,width);return;}
+    junction.arms.push({direction,width});
   };
   const getJunction=(point:Point)=>{
-    let junction=junctions.find(item=>distance(item.center,point)<.06);
+    let junction=junctions.find(item=>distance(item.center,point)<mergeRadius);
     if(!junction){junction={center:{...point},arms:[]};junctions.push(junction);}
+    else{
+      // Average near-identical pairwise hits to avoid a lumpy multi-patch seam.
+      const count=(junction as typeof junction & {samples?:number}).samples??1;
+      junction.center.x+=(point.x-junction.center.x)/(count+1);
+      junction.center.y+=(point.y-junction.center.y)/(count+1);
+      (junction as typeof junction & {samples?:number}).samples=count+1;
+    }
     return junction;
   };
   for(let i=0;i<segments.length;i++){
