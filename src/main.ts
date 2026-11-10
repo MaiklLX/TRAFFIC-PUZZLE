@@ -419,13 +419,43 @@ function vehiclePose(vehicle:Vehicle):{x:number;y:number;angle:number;heading:Po
   return{x:end.x,y:end.y,angle:Math.atan2(heading.y,heading.x),heading};
 }
 function drawCar(vehicle:Vehicle){
-  const pose=vehiclePose(vehicle),p=worldToScreen({x:pose.x,y:pose.y}),angle=pose.angle,s=camera.zoom;
-  ctx!.save();ctx!.translate(p.x,p.y);ctx!.rotate(angle);
-  ctx!.fillStyle='#53666a';ctx!.globalAlpha=.18;roundedRect(ctx!,-.7*s,-.31*s,1.4*s,.62*s,.22*s);ctx!.fill();ctx!.globalAlpha=1;
-  roundedRect(ctx!,-.64*s,-.27*s,1.28*s,.54*s,.2*s);ctx!.fillStyle=vehicle.color;ctx!.fill();
-  ctx!.fillStyle='#d8e9e6';roundedRect(ctx!,-.17*s,-.205*s,.48*s,.41*s,.11*s);ctx!.fill();
-  ctx!.fillStyle='#fff0c9';ctx!.fillRect(.52*s,-.16*s,.07*s,.12*s);ctx!.fillRect(.52*s,.04*s,.07*s,.12*s);
-  ctx!.fillStyle='#e8a18b';ctx!.fillRect(-.59*s,-.15*s,.06*s,.11*s);ctx!.fillRect(-.59*s,.04*s,.06*s,.11*s);
+  const pose=vehiclePose(vehicle),p=worldToScreen({x:pose.x,y:pose.y}),s=camera.zoom;
+  const seed=vehicle.destinationId.split('').reduce((sum,char)=>sum+char.charCodeAt(0),0);
+  const length=seed%4===0?1.38:seed%3===0?1.2:1.29;
+  const bodyWidth=seed%5===0?.43:.46;
+  const roofTone=seed%2===0?'#f4ead7':'#e9f0e8';
+  const glass=seed%3===0?'#8fb8bd':'#a8c9ca';
+  ctx!.save();ctx!.translate(p.x,p.y);ctx!.rotate(pose.angle);
+  // Soft contact shadow and a dark underbody create a grounded miniature vehicle.
+  ctx!.fillStyle='#53666a';ctx!.globalAlpha=.2;ctx!.beginPath();ctx!.ellipse(-.015*s,.085*s,(length*.57)*s,.31*s,0,0,Math.PI*2);ctx!.fill();ctx!.globalAlpha=1;
+  ctx!.fillStyle='#38494d';roundedRect(ctx!,-length*.53*s,-.255*s,length*1.06*s,.51*s,.16*s);ctx!.fill();
+  // Four compact tyres, all kept inside the lane envelope.
+  for(const x of [-length*.32,length*.32]){
+    for(const y of [-.225,.225]){
+      ctx!.fillStyle='#29383b';roundedRect(ctx!,(x-.105)*s,(y-.058)*s,.21*s,.116*s,.045*s);ctx!.fill();
+      ctx!.fillStyle='#84918c';roundedRect(ctx!,(x-.045)*s,(y-.035)*s,.09*s,.07*s,.025*s);ctx!.fill();
+    }
+  }
+  // Body shell with a subtle painted-metal gradient.
+  const paint=ctx!.createLinearGradient(0,-.25*s,0,.25*s);
+  paint.addColorStop(0,'#ffffff');paint.addColorStop(.16,vehicle.color);paint.addColorStop(.72,vehicle.color);paint.addColorStop(1,'#53666a');
+  ctx!.fillStyle=paint;roundedRect(ctx!,-length*.5*s,-bodyWidth*.5*s,length*s,bodyWidth*s,.14*s);ctx!.fill();
+  ctx!.strokeStyle='rgba(48,65,65,.55)';ctx!.lineWidth=Math.max(.7,.025*s);ctx!.stroke();
+  // Front and rear glass are separate, with a narrow painted roof between them.
+  const cabinLength=length*.54;
+  ctx!.fillStyle='#536d70';roundedRect(ctx!,-cabinLength*.5*s,-.19*s,cabinLength*s,.38*s,.095*s);ctx!.fill();
+  ctx!.fillStyle=glass;roundedRect(ctx!,.035*s,-.155*s,cabinLength*.39*s,.31*s,.065*s);ctx!.fill();
+  ctx!.fillStyle=roofTone;ctx!.globalAlpha=.88;roundedRect(ctx!,-cabinLength*.39*s,-.155*s,cabinLength*.34*s,.31*s,.06*s);ctx!.fill();ctx!.globalAlpha=1;
+  // Windshield reflections and roof panel.
+  ctx!.strokeStyle='rgba(255,255,255,.62)';ctx!.lineWidth=Math.max(.8,.035*s);ctx!.beginPath();ctx!.moveTo(.1*s,-.12*s);ctx!.lineTo(.29*s,-.12*s);ctx!.stroke();
+  ctx!.fillStyle='rgba(255,255,255,.22)';roundedRect(ctx!,-.13*s,-.12*s,.14*s,.24*s,.035*s);ctx!.fill();
+  // Door seam, handles and bumpers add scale cues without visual clutter.
+  ctx!.strokeStyle='rgba(55,70,67,.52)';ctx!.lineWidth=Math.max(.7,.022*s);ctx!.beginPath();ctx!.moveTo(-.02*s,-bodyWidth*.49*s);ctx!.lineTo(-.02*s,bodyWidth*.49*s);ctx!.stroke();
+  ctx!.fillStyle='#f0e7d3';roundedRect(ctx!,-length*.5*s,-.12*s,.045*s,.24*s,.02*s);ctx!.fill();
+  ctx!.fillStyle='#fff1c9';roundedRect(ctx!,(length*.5-.09)*s,-.145*s,.07*s,.095*s,.025*s);ctx!.fill();roundedRect(ctx!,(length*.5-.09)*s,.05*s,.07*s,.095*s,.025*s);ctx!.fill();
+  ctx!.fillStyle='#c96f61';roundedRect(ctx!,-length*.5*s,-.14*s,.055*s,.1*s,.02*s);ctx!.fill();roundedRect(ctx!,-length*.5*s,.04*s,.055*s,.1*s,.02*s);ctx!.fill();
+  // A tiny specular strip gives each car a readable silhouette at normal zoom.
+  ctx!.strokeStyle='rgba(255,255,255,.55)';ctx!.lineWidth=Math.max(.8,.035*s);ctx!.beginPath();ctx!.moveTo(-length*.34*s,-bodyWidth*.38*s);ctx!.quadraticCurveTo(0,-bodyWidth*.52*s,length*.34*s,-bodyWidth*.38*s);ctx!.stroke();
   ctx!.restore();
 }
 let ambientClock=0;
