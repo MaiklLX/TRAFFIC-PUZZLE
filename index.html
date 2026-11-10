@@ -3,63 +3,137 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#b9d9bd" />
-    <meta name="description" content="TRAFFIC PUZZLE — мультяшная головоломка об управлении дорожным движением." />
-    <title>TRAFFIC PUZZLE — управляй потоком</title>
+    <meta name="theme-color" content="#142329" />
+    <meta name="description" content="TRAFFIC PUZZLE — стратегическая головоломка о дорожной сети, транспортных потоках и топливной логистике." />
+    <title>TRAFFIC PUZZLE — дорожный штаб</title>
   </head>
   <body>
     <div id="app">
       <header class="topbar">
         <a class="brand" href="#" aria-label="TRAFFIC PUZZLE">
-          <span class="brand-mark">TP</span>
-          <span><strong>TRAFFIC</strong><small>PUZZLE</small></span>
+          <span class="brand-mark"><span></span><span></span><span></span></span>
+          <span class="brand-copy"><strong>TRAFFIC<span>PUZZLE</span></strong><small>NETWORK COMMAND</small></span>
         </a>
-        <div class="chapter"><span class="chapter-dot"></span><span>ГЛАВА 01</span><strong>Тихая долина</strong></div>
-        <div class="top-actions"><span class="weather">☀️ <b>22°</b></span><button class="icon-button" id="reset-camera" aria-label="Вернуть обзор сверху" title="Вернуть обзор сверху">⌖</button></div>
+        <div class="chapter">
+          <span class="chapter-kicker">КАМПАНИЯ</span>
+          <span class="chapter-divider"></span>
+          <span class="chapter-index">01</span>
+          <span class="chapter-name">Тихая долина</span>
+        </div>
+        <div class="top-actions">
+          <span class="world-status"><i></i> СИМУЛЯЦИЯ АКТИВНА</span>
+          <button class="icon-button" id="reset-camera" aria-label="Показать всю локацию" title="Показать всю локацию">⌖</button>
+        </div>
       </header>
+
       <main class="game-shell">
-        <section class="world-frame" aria-label="Игровое поле">
-          <div id="world" role="img" aria-label="2D игровое поле с видом строго сверху"></div>
+        <section class="world-frame" aria-label="Игровая карта">
+          <div id="world" role="img" aria-label="Строгая 2D карта поселения, федеральной трассы и транспортной сети"></div>
           <div class="world-vignette"></div>
-          <div class="location-tag"><span class="pin">⌖</span><span><b>Зелёная долина</b><small>Небольшая деревушка · 124 жителя</small></span></div>
-          <div class="world-hint"><span class="hint-icon">✥</span> <span class="desktop-hint">Перетаскивай поле · Колесо — масштаб</span><span class="mobile-hint">Свайп — обзор · Два пальца — масштаб</span></div>
-          <div id="build-hud" class="build-hud" hidden><strong>ПРОЕКТИРОВАНИЕ ДОРОГ</strong><span id="build-message">Наметь линию будущей дороги. После проверки проект начнёт строиться.</span><small id="network-status" class="network-status">Сеть: подготовка узлов…</small><label class="road-direction-control" for="road-direction">Режим движения <select id="road-direction"><option value="both">Двусторонняя</option><option value="forward">Односторонняя → по линии</option></select></label><div><button id="undo-road" type="button">Убрать последний участок</button><button id="cancel-road" type="button">Отменить проект</button></div></div>
-          <div class="world-controls"><button id="zoom-out" aria-label="Отдалить">−</button><button id="zoom-in" aria-label="Приблизить">+</button></div>
+
+          <div class="location-tag">
+            <span class="location-pin">⌖</span>
+            <span><b>ТИХАЯ ДОЛИНА</b><small>РЕГИОН 01 · СЕЛЬСКАЯ СЕТЬ</small></span>
+          </div>
+
+          <div class="map-live"><i></i><span>ДВИЖЕНИЕ В РЕАЛЬНОМ ВРЕМЕНИ</span></div>
+
+          <div class="map-brief">
+            <span class="eyebrow">ОСНОВНАЯ ЗАДАЧА</span>
+            <strong>Свяжи трассу с поселением</strong>
+            <small>Продумай короткий маршрут без лишних ответвлений</small>
+          </div>
+
+          <div id="build-hud" class="build-hud" hidden>
+            <div class="build-hud-heading"><span class="build-hud-icon">⌁</span><span><strong>ПРОЕКТИРОВАНИЕ ДОРОГИ</strong><small>Проведи линию по карте</small></span></div>
+            <span id="build-message">Наметь линию будущей дороги. После проверки проект начнёт строиться.</span>
+            <label class="road-direction-control" for="road-direction">ДВИЖЕНИЕ
+              <select id="road-direction">
+                <option value="both">Двустороннее</option>
+                <option value="forward">Одностороннее →</option>
+              </select>
+            </label>
+            <div class="build-actions">
+              <button id="undo-road" type="button">↶ Отменить участок</button>
+              <button id="cancel-road" type="button">Сбросить линию</button>
+            </div>
+          </div>
+
+          <div class="world-hint"><span class="hint-key">?</span><span class="desktop-hint">Перетаскивай карту · Колесо — масштаб · R — обзор</span><span class="mobile-hint">Свайп — обзор · Два пальца — масштаб</span></div>
+          <div class="world-controls">
+            <button id="zoom-out" aria-label="Отдалить карту">−</button>
+            <button id="zoom-in" aria-label="Приблизить карту">+</button>
+          </div>
+          <div class="map-coordinate">КАРТА 01-A <span>·</span> TOP DOWN</div>
         </section>
+
         <aside class="side-panel">
-          <div class="panel-heading"><div><span class="eyebrow">ТВОЯ ДЕРЕВНЯ</span><h1>Управляй потоком,<br/>а не городом</h1></div><span class="sun-badge">☀</span></div>
-          <p class="intro">Прокладывай маршруты, разводи потоки и не допускай заторов. Поселение будет расти само — решения за дорогами остаются за тобой.</p>
-          <div class="stats">
-            <div class="stat"><span class="stat-icon cars">🚗</span><span><small>Машины</small><b id="traffic-count">2</b></span><em>в потоке</em></div>
-            <div class="stat"><span class="stat-icon people">↗</span><span><small>Заторы</small><b id="jam-count">0</b></span><em>на маршруте</em></div>
-            <div class="stat"><span class="stat-icon coin">◎</span><span><small>Этап</small><b>01</b></span><em>деревня</em></div>
-            <div class="stat"><span class="stat-icon fuel">⛽</span><span><small>Топливо</small><b id="fuel-count">100%</b></span><em>средний запас</em></div>
+          <div class="panel-heading">
+            <div><span class="eyebrow">ЦЕНТР УПРАВЛЕНИЯ</span><h1>Дорожный штаб</h1></div>
+            <span class="chapter-badge">01</span>
           </div>
-          <div class="destination-legend">
-            <span class="eyebrow">НАПРАВЛЕНИЯ ПОТОКА</span>
-            <div><i style="--route-color:#e9c46a"></i>Западный квартал</div>
-            <div><i style="--route-color:#78a9b6"></i>Северный квартал</div>
-            <div><i style="--route-color:#d98c78"></i>Центральный квартал</div>
-            <div><i style="--route-color:#9aa9d0"></i>Магазин у трассы</div>
-          </div>
-          <div class="mission">
-            <div class="mission-top"><span class="eyebrow">ЗАДАЧА</span><span class="mission-count">0 / 1</span></div>
-            <h2>Спроектируй новый участок</h2>
-            <p>Наметь линию. После проверки дорога будет постепенно построена, не затрагивая существующую сеть и объекты.</p>
+          <p class="intro">Поселение растёт само. Твоя задача — соединить объекты, распределить поток и сохранить запас топлива у каждого автомобиля.</p>
+
+          <section class="section-block">
+            <div class="section-heading"><span>СОСТОЯНИЕ СЕТИ</span><i>LIVE</i></div>
+            <div class="stats">
+              <div class="stat">
+                <span class="stat-icon cars">↗</span>
+                <span><small>Автомобили</small><b id="traffic-count">2</b></span>
+                <em>в движении</em>
+              </div>
+              <div class="stat">
+                <span class="stat-icon jams">⌁</span>
+                <span><small>Заторы</small><b id="jam-count">0</b></span>
+                <em>замедлено</em>
+              </div>
+              <div class="stat">
+                <span class="stat-icon fuel">⛽</span>
+                <span><small>Топливо</small><b id="fuel-count">100%</b></span>
+                <em>средний запас</em>
+              </div>
+              <div class="stat">
+                <span class="stat-icon roads">⌘</span>
+                <span><small>Активные дороги</small><b id="active-road-count">—</b></span>
+                <em>в сети</em>
+              </div>
+            </div>
+            <div id="network-status" class="network-status">Сеть анализируется…</div>
+          </section>
+
+          <section class="mission">
+            <div class="mission-top"><span class="eyebrow">МИССИЯ 01 · ПЕРВОЕ СОЕДИНЕНИЕ</span><span class="mission-count">В РАБОТЕ</span></div>
+            <h2>Открой поселению путь к трассе</h2>
+            <p id="mission-state">Соедини федеральную трассу с поселением и создай надёжный маршрут для машин.</p>
             <div class="progress"><span></span></div>
-            <small class="reward">Подсказка: красный предпросмотр означает препятствие или отсутствие соединения</small>
-          </div>
-          <div class="build-title"><span class="eyebrow">ИНСТРУМЕНТЫ</span><span class="soon">РЕЖИМ СТРОЙКИ</span></div>
-          <div class="tool-grid">
-            <button class="tool active" data-tool="inspect"><span>⌖</span><b>Обзор</b></button>
-            <button class="tool" data-tool="road"><span>╱</span><b>Дороги</b></button>
-            <button class="tool" data-tool="junction"><span>✣</span><b>Развязки</b></button>
-            <button class="tool" data-tool="signal"><span>🚦</span><b>Знаки</b></button>
-          </div>
-          <div class="footer-note"><span>🚦</span> Поток меняется — решения за тобой</div>
+            <div class="mission-foot"><span>НАГРАДА ЗА ВЫПОЛНЕНИЕ</span><b>НОВАЯ ТРАНСПОРТНАЯ ЗАДАЧА</b></div>
+          </section>
+
+          <section class="section-block flow-section">
+            <div class="section-heading"><span>ТОЧКИ НАЗНАЧЕНИЯ</span><small>СПРОС НА ПОЕЗДКИ</small></div>
+            <div class="destination-list">
+              <div class="destination-row"><i style="--route:#e9c46a"></i><span><b>Западная ферма</b><small>Грузовой поток</small></span><strong>02</strong></div>
+              <div class="destination-row"><i style="--route:#78a9b6"></i><span><b>Северный квартал</b><small>Жители</small></span><strong>01</strong></div>
+              <div class="destination-row"><i style="--route:#d98c78"></i><span><b>Центр и магазин</b><small>Смешанный поток</small></span><strong>03</strong></div>
+              <div class="destination-row"><i style="--route:#9aa9d0"></i><span><b>Придорожная зона</b><small>Обслуживание</small></span><strong>02</strong></div>
+            </div>
+          </section>
+
+          <section class="section-block tools-section">
+            <div class="section-heading"><span>ИНСТРУМЕНТЫ</span><small>ДОРОЖНОЕ ПЛАНИРОВАНИЕ</small></div>
+            <div class="tool-grid">
+              <button class="tool active" data-tool="inspect" type="button"><span>⌖</span><b>Обзор</b></button>
+              <button class="tool" data-tool="road" type="button"><span>╱</span><b>Дорога</b></button>
+              <button class="tool locked" type="button" disabled><span>✣</span><b>Развязка</b><small>ПОЗЖЕ</small></button>
+              <button class="tool locked" type="button" disabled><span>▥</span><b>Сигналы</b><small>ПОЗЖЕ</small></button>
+            </div>
+          </section>
+
+          <div class="panel-tip"><span>i</span><p>Сквозная дорога может сократить путь. Тупиковая ветка без объекта не привлекает транспорт.</p></div>
         </aside>
       </main>
-      <footer class="bottom-bar"><span>TRAFFIC PUZZLE <i>·</i> PRE-ALPHA</span><span>Мир растёт вместе с тобой <b>♥</b></span></footer>
+
+      <footer class="bottom-bar"><span>TRAFFIC PUZZLE <i>·</i> РЕЖИМ РАЗВИТИЯ</span><span>ПОСЕЛЕНИЕ <b>01 / 08</b> <i>·</i> PRE-ALPHA</span></footer>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
