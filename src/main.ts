@@ -248,7 +248,10 @@ function resize() {
   const w = mount!.clientWidth, h = mount!.clientHeight;
   if (!w || !h) return;
   camera.aspect = w / h; camera.updateProjectionMatrix();
-  camera.fov = w < 680 ? 39 : 34;\n  camera.updateProjectionMatrix();\n  renderer.setPixelRatio(Math.min(window.devicePixelRatio, w < 680 ? 1.5 : 2));\n  renderer.setSize(w, h, false);
+  camera.fov = w < 680 ? 39 : 34;
+  camera.updateProjectionMatrix();
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, w < 680 ? 1.5 : 2));
+  renderer.setSize(w, h, false);
 }
 const observer = new ResizeObserver(resize);
 observer.observe(mount);
