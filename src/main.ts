@@ -813,6 +813,22 @@ const trafficDestinations:TrafficDestination[]=[
   {id:'north-home',name:'Северный дом',access:{x:2.8,y:9.65},color:'#c28eae',weight:1},
   {id:'market',name:'Магазин у трассы',access:{x:11,y:-7.25},color:'#d7a45f',weight:2}
 ];
+function updateDestinationBoard(){
+  const board=document.querySelector<HTMLElement>('#destination-board');
+  if(!board)return;
+  const connected=new Set(reachableDestinations.map(item=>item.id));
+  board.innerHTML=trafficDestinations.map(destination=>{
+    const ready=connected.has(destination.id);
+    const demand=destination.weight>1?'Высокий поток':'Обычный поток';
+    return '<div class="destination-row '+(ready?'is-connected':'is-disconnected')+'">'+
+      '<i style="--destination-color:'+destination.color+'"></i>'+
+      '<span><b>'+destination.name+'</b><small>'+demand+'</small></span>'+
+      '<em>'+(ready?'СВЯЗАНО':'НЕТ МАРШРУТА')+'</em></div>';
+  }).join('');
+  const summary=document.querySelector<HTMLElement>('#destination-summary');
+  if(summary)summary.textContent=connected.size+' из '+trafficDestinations.length+' доступны';
+}
+
 function buildTrafficRoute(destinationId:string):Point[]|null{
   const destination=trafficDestinations.find(item=>item.id===destinationId);
   if(!destination)return null;
@@ -890,10 +906,12 @@ function refreshVehicleRoutes(){
     vehicle.direction=1;
   }
   updateTrafficCounter();
+  updateDestinationBoard();
 }
 // Only completed roads participate in traffic routing.
 rebuildRoadGraph();
 reachableDestinations=trafficDestinations.filter(destination=>buildTrafficRoute(destination.id)!==null);
+updateDestinationBoard();
 let trafficSpawnTimer=5.5,trafficSpawnIndex=0;
 function updateTrafficCounter(){
   if(trafficCount)trafficCount.textContent=String(vehicles.length);
