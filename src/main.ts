@@ -1,635 +1,324 @@
-import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import './style.css';
+
+type Point = { x: number; y: number };
+type Road = { points: Point[]; progress: number; connectsVillageToHighway: boolean };
+type Vehicle = { distance: number; speed: number; direction: number; color: string };
 
 const mount = document.querySelector<HTMLDivElement>('#world');
 if (!mount) throw new Error('World mount not found');
+const canvas = document.createElement('canvas');
+canvas.setAttribute('aria-label', 'Игровое поле, вид сверху');
+mount.appendChild(canvas);
+const ctx = canvas.getContext('2d');
+if (!ctx) throw new Error('Canvas 2D context is not available');
 
-const scene = new THREE.Scene();
-scene.background = new THREE.Color('#b9d9bd');
-scene.fog = new THREE.Fog('#b9d9bd', 28, 72);
-
-const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 150);
-camera.position.set(17, 19, 17);
-
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, window.innerWidth < 700 ? 1.5 : 2));
-renderer.shadowMap.enabled = false;
-renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.toneMapping = THREE.NoToneMapping;
-mount.appendChild(renderer.domElement);
-
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.target.set(0, 0, 0);
-controls.enableDamping = true;
-controls.dampingFactor = 0.06;
-controls.enablePan = true;
-controls.enableRotate = true;
-controls.minDistance = 12;
-controls.maxDistance = 42;
-controls.minPolarAngle = 0.48;
-controls.maxPolarAngle = 1.18;
-controls.mouseButtons.LEFT = THREE.MOUSE.PAN;
-controls.mouseButtons.MIDDLE = THREE.MOUSE.DOLLY;
-controls.mouseButtons.RIGHT = THREE.MOUSE.ROTATE;
-controls.touches.ONE = THREE.TOUCH.PAN;
-controls.touches.TWO = THREE.TOUCH.DOLLY_ROTATE;
-
-scene.add(new THREE.HemisphereLight('#f4fff0', '#788d65', 2.1));
-const sun = new THREE.DirectionalLight('#fff2d2', 3.1);
-sun.position.set(-12, 22, 12);
-sun.castShadow = false;
-scene.add(sun);
-
-const mat = (color: string, _roughness = 0.9) => new THREE.MeshLambertMaterial({ color });
-const grass = mat('#91bd83');
-const grassLight = mat('#a6cb8c');
-const roadMat = mat('#59666a');
-const roadEdge = mat('#d9d5bd');
-const cream = mat('#f3e7c8');
-const red = mat('#dc8068');
-const blue = mat('#78a9b6');
-const yellow = mat('#e9c46a');
-const dark = mat('#4b5550');
-
-function box(parent: THREE.Object3D, w: number, h: number, d: number, material: THREE.Material, x: number, y: number, z: number, cast = true) {
-  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
-  mesh.position.set(x, y, z);
-  mesh.castShadow = cast;
-  mesh.receiveShadow = true;
-  parent.add(mesh);
-  return mesh;
-}
-
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(90, 90), grass);
-ground.rotation.x = -Math.PI / 2;
-ground.position.y = -0.18;
-ground.receiveShadow = true;
-scene.add(ground);
-
-// Soft rolling hills frame the playable valley.
-for (const [x, z, s, color] of [[-19,-12,7,'#83b47d'],[19,-16,9,'#8fbd81'],[-21,15,10,'#a0c889'],[21,14,8,'#80ae77']] as const) {
-  const hill = new THREE.Mesh(new THREE.SphereGeometry(s, 24, 16), mat(color));
-  hill.scale.y = 0.34;
-  hill.position.set(x, -1.7, z);
-  hill.receiveShadow = true;
-  scene.add(hill);
-}
-
-// Main road and the little federal highway at the north edge.
-function road(x: number, z: number, w: number, d: number, rotation = 0) {
-  const group = new THREE.Group();
-  group.position.set(x, 0.015, z);
-  group.rotation.y = rotation;
-  const base = new THREE.Mesh(new THREE.BoxGeometry(w, 0.12, d), roadMat);
-  base.receiveShadow = true; base.castShadow = true; group.add(base);
-  const edge1 = new THREE.Mesh(new THREE.BoxGeometry(w, 0.035, 0.11), roadEdge);
-  edge1.position.set(0, 0.075, -d / 2 + 0.13); group.add(edge1);
-  const edge2 = edge1.clone(); edge2.position.z = d / 2 - 0.13; group.add(edge2);
-  scene.add(group);
-  return group;
-}
-road(0, -13, 36, 3.1);
-road(-1, -1, 3.0, 25);
-road(5, 5, 13, 2.6);
-road(-7, 3, 10, 2.6);
-road(0, -7.8, 3, 10.8);
-road(10, -13, 3, 5.2);
-
-// Road dashes.
-for (let x = -16; x <= 16; x += 3.2) {
-  const dash = new THREE.Mesh(new THREE.BoxGeometry(1.45, 0.025, 0.09), mat('#f5e8b7'));
-  dash.position.set(x, 0.095, -13); scene.add(dash);
-}
-
-// Houses with pitched roofs, porches and tiny chimneys.
-function house(x: number, z: number, wall: THREE.Material, roof: THREE.Material, scale = 1) {
-  const g = new THREE.Group(); g.position.set(x, 0, z); g.scale.setScalar(scale); scene.add(g);
-  box(g, 2.7, 1.8, 2.3, wall, 0, 0.9, 0);
-  const roofMesh = new THREE.Mesh(new THREE.ConeGeometry(2.05, 1.35, 4), roof);
-  roofMesh.position.y = 2.45; roofMesh.rotation.y = Math.PI / 4; roofMesh.castShadow = true; g.add(roofMesh);
-  box(g, 0.52, 1.05, 0.12, mat('#916c52'), 0, 0.55, 1.17);
-  box(g, 0.52, 0.52, 0.08, mat('#a9d6db'), -0.82, 1.12, 1.17);
-  box(g, 0.52, 0.52, 0.08, mat('#a9d6db'), 0.82, 1.12, 1.17);
-  box(g, 0.36, 0.85, 0.36, mat('#bd9a78'), 0.72, 2.5, -0.48);
-  return g;
-}
-house(-6.5, -3.2, cream, red, 1.05);
-house(7.7, 1.7, mat('#e8d9ad'), blue, 0.92);
-house(-10.4, 5.8, mat('#e8d4b5'), yellow, 0.88);
-house(2.8, 8.3, mat('#e8e0c8'), red, 0.8);
-house(-5.0, -9.0, mat('#e7d9b7'), blue, 0.72);
-
-// Small shop and a barn.
-const shop = new THREE.Group(); shop.position.set(11, -5, 0); scene.add(shop);
-box(shop, 3.3, 2.1, 2.8, mat('#e9d8ae'), 0, 1, 0);
-const shopRoof = new THREE.Mesh(new THREE.ConeGeometry(2.5, 1.4, 4), mat('#6d9b78'));
-shopRoof.position.y = 2.75; shopRoof.rotation.y = Math.PI / 4; shop.add(shopRoof);
-box(shop, 1.1, 0.8, 0.08, mat('#b7d9d2'), 0, 1.25, 1.43);
-
-const barn = new THREE.Group(); barn.position.set(-13, -4, 0); scene.add(barn);
-box(barn, 3.5, 2.1, 3, mat('#c96f5d'), 0, 1, 0);
-const barnRoof = new THREE.Mesh(new THREE.ConeGeometry(2.8, 1.5, 4), mat('#765e52'));
-barnRoof.position.y = 2.75; barnRoof.rotation.y = Math.PI / 4; barn.add(barnRoof);
-box(barn, 1.2, 1.5, 0.1, mat('#704f45'), 0, 0.8, 1.55);
-
-// Trees: rounded crowns and simple trunks, arranged around homes.
-function tree(x: number, z: number, size = 1) {
-  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.16*size, 0.22*size, 1.05*size, 7), mat('#8b6849'));
-  trunk.position.set(x, 0.45*size, z); trunk.castShadow = true; scene.add(trunk);
-  const crown = new THREE.Mesh(new THREE.SphereGeometry(0.92*size, 12, 10), mat(['#5d9c68','#70a96d','#82b779'][Math.floor((x*x+z*z)%3)]));
-  crown.scale.set(1, 1.08, 0.95); crown.position.set(x, 1.35*size, z); crown.castShadow = true; crown.receiveShadow = true; scene.add(crown);
-}
-[[-14,-10],[-17,-4],[-16,1],[-12,10],[-4,12],[4,12],[12,9],[15,4],[14,-9],[6,-5],[-9,-1],[17,0]] .forEach(([x,z], i) => tree(x!, z!, i%3===0?1.2:0.9));
-
-// Flower patches and a pond.
-const pond = new THREE.Mesh(new THREE.CircleGeometry(3.2, 32), mat('#79b7bd', 0.35));
-pond.rotation.x = -Math.PI/2; pond.position.set(16, -0.08, 7); pond.scale.set(1.25, 0.75, 1); scene.add(pond);
-for (let i=0;i<36;i++) {
-  const a = i*2.399, r = 5 + (i%4)*0.65;
-  const flower = new THREE.Mesh(new THREE.SphereGeometry(0.09, 7, 6), mat(i%2?'#f3d47c':'#f3e6d1'));
-  flower.position.set(Math.cos(a)*r, 0.1, Math.sin(a)*r); scene.add(flower);
-}
-
-// Friendly toy cars on the roads.
-function car(x: number, z: number, color: THREE.Material, rotation = 0) {
-  const g = new THREE.Group(); g.position.set(x, 0.18, z); g.rotation.y = rotation; scene.add(g);
-  box(g, 1.35, 0.42, 0.72, color, 0, 0.28, 0);
-  box(g, 0.72, 0.38, 0.58, mat('#c9e1df'), -0.08, 0.65, 0);
-  for (const wx of [-0.42,0.42]) for (const wz of [-0.4,0.4]) {
-    const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.17,0.17,0.12,10), dark);
-    wheel.rotation.z = Math.PI/2; wheel.position.set(wx,0.16,wz); g.add(wheel);
-  }
-  return g;
-}
-car(-1, -11.8, red, Math.PI/2);
-car(-1, -4.2, mat('#e9e3d2'), Math.PI / 2);
-
-// A distant highway sign gives the scene a sense of place.
-const sign = new THREE.Group(); sign.position.set(-13,0,-15.1); scene.add(sign);
-box(sign,0.16,2.6,0.16,mat('#786d57'),0,1.25,0);
-box(sign,2.4,1.15,0.18,mat('#568b70'),0,2.6,0);
-box(sign,1.9,0.08,0.2,mat('#f4e7c5'),0,2.6,0.12);
-
-
-// Extra village details: fences, lamps, paths and garden beds.
-const wood = mat('#a47b55');
-const fencePaint = mat('#ead9b8');
-function fence(x: number, z: number, length: number, rotation = 0) {
-  const group = new THREE.Group(); group.position.set(x, 0, z); group.rotation.y = rotation; scene.add(group);
-  const count = Math.max(2, Math.floor(length / 0.8));
-  for (let i = 0; i <= count; i++) {
-    const px = -length / 2 + (length * i / count);
-    box(group, 0.13, 0.72, 0.13, wood, px, 0.36, 0);
-  }
-  box(group, length, 0.11, 0.12, fencePaint, 0, 0.48, 0);
-  box(group, length, 0.11, 0.12, fencePaint, 0, 0.23, 0);
-}
-fence(-8.9, -5.4, 4.2);
-fence(-11.2, 7.5, 4.4, Math.PI / 2);
-fence(5.8, 3.5, 3.5);
-fence(4.2, 9.7, 5.0);
-
-const lampMetal = mat('#65756a', 0.55);
-const lampGlow = new THREE.MeshStandardMaterial({ color: '#ffe6a1', emissive: '#f6c96c', emissiveIntensity: 0.65 });
-function streetLamp(x: number, z: number) {
-  const g = new THREE.Group(); g.position.set(x, 0, z); scene.add(g);
-  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.075, 2.35, 8), lampMetal);
-  pole.position.y = 1.17; pole.castShadow = true; g.add(pole);
-  const arm = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.07, 0.07), lampMetal);
-  arm.position.set(0.25, 2.25, 0); g.add(arm);
-  const shade = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 8), lampGlow);
-  shade.position.set(0.52, 2.17, 0); g.add(shade);
-}
-[[-3,-9.8],[7,-1.4],[9,5.8],[-7,1.5],[-3,-15],[8,-15]].forEach(([x,z]) => streetLamp(x!, z!));
-
-const pathMat = mat('#d5c59b');
-function gardenPath(x: number, z: number, w: number, d: number, rotation = 0) {
-  const path = new THREE.Mesh(new THREE.BoxGeometry(w, 0.035, d), pathMat);
-  path.position.set(x, -0.025, z); path.rotation.y = rotation; scene.add(path);
-}
-gardenPath(-6.5, -5.1, 1.15, 2.7);
-gardenPath(7.7, 3.9, 1.0, 2.5);
-gardenPath(11, -2.9, 1.2, 2.4);
-
-const cropColors = [mat('#78a66c'), mat('#a6bb68'), mat('#c6a75f')];
-for (let row = 0; row < 4; row++) {
-  for (let col = 0; col < 5; col++) {
-    const crop = new THREE.Mesh(new THREE.SphereGeometry(0.18, 7, 6), cropColors[(row + col) % cropColors.length]);
-    crop.scale.set(1.1, 0.7, 1.1);
-    crop.position.set(-16 + col * 0.55, 0.12, 5 + row * 0.58);
-    scene.add(crop);
-  }
-}
-
-// A small stone crossing and stepping stones make the landscape feel lived in.
-const stone = mat('#b8b8a0');
-for (let i = 0; i < 7; i++) {
-  const step = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.38, 0.12, 7), stone);
-  step.position.set(13.2 + i * 0.62, -0.03, 8.4 + Math.sin(i * 0.65) * 0.18);
-  step.rotation.y = i * 0.24; scene.add(step);
-}
-
-// Traffic enters from the federal highway, then turns into the village.
-const trafficRoute = [new THREE.Vector2(-18,-13), new THREE.Vector2(-1,-13), new THREE.Vector2(-1,5), new THREE.Vector2(9,5)];
-const trafficRouteLengths = trafficRoute.slice(1).map((point,index) => point.distanceTo(trafficRoute[index]!));
-const trafficRouteLength = trafficRouteLengths.reduce((sum,value)=>sum+value,0);
-const movingCars = [
-  { mesh: car(-16,-13,yellow), distance: 2, speed: 2.25, direction: 1 },
-  { mesh: car(-10,-13,blue), distance: 8.5, speed: 1.85, direction: 1 }
-];
-
-const clock = new THREE.Clock();
-function resize() {
-  const w = mount!.clientWidth, h = mount!.clientHeight;
-  if (!w || !h) return;
-  camera.aspect = w / h;
-  camera.fov = w < 680 ? 42 : 37;
-  camera.updateProjectionMatrix();
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, w < 680 ? 1.5 : 2));
-  renderer.setSize(w, h, false);
-}
-const observer = new ResizeObserver(resize);
-observer.observe(mount);
-resize();
-
-let previousFrameTime = 0;
-function animate() {
-  requestAnimationFrame(animate);
-  const elapsed = clock.getElapsedTime();
-  const delta = Math.min(Math.max(elapsed - previousFrameTime, 0), 0.05);
-  previousFrameTime = elapsed;
-  for (let jobIndex = constructionJobs.length - 1; jobIndex >= 0; jobIndex--) {
-    const job = constructionJobs[jobIndex]!;
-    job.elapsed += delta;
-    const progress = THREE.MathUtils.clamp(job.elapsed / Math.max(1.2, job.indexCount / 6 * 0.075), 0, 1);
-    const visibleTriangles = Math.floor((job.indexCount / 3) * progress);
-    job.geometry.setDrawRange(0, visibleTriangles * 3);
-    if (progress >= 1) constructionJobs.splice(jobIndex, 1);
-  }
-  for (const vehicle of movingCars) {
-    vehicle.distance += vehicle.speed * delta * vehicle.direction;
-    if (vehicle.distance >= trafficRouteLength) { vehicle.distance = trafficRouteLength; vehicle.direction = -1; }
-    if (vehicle.distance <= 0) { vehicle.distance = 0; vehicle.direction = 1; }
-    let remaining = vehicle.distance, segment = 0;
-    while (segment < trafficRouteLengths.length - 1 && remaining > trafficRouteLengths[segment]!) {
-      remaining -= trafficRouteLengths[segment]!; segment++;
-    }
-    const a = trafficRoute[segment]!, b = trafficRoute[segment + 1]!;
-    const t = THREE.MathUtils.clamp(remaining / (trafficRouteLengths[segment] || 1),0,1);
-    vehicle.mesh.position.set(THREE.MathUtils.lerp(a.x,b.x,t),0.18,THREE.MathUtils.lerp(a.y,b.y,t));
-    vehicle.mesh.rotation.y = Math.atan2(-(b.y-a.y),b.x-a.x) + (vehicle.direction < 0 ? Math.PI : 0);
-  }
-  controls.update();
-  renderer.render(scene, camera);
-}
-
-document.querySelector<HTMLButtonElement>('#reset-camera')?.addEventListener('click', () => {
-  camera.position.set(17,19,17); controls.target.set(0,0,0); controls.update();
-});
-document.querySelector<HTMLButtonElement>('#zoom-in')?.addEventListener('click', () => {
-  camera.position.sub(controls.target).multiplyScalar(0.86).add(controls.target);
-});
-document.querySelector<HTMLButtonElement>('#zoom-out')?.addEventListener('click', () => {
-  camera.position.sub(controls.target).multiplyScalar(1.16).add(controls.target);
-});
-document.querySelector<HTMLButtonElement>('#rotate-camera')?.addEventListener('click', () => {
-  const offset = camera.position.clone().sub(controls.target);
-  offset.applyAxisAngle(new THREE.Vector3(0,1,0), Math.PI/4);
-  camera.position.copy(controls.target).add(offset);
-});
-let selectedTool = 'inspect';
-const toolButtons = [...document.querySelectorAll<HTMLButtonElement>('.tool')];
-toolButtons.forEach(button => {
-  button.addEventListener('click', () => {
-    selectedTool = button.dataset.tool ?? 'inspect';
-    document.querySelector('.tool.active')?.classList.remove('active');
-    button.classList.add('active');
-    controls.enabled = selectedTool !== 'road';
-    const hud = document.querySelector<HTMLElement>('#build-hud');
-    if (hud) hud.hidden = selectedTool !== 'road';
-    const hint = document.querySelector<HTMLElement>('#build-message');
-    if (hint) hint.textContent = selectedTool === 'road'
-      ? 'Наметь линию будущей дороги. После проверки проект начнёт строиться.'
-      : 'Выбери инструмент «Дороги», чтобы начать строительство.';
-  });
-});
-
-// KT-003: drag-to-build road editor on a 1.5-unit isometric grid.
+const WORLD = { minX: -23, maxX: 23, minY: -19, maxY: 17 };
 const roadGrid = 1.5;
 const roadHalfWidth = 0.95;
-const staticRoads = [
- [new THREE.Vector2(-18,-13),new THREE.Vector2(18,-13),1.55],
- [new THREE.Vector2(-1,-13),new THREE.Vector2(-1,11),1.5],
- [new THREE.Vector2(-1,5),new THREE.Vector2(11,5),1.3],
- [new THREE.Vector2(-12,3),new THREE.Vector2(-2,3),1.3],
- [new THREE.Vector2(0,-13),new THREE.Vector2(0,-2.4),1.5],
- [new THREE.Vector2(10,-15.6),new THREE.Vector2(10,-10.4),1.5]
-] as const;
-const obstacles = [
- {x:-6.5,z:-3.2,r:2.15},{x:7.7,z:1.7,r:1.95},{x:-10.4,z:5.8,r:1.85},{x:2.8,z:8.3,r:1.75},{x:-5,z:-9,r:1.55},{x:11,z:-5,r:2.25},{x:-13,z:-4,r:2.35},
- {x:-14,z:-10,r:1.25},{x:-17,z:-4,r:1.05},{x:-16,z:1,r:1.15},{x:-12,z:10,r:1.1},{x:-4,z:12,r:1.05},{x:4,z:12,r:1.05},{x:12,z:9,r:1.05},{x:15,z:4,r:1.05},{x:14,z:-9,r:1.05},{x:6,z:-5,r:1.05},{x:-9,z:-1,r:1.05},{x:17,z:0,r:1.05},{x:16,z:7,r:4.0}
-];
-const roadRaycaster = new THREE.Raycaster();
-const pointerNdc = new THREE.Vector2();
-const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-const previewGroup = new THREE.Group();
-scene.add(previewGroup);
-const builtRoads: THREE.Group[] = [];
-const junctionMarkers = new Map<string, THREE.Mesh>();
+let width = 1, height = 1, dpr = 1;
+let camera = { x: 0, y: -1, zoom: 20 };
+let selectedTool = 'inspect';
 let drawing = false;
-let draft: THREE.Vector2[] = [];
+let panning = false;
+let lastPointer: Point | null = null;
+let draft: Point[] = [];
+let pointerId: number | null = null;
+const activePointers = new Map<number, Point>();
+let pinchStart: { distance: number; zoom: number; center: Point } | null = null;
+
+const staticRoads: { a: Point; b: Point; width: number }[] = [
+  { a: {x:-18,y:-13}, b:{x:18,y:-13}, width:1.55 },
+  { a: {x:-1,y:-13}, b:{x:-1,y:11}, width:1.5 },
+  { a: {x:-1,y:5}, b:{x:11,y:5}, width:1.3 },
+  { a: {x:-12,y:3}, b:{x:-2,y:3}, width:1.3 },
+  { a: {x:0,y:-13}, b:{x:0,y:-2.4}, width:1.5 },
+  { a: {x:10,y:-15.6}, b:{x:10,y:-10.4}, width:1.5 }
+];
+const obstacles = [
+  {x:-6.5,y:-3.2,r:2.15,type:'house'},{x:7.7,y:1.7,r:1.95,type:'house'},{x:-10.4,y:5.8,r:1.85,type:'house'},{x:2.8,y:8.3,r:1.75,type:'house'},{x:-5,y:-9,r:1.55,type:'house'},
+  {x:11,y:-5,r:2.25,type:'shop'},{x:-13,y:-4,r:2.35,type:'barn'},
+  {x:-14,y:-10,r:1.25,type:'tree'},{x:-17,y:-4,r:1.05,type:'tree'},{x:-16,y:1,r:1.15,type:'tree'},{x:-12,y:10,r:1.1,type:'tree'},{x:-4,y:12,r:1.05,type:'tree'},{x:4,y:12,r:1.05,type:'tree'},{x:12,y:9,r:1.05,type:'tree'},{x:15,y:4,r:1.05,type:'tree'},{x:14,y:-9,r:1.05,type:'tree'},{x:6,y:-5,r:1.05,type:'tree'},{x:-9,y:-1,r:1.05,type:'tree'},{x:17,y:0,r:1.05,type:'tree'},{x:16,y:7,r:4,type:'pond'}
+];
+const builtRoads: Road[] = [];
+const constructionJobs: Road[] = [];
+const route = [{x:-18,y:-13},{x:-1,y:-13},{x:-1,y:5},{x:9,y:5}];
+const routeLengths = route.slice(1).map((p,i)=>distance(p,route[i]!));
+const routeLength = routeLengths.reduce((a,b)=>a+b,0);
+const vehicles: Vehicle[] = [
+  {distance:2,speed:2.25,direction:1,color:'#e9c46a'},
+  {distance:8.5,speed:1.85,direction:1,color:'#78a9b6'}
+];
 const missionCount = document.querySelector<HTMLElement>('.mission-count');
 const missionProgress = document.querySelector<HTMLElement>('.progress span');
 const buildMessage = document.querySelector<HTMLElement>('#build-message');
 const trafficCount = document.querySelector<HTMLElement>('#traffic-count');
-if (trafficCount) trafficCount.textContent = String(movingCars.length);
+if (trafficCount) trafficCount.textContent = String(vehicles.length);
 
-function pointerToGrid(event: PointerEvent): THREE.Vector2 | null {
-  const rect = renderer.domElement.getBoundingClientRect();
-  pointerNdc.set(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
-  roadRaycaster.setFromCamera(pointerNdc, camera);
-  const hit = new THREE.Vector3();
-  if (!roadRaycaster.ray.intersectPlane(groundPlane, hit)) return null;
-  const x = THREE.MathUtils.clamp(Math.round(hit.x / roadGrid) * roadGrid, -18, 18);
-  const z = THREE.MathUtils.clamp(Math.round(hit.z / roadGrid) * roadGrid, -18, 15);
-  return new THREE.Vector2(x, z);
+function distance(a: Point,b: Point) { return Math.hypot(a.x-b.x,a.y-b.y); }
+function clamp(v:number,min:number,max:number){return Math.max(min,Math.min(max,v));}
+function lerp(a:number,b:number,t:number){return a+(b-a)*t;}
+function worldToScreen(p:Point):Point{return{x:width/2+(p.x-camera.x)*camera.zoom,y:height/2+(p.y-camera.y)*camera.zoom};}
+function screenToWorld(p:Point):Point{return{x:(p.x-width/2)/camera.zoom+camera.x,y:(p.y-height/2)/camera.zoom+camera.y};}
+function resize(){
+  const rect=mount!.getBoundingClientRect();
+  if(!rect.width||!rect.height)return;
+  width=rect.width;height=rect.height;dpr=Math.min(window.devicePixelRatio||1,2);
+  canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);
+  canvas.style.width=width+'px';canvas.style.height=height+'px';
+  ctx!.setTransform(dpr,0,0,dpr,0,0);
+  camera.zoom=clamp(camera.zoom,Math.min(width,height)/42,Math.min(width,height)/15);
 }
+const observer=new ResizeObserver(resize);observer.observe(mount);resize();
 
-function updateDraftPath(target: THREE.Vector2[], destination: THREE.Vector2) {
-  const current = target[target.length - 1];
-  if (!current || current.distanceTo(destination) < 0.1) return;
-
-  // Retracing the draft is an eraser gesture: snap to the earlier grid point
-  // and discard everything after it. Committed roads are never touched here.
-  for (let index = target.length - 2; index >= 0; index--) {
-    if (target[index]!.distanceTo(destination) < 0.1) {
-      target.splice(index + 1);
-      return;
-    }
-  }
-
-  // Otherwise extend the draft, filling skipped cells when the pointer moves quickly.
-  let x = current.x, z = current.y;
-  while (Math.abs(destination.x - x) > 0.1 || Math.abs(destination.y - z) > 0.1) {
-    const dx = destination.x - x, dz = destination.y - z;
-    if (Math.abs(dx) >= Math.abs(dz) && Math.abs(dx) > 0.1) x += Math.sign(dx) * roadGrid;
-    else if (Math.abs(dz) > 0.1) z += Math.sign(dz) * roadGrid;
-    const next = new THREE.Vector2(x, z);
-    if (target[target.length - 1]?.distanceTo(next) > 0.1) target.push(next);
-  }
+function roundedRect(c:CanvasRenderingContext2D,x:number,y:number,w:number,h:number,r:number){
+  c.beginPath();c.roundRect(x,y,w,h,r);
 }
-
-function distanceToSegment(point: THREE.Vector2,a: THREE.Vector2,b: THREE.Vector2) {
- const ab=b.clone().sub(a); const t=THREE.MathUtils.clamp(point.clone().sub(a).dot(ab)/Math.max(ab.lengthSq(),0.0001),0,1);
- return point.distanceTo(a.clone().addScaledVector(ab,t));
-}
-function touchesRoadNetwork(point: THREE.Vector2) {
- if(staticRoads.some(([a,b,width])=>distanceToSegment(point,a,b)<=width+0.55)) return true;
- return builtRoads.some(road=>{
-  const points=road.userData.gridPoints as THREE.Vector2[]|undefined;
-  return !!points && points.some((p,i)=>i>0 && distanceToSegment(point,points[i-1]!,p)<=roadHalfWidth+0.55);
- });
-}
-function isValidRoadPath(points: THREE.Vector2[]) {
- if(points.length<2) return false;
- if(!touchesRoadNetwork(points[0]!) && !touchesRoadNetwork(points[points.length-1]!)) return false;
- const totalLength=points.slice(1).reduce((sum,p,i)=>sum+p.distanceTo(points[i]!),0);
- let travelled=0;
- for(let i=1;i<points.length;i++){
-  const a=points[i-1]!,b=points[i]!,length=a.distanceTo(b),steps=Math.max(2,Math.ceil(length/0.25));
-  for(let step=0;step<=steps;step++){
-   const p=a.clone().lerp(b,step/steps);
-   if(obstacles.some(o=>Math.hypot(p.x-o.x,p.y-o.z)<o.r+roadHalfWidth)) return false;
-   const atStart=travelled+length*step/steps < 1.25;
-   const atEnd=totalLength-(travelled+length*step/steps) < 1.25;
-   const overlapsStatic=staticRoads.some(([ra,rb])=>distanceToSegment(p,ra,rb)<roadHalfWidth*1.72);
-   const overlapsBuilt=builtRoads.some(road=>{
-    const existing=road.userData.gridPoints as THREE.Vector2[]|undefined;
-    return !!existing && existing.some((q,j)=>j>0 && distanceToSegment(p,existing[j-1]!,q)<roadHalfWidth*1.72);
-   });
-   if((overlapsStatic||overlapsBuilt)&&!(atStart||atEnd)) return false;
-  }
-  travelled+=length;
- }
- return true;
-}
-
-function clearPreview() {
-  while (previewGroup.children.length) {
-    const child = previewGroup.children.pop()!;
-    child.traverse(object => {
-      if (object instanceof THREE.Mesh) {
-        object.geometry.dispose();
-        const material = object.material;
-        if (Array.isArray(material)) material.forEach(item => item.dispose());
-        else material.dispose();
-      }
-    });
+function pathOnCanvas(points:Point[], progress=1){
+  if(points.length<2)return;
+  const sampled=smoothPoints(points);
+  const lengths:number[]=[];let total=0;
+  for(let i=1;i<sampled.length;i++){const len=distance(sampled[i-1]!,sampled[i]!);lengths.push(len);total+=len;}
+  const target=total*clamp(progress,0,1);
+  let walked=0;
+  const first=worldToScreen(sampled[0]!);ctx!.beginPath();ctx!.moveTo(first.x,first.y);
+  for(let i=1;i<sampled.length;i++){
+    const a=sampled[i-1]!,b=sampled[i]!,len=lengths[i-1]!;
+    if(walked+len<=target){const p=worldToScreen(b);ctx!.lineTo(p.x,p.y);walked+=len;continue;}
+    const t=len>0?(target-walked)/len:0;
+    if(t>0){const p=worldToScreen({x:lerp(a.x,b.x,t),y:lerp(a.y,b.y,t)});ctx!.lineTo(p.x,p.y);}
+    break;
   }
 }
-
-const constructionJobs: { geometry: THREE.BufferGeometry; indexCount: number; elapsed: number }[] = [];
-
-function smoothRoadCenterline(points: THREE.Vector2[]) {
-  if (points.length < 3) return points.map(p => p.clone());
-  const result: THREE.Vector2[] = [points[0]!.clone()];
-  for (let i = 1; i < points.length - 1; i++) {
-    const previous = points[i - 1]!, corner = points[i]!, next = points[i + 1]!;
-    const incoming = corner.clone().sub(previous).normalize();
-    const outgoing = next.clone().sub(corner).normalize();
-    if (Math.abs(incoming.x * outgoing.y - incoming.y * outgoing.x) < 0.01) {
-      result.push(corner.clone());
-      continue;
-    }
-    const radius = Math.min(0.52, previous.distanceTo(corner) * 0.28, next.distanceTo(corner) * 0.28);
-    const from = corner.clone().addScaledVector(incoming, -radius);
-    const to = corner.clone().addScaledVector(outgoing, radius);
-    result.push(from);
-    for (let step = 1; step <= 6; step++) {
-      const t = step / 6, inverse = 1 - t;
-      result.push(from.clone().multiplyScalar(inverse * inverse)
-        .addScaledVector(corner, 2 * inverse * t)
-        .addScaledVector(to, t * t));
-    }
+function smoothPoints(points:Point[]){
+  if(points.length<3)return points;
+  const out:Point[]=[points[0]!];
+  for(let i=1;i<points.length-1;i++){
+    const a=points[i-1]!,b=points[i]!,c=points[i+1]!;
+    const len=Math.min(0.52,distance(a,b)*0.28,distance(b,c)*0.28);
+    const from={x:b.x+(a.x-b.x)/distance(a,b)*len,y:b.y+(a.y-b.y)/distance(a,b)*len};
+    const to={x:b.x+(c.x-b.x)/distance(b,c)*len,y:b.y+(c.y-b.y)/distance(b,c)*len};
+    out.push(from);
+    for(let s=1;s<=6;s++){const t=s/6,u=1-t;out.push({x:u*u*from.x+2*u*t*b.x+t*t*to.x,y:u*u*from.y+2*u*t*b.y+t*t*to.y});}
   }
-  result.push(points[points.length - 1]!.clone());
-  return result;
+  out.push(points[points.length-1]!);return out;
 }
-
-function drawRoadSegments(points: THREE.Vector2[], parent: THREE.Group, preview = false, valid = true, underConstruction = false) {
-  if (points.length < 2) return;
-  const centerline = smoothRoadCenterline(points);
-  const positions: number[] = [];
-  const indices: number[] = [];
-  const halfWidth = 0.95;
-  for (let i = 0; i < centerline.length; i++) {
-    const before = centerline[Math.max(0, i - 1)]!;
-    const after = centerline[Math.min(centerline.length - 1, i + 1)]!;
-    const tangent = after.clone().sub(before).normalize();
-    const normal = new THREE.Vector2(-tangent.y, tangent.x);
-    const point = centerline[i]!;
-    positions.push(point.x + normal.x * halfWidth, 0.045, point.y + normal.y * halfWidth);
-    positions.push(point.x - normal.x * halfWidth, 0.045, point.y - normal.y * halfWidth);
-    if (i < centerline.length - 1) {
-      const base = i * 2;
-      indices.push(base, base + 1, base + 2, base + 1, base + 3, base + 2);
-    }
+function strokeRoad(points:Point[],progress=1,color='#59666a',alpha=1){
+  if(points.length<2||progress<=0)return;
+  pathOnCanvas(points,progress);ctx!.save();ctx!.globalAlpha=alpha;ctx!.lineCap='round';ctx!.lineJoin='round';
+  ctx!.strokeStyle='#d8d1b9';ctx!.lineWidth=2.34*camera.zoom;ctx!.stroke();
+  pathOnCanvas(points,progress);ctx!.strokeStyle=color;ctx!.lineWidth=1.9*camera.zoom;ctx!.stroke();
+  ctx!.restore();
+}
+function drawRoadNetwork(){
+  for(const road of staticRoads)strokeRoad([road.a,road.b],1,'#59666a');
+  for(const road of builtRoads)strokeRoad(road.points,road.progress);
+  // Federal highway centre dashes.
+  ctx!.save();ctx!.setLineDash([1.2*camera.zoom,1.45*camera.zoom]);ctx!.lineCap='butt';
+  ctx!.strokeStyle='#f4e8bd';ctx!.lineWidth=0.075*camera.zoom;
+  const a=worldToScreen({x:-17,y:-13}),b=worldToScreen({x:17,y:-13});
+  ctx!.beginPath();ctx!.moveTo(a.x,a.y);ctx!.lineTo(b.x,b.y);ctx!.stroke();ctx!.restore();
+  // Junction caps blend connected road ribbons into a single readable surface.
+  const junctions=[{x:-1,y:-13},{x:-1,y:5},{x:0,y:-13},{x:10,y:-13},{x:-2,y:3}];
+  for(const p of junctions){const s=worldToScreen(p);ctx!.fillStyle='#59666a';ctx!.beginPath();ctx!.arc(s.x,s.y,0.98*camera.zoom,0,Math.PI*2);ctx!.fill();}
+}
+function drawTerrain(){
+  ctx!.fillStyle='#a7c98f';ctx!.fillRect(0,0,width,height);
+  // Soft meadow patches, clipped to the visible map.
+  for(let i=0;i<34;i++){
+    const x=((i*97)%47)-23,y=((i*53)%37)-18,p=worldToScreen({x,y});
+    ctx!.fillStyle=i%3===0?'#9bc487':'#afd096';ctx!.globalAlpha=0.25;
+    ctx!.beginPath();ctx!.ellipse(p.x,p.y,(2.2+(i%4)*0.5)*camera.zoom,(1.4+(i%3)*0.35)*camera.zoom,((i%5)-2)*0.12,0,Math.PI*2);ctx!.fill();
   }
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geometry.setIndex(indices);
-  geometry.computeVertexNormals();
-  const material = new THREE.MeshLambertMaterial({
-    color: preview ? (valid ? '#e9c46a' : '#d96c62') : '#59666a',
-    transparent: preview || underConstruction,
-    opacity: preview ? 0.82 : (underConstruction ? 1 : 1),
-    side: THREE.DoubleSide
-  });
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.receiveShadow = true;
-  mesh.castShadow = !preview;
-  parent.add(mesh);
-  if (underConstruction) {
-    const indexCount = indices.length;
-    geometry.setDrawRange(0, 0);
-    constructionJobs.push({ geometry, indexCount, elapsed: 0 });
+  ctx!.globalAlpha=1;
+  // Water and shoreline.
+  const pond=worldToScreen({x:16,y:7});
+  ctx!.fillStyle='#d6d2ad';ctx!.beginPath();ctx!.ellipse(pond.x,pond.y,4.35*camera.zoom,3.15*camera.zoom,-0.18,0,Math.PI*2);ctx!.fill();
+  ctx!.fillStyle='#79b9c0';ctx!.beginPath();ctx!.ellipse(pond.x,pond.y,3.95*camera.zoom,2.82*camera.zoom,-0.18,0,Math.PI*2);ctx!.fill();
+  ctx!.strokeStyle='#a8d8d4';ctx!.lineWidth=0.1*camera.zoom;ctx!.beginPath();ctx!.ellipse(pond.x-0.35*camera.zoom,pond.y-0.35*camera.zoom,1.5*camera.zoom,0.45*camera.zoom,-0.2,0,Math.PI*2);ctx!.stroke();
+  // Farmland rows.
+  const field=worldToScreen({x:-15,y:6.1});ctx!.fillStyle='#b9c77e';roundedRect(ctx!,field.x-1.9*camera.zoom,field.y-1.7*camera.zoom,4.3*camera.zoom,3.2*camera.zoom,0.25*camera.zoom);ctx!.fill();
+  ctx!.strokeStyle='#8ba96c';ctx!.lineWidth=0.1*camera.zoom;
+  for(let i=0;i<5;i++){ctx!.beginPath();ctx!.moveTo(field.x+(-1.45+i*.65)*camera.zoom,field.y-1.45*camera.zoom);ctx!.lineTo(field.x+(-1.45+i*.65)*camera.zoom,field.y+1.35*camera.zoom);ctx!.stroke();}
+  // Small flower clusters.
+  for(let i=0;i<42;i++){const a=i*2.399,r=5+(i%4)*.65,p=worldToScreen({x:Math.cos(a)*r,y:Math.sin(a)*r});ctx!.fillStyle=i%2?'#f4d47c':'#f5ead1';ctx!.beginPath();ctx!.arc(p.x,p.y,Math.max(1,0.09*camera.zoom),0,Math.PI*2);ctx!.fill();}
+}
+function drawTree(x:number,y:number,size=1){
+  const p=worldToScreen({x,y}),r=size*0.88*camera.zoom;
+  ctx!.fillStyle='#527e54';ctx!.beginPath();ctx!.ellipse(p.x+0.12*camera.zoom,p.y+0.2*camera.zoom,r*1.12,r*.9,0,0,Math.PI*2);ctx!.fill();
+  ctx!.fillStyle=['#5d9c68','#70a96d','#82b779'][Math.abs(Math.floor(x*x+y*y))%3]!;
+  ctx!.beginPath();ctx!.arc(p.x,p.y,r,0,Math.PI*2);ctx!.fill();
+  ctx!.fillStyle='#9bc985';ctx!.beginPath();ctx!.arc(p.x-r*.28,p.y-r*.3,r*.32,0,Math.PI*2);ctx!.fill();
+}
+function drawHouse(x:number,y:number,scale=1,wall='#f0e3c2',roof='#d87966'){
+  const p=worldToScreen({x,y}),s=camera.zoom*scale;
+  ctx!.fillStyle='#71916a';ctx!.globalAlpha=.22;roundedRect(ctx!,p.x-1.55*s,p.y-1.2*s,3.1*s,2.7*s,.35*s);ctx!.fill();ctx!.globalAlpha=1;
+  ctx!.fillStyle=roof;ctx!.beginPath();ctx!.moveTo(p.x-1.55*s,p.y-.25*s);ctx!.lineTo(p.x,p.y-1.55*s);ctx!.lineTo(p.x+1.55*s,p.y-.25*s);ctx!.closePath();ctx!.fill();
+  ctx!.fillStyle=wall;roundedRect(ctx!,p.x-1.28*s,p.y-.35*s,2.56*s,1.65*s,.12*s);ctx!.fill();
+  ctx!.fillStyle='#a9d6db';ctx!.fillRect(p.x-.86*s,p.y-.12*s,.48*s,.48*s);ctx!.fillRect(p.x+.38*s,p.y-.12*s,.48*s,.48*s);
+  ctx!.fillStyle='#916c52';ctx!.fillRect(p.x-.22*s,p.y+.52*s,.44*s,.78*s);
+  ctx!.strokeStyle='#fff0d5';ctx!.lineWidth=Math.max(1,.06*s);ctx!.strokeRect(p.x-1.28*s,p.y-.35*s,2.56*s,1.65*s);
+}
+function drawShop(x:number,y:number){
+  const p=worldToScreen({x,y}),s=camera.zoom;
+  ctx!.fillStyle='#7d9d72';ctx!.fillRect(p.x-1.8*s,p.y-1.2*s,3.6*s,2.6*s);
+  ctx!.fillStyle='#6d9b78';ctx!.beginPath();ctx!.moveTo(p.x-1.95*s,p.y-.9*s);ctx!.lineTo(p.x,p.y-2*s);ctx!.lineTo(p.x+1.95*s,p.y-.9*s);ctx!.closePath();ctx!.fill();
+  ctx!.fillStyle='#e9d8ae';ctx!.fillRect(p.x-1.5*s,p.y-.85*s,3*s,2*s);
+  ctx!.fillStyle='#b7d9d2';ctx!.fillRect(p.x-.58*s,p.y-.62*s,1.16*s,.72*s);
+  ctx!.fillStyle='#d98b69';ctx!.fillRect(p.x-.45*s,p.y+.3*s,.9*s,.85*s);
+}
+function drawBarn(x:number,y:number){
+  const p=worldToScreen({x,y}),s=camera.zoom;
+  ctx!.fillStyle='#765e52';ctx!.beginPath();ctx!.moveTo(p.x-2*s,p.y-.8*s);ctx!.lineTo(p.x,p.y-1.9*s);ctx!.lineTo(p.x+2*s,p.y-.8*s);ctx!.closePath();ctx!.fill();
+  ctx!.fillStyle='#c96f5d';ctx!.fillRect(p.x-1.7*s,p.y-.8*s,3.4*s,2*s);
+  ctx!.fillStyle='#704f45';ctx!.fillRect(p.x-.6*s,p.y+.05*s,1.2*s,1.15*s);
+  ctx!.strokeStyle='#e9b29a';ctx!.lineWidth=.09*s;ctx!.strokeRect(p.x-1.7*s,p.y-.8*s,3.4*s,2*s);
+}
+function drawDecor(){
+  // Fences, garden paths and roadside lamps.
+  const fences=[[-8.9,-5.4,4.2,0],[-11.2,7.5,4.4,Math.PI/2],[5.8,3.5,3.5,0],[4.2,9.7,5,0]] as const;
+  for(const [x,y,len,angle] of fences){const p=worldToScreen({x,y});ctx!.save();ctx!.translate(p.x,p.y);ctx!.rotate(angle);ctx!.strokeStyle='#ead9b8';ctx!.lineWidth=Math.max(1,.13*camera.zoom);ctx!.beginPath();ctx!.moveTo(-len*camera.zoom/2,-.22*camera.zoom);ctx!.lineTo(len*camera.zoom/2,-.22*camera.zoom);ctx!.moveTo(-len*camera.zoom/2,.22*camera.zoom);ctx!.lineTo(len*camera.zoom/2,.22*camera.zoom);ctx!.stroke();for(let i=0;i<=Math.floor(len/.8);i++){const xx=-len*camera.zoom/2+i*len*camera.zoom/Math.floor(len/.8);ctx!.fillStyle='#a47b55';ctx!.fillRect(xx-.06*camera.zoom,-.38*camera.zoom,.12*camera.zoom,.76*camera.zoom);}ctx!.restore();}
+  const paths=[[-6.5,-5.1,1.15,2.7],[7.7,3.9,1,2.5],[11,-2.9,1.2,2.4]] as const;
+  ctx!.fillStyle='#d5c59b';for(const [x,y,w,h] of paths){const p=worldToScreen({x,y});ctx!.save();ctx!.translate(p.x,p.y);ctx!.rotate(-.12);ctx!.fillRect(-w*camera.zoom/2,-h*camera.zoom/2,w*camera.zoom,h*camera.zoom);ctx!.restore();}
+  for(const [x,y] of [[-3,-9.8],[7,-1.4],[9,5.8],[-7,1.5],[-3,-15],[8,-15]] as const){const p=worldToScreen({x,y});ctx!.strokeStyle='#65756a';ctx!.lineWidth=.09*camera.zoom;ctx!.beginPath();ctx!.moveTo(p.x,p.y);ctx!.lineTo(p.x,p.y-.85*camera.zoom);ctx!.stroke();ctx!.fillStyle='#ffe6a1';ctx!.beginPath();ctx!.arc(p.x,p.y-.88*camera.zoom,.16*camera.zoom,0,Math.PI*2);ctx!.fill();}
+  // Highway direction sign.
+  const sign=worldToScreen({x:-13,y:-15.1});ctx!.fillStyle='#786d57';ctx!.fillRect(sign.x-.07*camera.zoom,sign.y,.14*camera.zoom,1.2*camera.zoom);ctx!.fillStyle='#568b70';roundedRect(ctx!,sign.x-1.2*camera.zoom,sign.y-.65*camera.zoom,2.4*camera.zoom,1.05*camera.zoom,.12*camera.zoom);ctx!.fill();
+  ctx!.strokeStyle='#f4e7c5';ctx!.lineWidth=.08*camera.zoom;ctx!.strokeRect(sign.x-.95*camera.zoom,sign.y-.43*camera.zoom,1.9*camera.zoom,.08*camera.zoom);
+}
+function drawCar(vehicle:Vehicle){
+  let remaining=vehicle.distance,segment=0;
+  while(segment<routeLengths.length-1&&remaining>routeLengths[segment]!){remaining-=routeLengths[segment]!;segment++;}
+  const a=route[segment]!,b=route[segment+1]!,t=clamp(remaining/(routeLengths[segment]||1),0,1);
+  const x=lerp(a.x,b.x,t),y=lerp(a.y,b.y,t),angle=Math.atan2(b.y-a.y,b.x-a.x)+(vehicle.direction<0?Math.PI:0),p=worldToScreen({x,y}),s=camera.zoom;
+  ctx!.save();ctx!.translate(p.x,p.y);ctx!.rotate(angle);
+  ctx!.fillStyle='#344b45';roundedRect(ctx!,-.82*s,-.48*s,1.64*s,.96*s,.24*s);ctx!.fill();
+  ctx!.fillStyle=vehicle.color;roundedRect(ctx!,-.72*s,-.42*s,1.44*s,.84*s,.22*s);ctx!.fill();
+  ctx!.fillStyle='#c9e1df';roundedRect(ctx!,-.2*s,-.34*s,.65*s,.68*s,.13*s);ctx!.fill();
+  ctx!.fillStyle='#f8e7ad';ctx!.fillRect(.56*s,-.29*s,.12*s,.18*s);ctx!.fillRect(.56*s,.11*s,.12*s,.18*s);
+  ctx!.fillStyle='#e9d4c2';ctx!.fillRect(-.68*s,-.3*s,.09*s,.16*s);ctx!.fillRect(-.68*s,.14*s,.09*s,.16*s);
+  ctx!.restore();
+}
+function render(){
+  ctx!.clearRect(0,0,width,height);drawTerrain();drawRoadNetwork();drawDecor();
+  drawHouse(-6.5,-3.2,1.05);drawHouse(7.7,1.7,.92,'#e8d9ad','#78a9b6');drawHouse(-10.4,5.8,.88,'#e8d4b5','#e9c46a');drawHouse(2.8,8.3,.8,'#e8e0c8','#dc8068');drawHouse(-5,-9,.72,'#e7d9b7','#78a9b6');
+  drawShop(11,-5);drawBarn(-13,-4);
+  const trees=[[-14,-10,1.2],[-17,-4,.9],[-16,1,.9],[-12,10,1.2],[-4,12,.9],[4,12,.9],[12,9,.9],[15,4,1.2],[14,-9,.9],[6,-5,.9],[-9,-1,.9],[17,0,1.2]] as const;
+  for(const [x,y,s] of trees)drawTree(x,y,s);
+  for(const vehicle of vehicles)drawCar(vehicle);
+  if(draft.length>1){const valid=isValidRoadPath(draft);strokeRoad(draft,1,valid?'#e9c46a':'#d96c62',.88);const first=worldToScreen(draft[0]!);ctx!.fillStyle=valid?'#fff1bd':'#f4b5ad';ctx!.beginPath();ctx!.arc(first.x,first.y,.22*camera.zoom,0,Math.PI*2);ctx!.fill();}
+}
+function distanceToSegment(p:Point,a:Point,b:Point){
+  const dx=b.x-a.x,dy=b.y-a.y,t=clamp(((p.x-a.x)*dx+(p.y-a.y)*dy)/Math.max(dx*dx+dy*dy,.0001),0,1);
+  return distance(p,{x:a.x+dx*t,y:a.y+dy*t});
+}
+function touchesRoadNetwork(p:Point){
+  if(staticRoads.some(r=>distanceToSegment(p,r.a,r.b)<=r.width+.55))return true;
+  return builtRoads.some(r=>r.points.some((q,i)=>i>0&&distanceToSegment(p,r.points[i-1]!,q)<=roadHalfWidth+.55));
+}
+function isValidRoadPath(points:Point[]){
+  if(points.length<2)return false;
+  if(!touchesRoadNetwork(points[0]!)&&!touchesRoadNetwork(points[points.length-1]!))return false;
+  const total=points.slice(1).reduce((sum,p,i)=>sum+distance(p,points[i]!),0);let travelled=0;
+  for(let i=1;i<points.length;i++){
+    const a=points[i-1]!,b=points[i]!,len=distance(a,b),steps=Math.max(2,Math.ceil(len/.25));
+    for(let s=0;s<=steps;s++){
+      const t=s/steps,p={x:lerp(a.x,b.x,t),y:lerp(a.y,b.y,t)};
+      if(obstacles.some(o=>Math.hypot(p.x-o.x,p.y-o.y)<o.r+roadHalfWidth))return false;
+      const atStart=travelled+len*t<1.25,atEnd=total-(travelled+len*t)<1.25;
+      const overlapStatic=staticRoads.some(r=>distanceToSegment(p,r.a,r.b)<roadHalfWidth*1.72);
+      const overlapBuilt=builtRoads.some(r=>r.points.some((q,j)=>j>0&&distanceToSegment(p,r.points[j-1]!,q)<roadHalfWidth*1.72));
+      if((overlapStatic||overlapBuilt)&&!(atStart||atEnd))return false;
+    }travelled+=len;
+  }return true;
+}
+function updateDraftPath(destination:Point){
+  const current=draft[draft.length-1];if(!current||distance(current,destination)<.1)return;
+  for(let i=draft.length-2;i>=0;i--){if(distance(draft[i]!,destination)<.1){draft.splice(i+1);return;}}
+  let x=current.x,y=current.y;
+  while(Math.abs(destination.x-x)>.1||Math.abs(destination.y-y)>.1){
+    const dx=destination.x-x,dy=destination.y-y;
+    if(Math.abs(dx)>=Math.abs(dy)&&Math.abs(dx)>.1)x+=Math.sign(dx)*roadGrid;
+    else if(Math.abs(dy)>.1)y+=Math.sign(dy)*roadGrid;
+    const next={x,y};if(distance(draft[draft.length-1]!,next)>.1)draft.push(next);
   }
 }
-
-function refreshPreview() {
-  clearPreview();
-  drawRoadSegments(draft, previewGroup, true, isValidRoadPath(draft));
+function pointerPosition(event:PointerEvent):Point{
+  const rect=canvas.getBoundingClientRect();return{x:event.clientX-rect.left,y:event.clientY-rect.top};
 }
-
-function refreshJunctions() {
-  for (const marker of junctionMarkers.values()) {
-    scene.remove(marker);
-    marker.geometry.dispose();
-  }
-  junctionMarkers.clear();
-  const usage = new Map<string, { point: THREE.Vector2; roads: number }>();
-  for (const built of builtRoads) {
-    const points = built.userData.gridPoints as THREE.Vector2[] | undefined;
-    if (!points) continue;
-    const seen = new Set<string>();
-    for (const point of points) {
-      const key = `${point.x.toFixed(2)},${point.y.toFixed(2)}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      const entry = usage.get(key) ?? { point, roads: 0 };
-      entry.roads += 1;
-      usage.set(key, entry);
-    }
-  }
-  for (const [key, entry] of usage) {
-    if (entry.roads < 2) continue;
-    const marker = new THREE.Mesh(new THREE.CircleGeometry(0.92, 20), roadMat);
-    marker.rotation.x = -Math.PI / 2;
-    marker.position.set(entry.point.x, 0.132, entry.point.y);
-    marker.receiveShadow = true;
-    scene.add(marker);
-    junctionMarkers.set(key, marker);
-  }
+function pointerToGrid(event:PointerEvent):Point{
+  const p=screenToWorld(pointerPosition(event));
+  return{x:clamp(Math.round(p.x/roadGrid)*roadGrid,-18,18),y:clamp(Math.round(p.y/roadGrid)*roadGrid,-18,15)};
 }
-
-
-function startRoad(event: PointerEvent) {
-  if (selectedTool !== 'road' || event.button !== 0) return;
-  const point = pointerToGrid(event);
-  if (!point) return;
-  if (obstacles.some(o => Math.hypot(point.x-o.x,point.y-o.z) < o.r + roadHalfWidth)) {
-    if (buildMessage) buildMessage.textContent = 'Нельзя начинать проект внутри здания, дерева или водоёма.';
-    return;
-  }
-  drawing = true;
-  draft = [point];
-  renderer.domElement.setPointerCapture(event.pointerId);
-  refreshPreview();
-  event.preventDefault();
+function clearDraft(){draft=[];drawing=false;render();}
+function updateMission(){
+  const done=builtRoads.some(r=>r.connectsVillageToHighway);
+  if(missionCount)missionCount.textContent=done?'1 / 1':'0 / 1';
+  if(missionProgress)missionProgress.style.width=done?'100%':'8%';
 }
-function moveRoad(event: PointerEvent) {
-  if (!drawing) return;
-  const point = pointerToGrid(event);
-  if (!point) return;
-  updateDraftPath(draft, point);
-  refreshPreview();
+function startRoad(event:PointerEvent){
+  if(selectedTool!=='road'||event.button!==0)return;
+  const p=pointerToGrid(event);
+  if(obstacles.some(o=>Math.hypot(p.x-o.x,p.y-o.y)<o.r+roadHalfWidth)){if(buildMessage)buildMessage.textContent='Нельзя начинать проект внутри здания, дерева или водоёма.';return;}
+  drawing=true;pointerId=event.pointerId;draft=[p];canvas.setPointerCapture(event.pointerId);event.preventDefault();render();
 }
-function finishRoad(event: PointerEvent) {
-  if (!drawing) return;
-  drawing = false;
-  if (renderer.domElement.hasPointerCapture(event.pointerId)) renderer.domElement.releasePointerCapture(event.pointerId);
-  if (draft.length < 2) {
-    clearPreview();
-    draft = [];
-    if (buildMessage) buildMessage.textContent = 'Наметь линию хотя бы на один участок.';
-    return;
-  }
-  if (!isValidRoadPath(draft)) {
-    clearPreview(); draft = [];
-    if (buildMessage) buildMessage.textContent = 'Проект отклонён: линия должна соединяться с дорожной сетью и обходить здания, деревья и воду.';
-    return;
-  }
-  const path = new THREE.Group();
-  const routePoints = draft.map(point => point.clone());
-  drawRoadSegments(routePoints, path, false, true, true);
-  path.userData.gridPoints = routePoints;
-  scene.add(path);
-  const touchesHighway = draft.some(point => Math.abs(point.y + 13) <= 1.65 && Math.abs(point.x) <= 18);
-  const touchesVillage = draft.some(point =>
-    (Math.abs(point.x + 1) <= 1.65 && point.y >= -12 && point.y <= 11) ||
-    (Math.abs(point.x) <= 1.65 && point.y >= -12 && point.y <= -2) ||
-    (Math.abs(point.y - 5) <= 1.4 && point.x >= 3 && point.x <= 11) ||
-    (Math.abs(point.y - 3) <= 1.4 && point.x >= -11 && point.x <= -3)
-  );
-  path.userData.connectsVillageToHighway = touchesHighway && touchesVillage;
-  builtRoads.push(path);
-  refreshJunctions();
-  const missionDone = builtRoads.length > 0;
-  if (missionCount) missionCount.textContent = missionDone ? '1 / 1' : '0 / 1';
-  if (missionProgress) missionProgress.style.width = missionDone ? '100%' : '8%';
-  if (buildMessage) buildMessage.textContent = missionDone
-    ? 'Проект принят. Дорога постепенно прокладывается по намеченной линии.'
-    : 'Проект принят. Наблюдай, как дорожное полотно постепенно появляется на местности.';
-  clearPreview();
-  draft = [];
+function finishRoad(event:PointerEvent){
+  if(!drawing||pointerId!==event.pointerId)return;
+  drawing=false;pointerId=null;
+  if(draft.length<2){draft=[];if(buildMessage)buildMessage.textContent='Наметь линию хотя бы на один участок.';render();return;}
+  if(!isValidRoadPath(draft)){draft=[];if(buildMessage)buildMessage.textContent='Проект отклонён: линия должна соединяться с сетью и обходить здания, деревья и воду.';render();return;}
+  const touchesHighway=draft.some(p=>Math.abs(p.y+13)<=1.65&&Math.abs(p.x)<=18);
+  const touchesVillage=draft.some(p=>(Math.abs(p.x+1)<=1.65&&p.y>=-12&&p.y<=11)||(Math.abs(p.x)<=1.65&&p.y>=-12&&p.y<=-2)||(Math.abs(p.y-5)<=1.4&&p.x>=3&&p.x<=11)||(Math.abs(p.y-3)<=1.4&&p.x>=-11&&p.x<=-3));
+  const road:Road={points:draft.map(p=>({...p})),progress:0,connectsVillageToHighway:touchesHighway&&touchesVillage};
+  builtRoads.push(road);constructionJobs.push(road);draft=[];updateMission();
+  if(buildMessage)buildMessage.textContent='Проект принят. Дорога постепенно прокладывается по намеченной линии.';
+  render();
 }
-renderer.domElement.addEventListener('pointerdown', startRoad);
-renderer.domElement.addEventListener('pointermove', moveRoad);
-renderer.domElement.addEventListener('pointerup', finishRoad);
-renderer.domElement.addEventListener('pointercancel', finishRoad);
-
-document.querySelector<HTMLButtonElement>('#cancel-road')?.addEventListener('click', () => {
-  drawing = false; draft = []; clearPreview();
-  if (buildMessage) buildMessage.textContent = 'Черновик дороги отменён.';
+canvas.addEventListener('pointerdown',event=>{
+  const p=pointerPosition(event);activePointers.set(event.pointerId,p);
+  if(activePointers.size===2){drawing=false;panning=false;const pts=[...activePointers.values()];pinchStart={distance:distance(pts[0]!,pts[1]!),zoom:camera.zoom,center:{x:(pts[0]!.x+pts[1]!.x)/2,y:(pts[0]!.y+pts[1]!.y)/2}};return;}
+  if(selectedTool==='road'){startRoad(event);return;}
+  panning=true;lastPointer=p;canvas.setPointerCapture(event.pointerId);
 });
-document.querySelector<HTMLButtonElement>('#undo-road')?.addEventListener('click', () => {
-  const last = builtRoads.pop();
-  if (!last) return;
-  scene.remove(last);
-  refreshJunctions();
-  last.traverse(object => {
-    if (object instanceof THREE.Mesh) object.geometry.dispose();
-  });
-  const missionDone = builtRoads.some(item => item.userData.connectsVillageToHighway === true);
-  if (missionCount) missionCount.textContent = missionDone ? '1 / 1' : '0 / 1';
-  if (missionProgress) missionProgress.style.width = missionDone ? '100%' : '8%';
-  if (buildMessage) buildMessage.textContent = 'Последний построенный участок удалён.';
+canvas.addEventListener('pointermove',event=>{
+  const p=pointerPosition(event);if(activePointers.has(event.pointerId))activePointers.set(event.pointerId,p);
+  if(pinchStart&&activePointers.size>=2){const pts=[...activePointers.values()],d=distance(pts[0]!,pts[1]!);const anchor=screenToWorld(pinchStart.center);camera.zoom=clamp(pinchStart.zoom*d/Math.max(pinchStart.distance,1),Math.min(width,height)/42,Math.min(width,height)/10);const after=screenToWorld(pinchStart.center);camera.x+=anchor.x-after.x;camera.y+=anchor.y-after.y;render();return;}
+  if(drawing){updateDraftPath(pointerToGrid(event));render();return;}
+  if(panning&&lastPointer){camera.x-=(p.x-lastPointer.x)/camera.zoom;camera.y-=(p.y-lastPointer.y)/camera.zoom;lastPointer=p;render();}
 });
+function releasePointer(event:PointerEvent){
+  if(drawing){finishRoad(event);}
+  activePointers.delete(event.pointerId);if(activePointers.size<2)pinchStart=null;
+  panning=false;lastPointer=null;
+}
+canvas.addEventListener('pointerup',releasePointer);canvas.addEventListener('pointercancel',releasePointer);
+canvas.addEventListener('wheel',event=>{event.preventDefault();const before=screenToWorld(pointerPosition(event));camera.zoom=clamp(camera.zoom*Math.exp(-event.deltaY*.001),Math.min(width,height)/42,Math.min(width,height)/10);const after=screenToWorld(pointerPosition(event));camera.x+=before.x-after.x;camera.y+=before.y-after.y;render();},{passive:false});
 
-window.addEventListener('keydown', (event) => {
-  if (event.key === '+' || event.key === '=') camera.position.sub(controls.target).multiplyScalar(0.9).add(controls.target);
-  if (event.key === '-') camera.position.sub(controls.target).multiplyScalar(1.1).add(controls.target);
-  if (event.key.toLowerCase() === 'r') {
-    camera.position.set(17, 19, 17);
-    controls.target.set(0, 0, 0);
-  }
+function setZoom(factor:number){const center={x:width/2,y:height/2},before=screenToWorld(center);camera.zoom=clamp(camera.zoom*factor,Math.min(width,height)/42,Math.min(width,height)/10);const after=screenToWorld(center);camera.x+=before.x-after.x;camera.y+=before.y-after.y;render();}
+document.querySelector<HTMLButtonElement>('#reset-camera')?.addEventListener('click',()=>{camera={x:0,y:-1,zoom:Math.min(width,height)/22};render();});
+document.querySelector<HTMLButtonElement>('#zoom-in')?.addEventListener('click',()=>setZoom(1.18));
+document.querySelector<HTMLButtonElement>('#zoom-out')?.addEventListener('click',()=>setZoom(.84));
+const toolButtons=[...document.querySelectorAll<HTMLButtonElement>('.tool')];
+toolButtons.forEach(button=>button.addEventListener('click',()=>{
+  selectedTool=button.dataset.tool??'inspect';document.querySelector('.tool.active')?.classList.remove('active');button.classList.add('active');
+  const hud=document.querySelector<HTMLElement>('#build-hud');if(hud)hud.hidden=selectedTool!=='road';
+  if(buildMessage)buildMessage.textContent=selectedTool==='road'?'Наметь линию будущей дороги. После проверки проект начнёт строиться.':'Выбери инструмент «Дороги», чтобы начать строительство.';
+  canvas.style.cursor=selectedTool==='road'?'crosshair':'grab';
+}));
+document.querySelector<HTMLButtonElement>('#cancel-road')?.addEventListener('click',()=>{clearDraft();if(buildMessage)buildMessage.textContent='Черновик дороги отменён.';});
+document.querySelector<HTMLButtonElement>('#undo-road')?.addEventListener('click',()=>{
+  const road=builtRoads.pop();if(!road)return;const index=constructionJobs.indexOf(road);if(index>=0)constructionJobs.splice(index,1);updateMission();if(buildMessage)buildMessage.textContent='Последний построенный участок удалён.';render();
 });
-window.addEventListener('beforeunload', () => {
-  observer.disconnect();
-  controls.dispose();
-  renderer.dispose();
+window.addEventListener('keydown',event=>{
+  if(event.key==='+'||event.key==='=')setZoom(1.12);if(event.key==='-')setZoom(.89);
+  if(event.key.toLowerCase()==='r'){camera={x:0,y:-1,zoom:Math.min(width,height)/22};render();}
+  if(event.key==='Escape'&&draft.length)clearDraft();
 });
-
-// Start only after every scene object, simulation collection and input handler is initialized.
-animate();
+let previousTime=0;
+function animate(time:number){
+  const delta=Math.min((time-previousTime)/1000||0,.05);previousTime=time;
+  for(const job of constructionJobs)job.progress=clamp(job.progress+delta/Math.max(1.2,job.points.length*.32),0,1);
+  for(const vehicle of vehicles){vehicle.distance+=vehicle.speed*delta*vehicle.direction;if(vehicle.distance>=routeLength){vehicle.distance=routeLength;vehicle.direction=-1;}if(vehicle.distance<=0){vehicle.distance=0;vehicle.direction=1;}}
+  render();requestAnimationFrame(animate);
+}
+canvas.style.cursor='grab';
+render();requestAnimationFrame(animate);
+window.addEventListener('beforeunload',()=>observer.disconnect());
