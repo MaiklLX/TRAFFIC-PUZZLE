@@ -227,7 +227,7 @@ function render(){
   const trees=[[-14,-10,1.2],[-17,-4,.9],[-16,1,.9],[-12,10,1.2],[-4,12,.9],[4,12,.9],[12,9,.9],[15,4,1.2],[14,-9,.9],[6,-5,.9],[-9,-1,.9],[17,0,1.2]] as const;
   for(const [x,y,s] of trees)drawTree(x,y,s);
   for(const vehicle of vehicles)drawCar(vehicle);
-  if(draft.length>1){const valid=isValidRoadPath(draft);strokeRoad(draft,1,valid?'#e9c46a':'#d96c62',.88);const first=worldToScreen(draft[0]!);ctx!.fillStyle=valid?'#fff1bd':'#f4b5ad';ctx!.beginPath();ctx!.arc(first.x,first.y,.22*camera.zoom,0,Math.PI*2);ctx!.fill();}
+  if(draft.length>1){const validation=validateRoadPath(draft);const valid=validation.valid;strokeRoad(draft,1,valid?'#e9c46a':'#d96c62',.88);const first=worldToScreen(draft[0]!);ctx!.fillStyle=valid?'#fff1bd':'#f4b5ad';ctx!.beginPath();ctx!.arc(first.x,first.y,.22*camera.zoom,0,Math.PI*2);ctx!.fill();}
 }
 function segmentIntersection(a:Point,b:Point,c:Point,d:Point):Point|null{
   const rx=b.x-a.x,ry=b.y-a.y,sx=d.x-c.x,sy=d.y-c.y;
@@ -353,21 +353,43 @@ const endpointOverlapAllowance=roadOverlapDistance+roadGrid*.5;
 function touchesRoadNetwork(p:Point){
   return nearestNetworkDistance(p)<=roadConnectionTolerance;
 }
-function isValidRoadPath(points:Point[]){
-  if(points.length<2)return false;
-  if(!touchesRoadNetwork(points[0]!)&&!touchesRoadNetwork(points[points.length-1]!))return false;
+type RoadValidation = { valid:boolean; reason:string };
+function validateRoadPath(points:Point[]):RoadValidation{
+  if(points.length<2)return{valid:false,reason:'Нужно провести линию хотя бы на один участок.'};
+  if(!touchesRoadNetwork(points[0]!)&&!touchesRoadNetwork(points[points.length-1]!))return{valid:false,reason:'Начни или закончи проект на существующей дороге.'};
+
+  // A deliberate crossing of a road is a valid junction, not an illegal overlap.
+  // Keep a small junction clearance around each true centreline intersection;
+  // parallel travel along an existing road remains forbidden.
+  const junctionContacts:{point:Point;radius:number}[]=[];
+  const existingSegments:{a:Point;b:Point;width:number}[]=[
+    ...staticRoads.map(road=>({a:road.a,b:road.b,width:road.width})),
+    ...builtRoads.flatMap(road=>road.points.slice(1).map((point,index)=>({a:road.points[index]!,b:point,width:road.width})))
+  ];
+  for(let i=1;i<points.length;i++){
+    const a=points[i-1]!,b=points[i]!;
+    for(const road of existingSegments){
+      const crossing=segmentIntersection(a,b,road.a,road.b);
+      if(crossing)junctionContacts.push({point:crossing,radius:roadHalfWidth+road.width/2+.24});
+    }
+  }
+
   const total=points.slice(1).reduce((sum,p,i)=>sum+distance(p,points[i]!),0);let travelled=0;
   for(let i=1;i<points.length;i++){
-    const a=points[i-1]!,b=points[i]!,len=distance(a,b),steps=Math.max(2,Math.ceil(len/.25));
-    for(let s=0;s<=steps;s++){
-      const t=s/steps,p={x:lerp(a.x,b.x,t),y:lerp(a.y,b.y,t)};
-      if(obstacles.some(o=>Math.hypot(p.x-o.x,p.y-o.y)<o.r+roadHalfWidth))return false;
-      const atStart=travelled+len*t<endpointOverlapAllowance,atEnd=total-(travelled+len*t)<endpointOverlapAllowance;
-      const overlapStatic=staticRoads.some(r=>distanceToSegment(p,r.a,r.b)<roadOverlapDistance);
-      const overlapBuilt=builtRoads.some(r=>r.points.some((q,j)=>j>0&&distanceToSegment(p,r.points[j-1]!,q)<roadOverlapDistance));
-      if((overlapStatic||overlapBuilt)&&!(atStart||atEnd))return false;
-    }travelled+=len;
-  }return true;
+    const a=points[i-1]!,b=points[i]!,len=distance(a,b),steps=Math.max(2,Math.ceil(len/.2));
+    for(let step=0;step<=steps;step++){
+      const t=step/steps,p={x:lerp(a.x,b.x,t),y:lerp(a.y,b.y,t)};
+      if(obstacles.some(o=>Math.hypot(p.x-o.x,p.y-o.y)<o.r+roadHalfWidth))return{valid:false,reason:'На пути препятствие: здание, дерево или водоём. Обойди его.'};
+      const along=travelled+len*t;
+      const atStart=along<endpointOverlapAllowance,atEnd=total-along<endpointOverlapAllowance;
+      const overlapStatic=staticRoads.some(road=>distanceToSegment(p,road.a,road.b)<roadOverlapDistance);
+      const overlapBuilt=builtRoads.some(road=>road.points.some((q,index)=>index>0&&distanceToSegment(p,road.points[index-1]!,q)<roadOverlapDistance));
+      const atJunction=junctionContacts.some(contact=>distance(p,contact.point)<=contact.radius);
+      if((overlapStatic||overlapBuilt)&&!(atStart||atEnd||atJunction))return{valid:false,reason:'Линия слишком долго идёт поверх существующей дороги. Сделай отдельное ответвление.'};
+    }
+    travelled+=len;
+  }
+  return{valid:true,reason:''};
 }
 function updateDraftPath(destination:Point){
   const current=draft[draft.length-1];if(!current||distance(current,destination)<.1)return;
@@ -417,7 +439,8 @@ function finishRoad(event:PointerEvent){
   if(firstSnap&&distance(draft[0]!,firstSnap)<=roadConnectionTolerance)draft[0]={...firstSnap};
   const lastIndex=draft.length-1,lastSnap=nearestNetworkPoint(draft[lastIndex]!);
   if(lastSnap&&distance(draft[lastIndex]!,lastSnap)<=roadConnectionTolerance)draft[lastIndex]={...lastSnap};
-  if(!isValidRoadPath(draft)){draft=[];if(buildMessage)buildMessage.textContent='Проект отклонён: проверь соединение с сетью и свободный коридор без зданий, деревьев и воды.';render();return;}
+  const validation=validateRoadPath(draft);
+  if(!validation.valid){draft=[];if(buildMessage)buildMessage.textContent='Проект отклонён: '+validation.reason;render();return;}
   const touchesHighway=draft.some(p=>Math.abs(p.y+13)<=1.65&&Math.abs(p.x)<=18);
   const touchesVillage=draft.some(p=>(Math.abs(p.x+1)<=1.65&&p.y>=-12&&p.y<=11)||(Math.abs(p.x)<=1.65&&p.y>=-12&&p.y<=-2)||(Math.abs(p.y-5)<=1.4&&p.x>=3&&p.x<=11)||(Math.abs(p.y-3)<=1.4&&p.x>=-11&&p.x<=-3));
   const road:Road={points:draft.map(p=>({...p})),progress:0,width:roadHalfWidth*2,connectsVillageToHighway:touchesHighway&&touchesVillage};
