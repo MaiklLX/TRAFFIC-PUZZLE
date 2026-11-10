@@ -43,7 +43,6 @@ const obstacles = [
 ];
 const builtRoads: Road[] = [];
 const constructionJobs: Road[] = [];
-const fallbackRoute = [{x:-18,y:-13},{x:-1,y:-13},{x:-1,y:5},{x:11,y:5}];
 const vehicles: Vehicle[] = [];
 const missionCount = document.querySelector<HTMLElement>('.mission-count');
 const missionProgress = document.querySelector<HTMLElement>('.progress span');
