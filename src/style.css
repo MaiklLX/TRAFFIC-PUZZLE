@@ -143,3 +143,9 @@ button:focus-visible,select:focus-visible{outline:2px solid #9dbd9f;outline-offs
 .destination-row>em{font-style:normal;font-size:8px;font-weight:800;letter-spacing:.04em;white-space:nowrap;color:#a36d53}
 .destination-row.is-connected>em{color:#5f8a68}
 .destination-summary{padding-top:9px;margin-top:8px;border-top:1px solid #e5e9df;color:#6d7c6d;font-size:9px;font-weight:750;letter-spacing:.05em;text-transform:uppercase}
+
+
+/* KT-049: live demand and congestion feedback. */
+.destination-row.is-busy>em{color:#b56d45}
+.destination-row.is-busy>i{box-shadow:0 0 0 4px color-mix(in srgb,var(--destination-color) 28%,transparent),0 0 12px color-mix(in srgb,var(--destination-color) 48%,transparent)}
+.destination-row.is-disconnected>em{color:#a36d53}
