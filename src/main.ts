@@ -90,6 +90,12 @@ function clamp(v:number,min:number,max:number){return Math.max(min,Math.min(max,
 function lerp(a:number,b:number,t:number){return a+(b-a)*t;}
 function worldToScreen(p:Point):Point{return{x:width/2+(p.x-camera.x)*camera.zoom,y:height/2+(p.y-camera.y)*camera.zoom};}
 function screenToWorld(p:Point):Point{return{x:(p.x-width/2)/camera.zoom+camera.x,y:(p.y-height/2)/camera.zoom+camera.y};}
+function getFitCameraZoom(){
+  const portraitMobile=width<800&&height>width;
+  return portraitMobile
+    ?Math.min(height/(WORLD.maxY-WORLD.minY)*.88,width/19)
+    :Math.min(width/(WORLD.maxX-WORLD.minX),height/(WORLD.maxY-WORLD.minY))*.92;
+}
 function resize(){
   const rect=mount!.getBoundingClientRect();
   if(!rect.width||!rect.height)return;
@@ -97,7 +103,7 @@ function resize(){
   canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);
   canvas.style.width=width+'px';canvas.style.height=height+'px';
   ctx!.setTransform(dpr,0,0,dpr,0,0);
-  const fitZoom=Math.min(width/(WORLD.maxX-WORLD.minX),height/(WORLD.maxY-WORLD.minY))*.92;
+  const fitZoom=getFitCameraZoom();
   if(!cameraInitialized){camera.zoom=fitZoom;cameraInitialized=true;}
   else camera.zoom=clamp(camera.zoom,Math.min(width/52,height/42),Math.min(width,height)/10);
 }
@@ -1053,7 +1059,7 @@ canvas.addEventListener('pointerup',releasePointer);canvas.addEventListener('poi
 canvas.addEventListener('wheel',event=>{event.preventDefault();const before=screenToWorld(pointerPosition(event));camera.zoom=clamp(camera.zoom*Math.exp(-event.deltaY*.001),Math.min(width,height)/42,Math.min(width,height)/10);const after=screenToWorld(pointerPosition(event));camera.x+=before.x-after.x;camera.y+=before.y-after.y;render();},{passive:false});
 
 function setZoom(factor:number){const center={x:width/2,y:height/2},before=screenToWorld(center);camera.zoom=clamp(camera.zoom*factor,Math.min(width,height)/42,Math.min(width,height)/10);const after=screenToWorld(center);camera.x+=before.x-after.x;camera.y+=before.y-after.y;render();}
-document.querySelector<HTMLButtonElement>('#reset-camera')?.addEventListener('click',()=>{camera={x:0,y:-1,zoom:Math.min(width/(WORLD.maxX-WORLD.minX),height/(WORLD.maxY-WORLD.minY))*.92};render();});
+document.querySelector<HTMLButtonElement>('#reset-camera')?.addEventListener('click',()=>{camera={x:0,y:-1,zoom:getFitCameraZoom()};render();});
 document.querySelector<HTMLButtonElement>('#zoom-in')?.addEventListener('click',()=>setZoom(1.18));
 document.querySelector<HTMLButtonElement>('#zoom-out')?.addEventListener('click',()=>setZoom(.84));
 const toolButtons=[...document.querySelectorAll<HTMLButtonElement>('.tool')];
