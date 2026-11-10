@@ -839,19 +839,19 @@ function getReachableTrips():TrafficTrip[]{
 function updateDestinationBoard(){
   const board=document.querySelector<HTMLElement>('#destination-board');
   if(!board)return;
-  const connected=new Set(reachableDestinations.map(item=>item.id));
-  board.innerHTML=trafficDestinations.map(destination=>{
-    const ready=connected.has(destination.id);
-    const active=vehicles.filter(vehicle=>vehicle.destinationId===destination.id).length;
-    const demand=destination.weight>1?'Повышенный спрос':'Обычный спрос';
-    const state=!ready?'НЕТ МАРШРУТА':active>=3?'ПЕРЕГРУЗКА':active>0?'В ПУТИ':'ГОТОВ К ПОЕЗДКАМ';
+  const rows=trafficOrigins.flatMap(origin=>tripDestinations.map(destination=>{
+    const id=origin.id+'-'+destination.id;
+    const ready=reachableTrips.some(trip=>trip.id===id);
+    const active=vehicles.filter(vehicle=>vehicle.originId===origin.id&&vehicle.destinationId===destination.id).length;
+    const state=!ready?'НЕТ МАРШРУТА':active>=3?'ПЕРЕГРУЗКА':active>0?'В ПУТИ':'МАРШРУТ ОТКРЫТ';
     return '<div class="destination-row '+(ready?'is-connected':'is-disconnected')+(active>=3?' is-busy':'')+'">'+
       '<i style="--destination-color:'+destination.color+'"></i>'+
-      '<span><b>'+destination.name+'</b><small>'+demand+' · '+active+' '+(active===1?'машина':active>=2&&active<=4?'машины':'машин')+'</small></span>'+
+      '<span><b>'+origin.name+' → '+destination.name+'</b><small>'+(destination.weight>1?'Повышенный спрос':'Обычный спрос')+' · '+active+' '+(active===1?'машина':active>=2&&active<=4?'машины':'машин')+'</small></span>'+
       '<em>'+(ready?state:'НЕТ МАРШРУТА')+'</em></div>';
-  }).join('');
+  }));
+  board.innerHTML=rows.join('');
   const summary=document.querySelector<HTMLElement>('#destination-summary');
-  if(summary)summary.textContent=connected.size+' из '+trafficDestinations.length+' доступны · спрос меняется';
+  if(summary)summary.textContent=reachableTrips.length+' из '+(trafficOrigins.length*tripDestinations.length)+' маршрутов доступны · спрос меняется';
 }
 
 function offsetRouteToRightSide(path:Point[],offset=.36):Point[]{
@@ -951,7 +951,7 @@ function chooseTrafficTrip(){
 let lastSpawnedTripId:string|null=null;
 function getTrafficSpawnInterval(){
   // More connected destinations create a busier, gradually accelerating town.
-  return Math.max(4.8,9.5-reachableDestinations.length*.62);
+  return Math.max(4.8,9.5-reachableTrips.length*.48);
 }
 function spawnTrafficVehicle(){
   if(!reachableTrips.length)return false;
