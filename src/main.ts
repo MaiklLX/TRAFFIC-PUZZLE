@@ -262,16 +262,10 @@ function animate() {
   for (let jobIndex = constructionJobs.length - 1; jobIndex >= 0; jobIndex--) {
     const job = constructionJobs[jobIndex]!;
     job.elapsed += delta;
-    const sectionDuration = 0.48;
-    const revealDuration = 0.42;
-    job.sections.forEach((section, index) => {
-      const progress = THREE.MathUtils.clamp((job.elapsed - index * sectionDuration) / revealDuration, 0, 1);
-      for (const mesh of section) {
-        const material = mesh.material as THREE.MeshLambertMaterial;
-        material.opacity = progress;
-      }
-    });
-    if (job.elapsed >= (job.sections.length - 1) * sectionDuration + revealDuration) constructionJobs.splice(jobIndex, 1);
+    const progress = THREE.MathUtils.clamp(job.elapsed / Math.max(1.2, job.indexCount / 6 * 0.075), 0, 1);
+    const visibleTriangles = Math.floor((job.indexCount / 3) * progress);
+    job.geometry.setDrawRange(0, visibleTriangles * 3);
+    if (progress >= 1) constructionJobs.splice(jobIndex, 1);
   }
   for (const vehicle of movingCars) {
     vehicle.distance += vehicle.speed * delta * vehicle.direction;
@@ -390,12 +384,23 @@ function touchesRoadNetwork(point: THREE.Vector2) {
 function isValidRoadPath(points: THREE.Vector2[]) {
  if(points.length<2) return false;
  if(!touchesRoadNetwork(points[0]!) && !touchesRoadNetwork(points[points.length-1]!)) return false;
+ const totalLength=points.slice(1).reduce((sum,p,i)=>sum+p.distanceTo(points[i]!),0);
+ let travelled=0;
  for(let i=1;i<points.length;i++){
-  const a=points[i-1]!,b=points[i]!,steps=Math.max(2,Math.ceil(a.distanceTo(b)/0.35));
+  const a=points[i-1]!,b=points[i]!,length=a.distanceTo(b),steps=Math.max(2,Math.ceil(length/0.25));
   for(let step=0;step<=steps;step++){
    const p=a.clone().lerp(b,step/steps);
    if(obstacles.some(o=>Math.hypot(p.x-o.x,p.y-o.z)<o.r+roadHalfWidth)) return false;
+   const atStart=travelled+length*step/steps < 1.25;
+   const atEnd=totalLength-(travelled+length*step/steps) < 1.25;
+   const overlapsStatic=staticRoads.some(([ra,rb])=>distanceToSegment(p,ra,rb)<roadHalfWidth*1.72);
+   const overlapsBuilt=builtRoads.some(road=>{
+    const existing=road.userData.gridPoints as THREE.Vector2[]|undefined;
+    return !!existing && existing.some((q,j)=>j>0 && distanceToSegment(p,existing[j-1]!,q)<roadHalfWidth*1.72);
+   });
+   if((overlapsStatic||overlapsBuilt)&&!(atStart||atEnd)) return false;
   }
+  travelled+=length;
  }
  return true;
 }
@@ -414,48 +419,72 @@ function clearPreview() {
   }
 }
 
-const constructionJobs: { sections: THREE.Mesh[][]; elapsed: number }[] = [];
+const constructionJobs: { geometry: THREE.BufferGeometry; indexCount: number; elapsed: number }[] = [];
 
-function drawRoadSegments(points: THREE.Vector2[], parent: THREE.Group, preview = false, valid = true, underConstruction = false) {
-  const constructionSections: THREE.Mesh[][] = [];
-  for (let i = 1; i < points.length; i++) {
-    const a = points[i - 1]!, b = points[i]!;
-    const dx = b.x - a.x, dz = b.y - a.y;
-    const length = Math.hypot(dx, dz) + 0.08;
-    const material = preview
-      ? new THREE.MeshLambertMaterial({ color: valid ? '#e9c46a' : '#d96c62', transparent: true, opacity: 0.82 })
-      : roadMat;
-    const sectionMeshes: THREE.Mesh[] = [];
-    const segmentMaterial = underConstruction
-      ? new THREE.MeshLambertMaterial({ color: '#59666a', transparent: true, opacity: 0 })
-      : material;
-    const segment = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.055, length + 0.06), segmentMaterial);
-    segment.position.set((a.x + b.x) / 2, 0.025, (a.y + b.y) / 2);
-    segment.rotation.y = Math.atan2(dx, dz);
-    segment.receiveShadow = true;
-    segment.castShadow = !preview;
-    parent.add(segment);
-    if (underConstruction) sectionMeshes.push(segment);
-    if (!preview) {
-      const jointMaterial = underConstruction
-        ? new THREE.MeshLambertMaterial({ color: '#59666a', transparent: true, opacity: 0 })
-        : roadMat;
-      const joint = new THREE.Mesh(new THREE.CircleGeometry(roadHalfWidth, 20), jointMaterial);
-      joint.rotation.x = -Math.PI / 2; joint.position.set(b.x, 0.055, b.y); parent.add(joint);
-      if (underConstruction) sectionMeshes.push(joint);
-      for (const side of [-1, 1]) {
-        const edgeMaterial = underConstruction
-          ? new THREE.MeshLambertMaterial({ color: '#d9d5bd', transparent: true, opacity: 0 })
-          : roadEdge;
-        const edge = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.035, length), edgeMaterial);
-        edge.position.set(side * 0.91, 0.09, 0);
-        segment.add(edge);
-        if (underConstruction) sectionMeshes.push(edge);
-      }
-      if (underConstruction) constructionSections.push(sectionMeshes);
+function smoothRoadCenterline(points: THREE.Vector2[]) {
+  if (points.length < 3) return points.map(p => p.clone());
+  const result: THREE.Vector2[] = [points[0]!.clone()];
+  for (let i = 1; i < points.length - 1; i++) {
+    const previous = points[i - 1]!, corner = points[i]!, next = points[i + 1]!;
+    const incoming = corner.clone().sub(previous).normalize();
+    const outgoing = next.clone().sub(corner).normalize();
+    if (Math.abs(incoming.x * outgoing.y - incoming.y * outgoing.x) < 0.01) {
+      result.push(corner.clone());
+      continue;
+    }
+    const radius = Math.min(0.52, previous.distanceTo(corner) * 0.28, next.distanceTo(corner) * 0.28);
+    const from = corner.clone().addScaledVector(incoming, -radius);
+    const to = corner.clone().addScaledVector(outgoing, radius);
+    result.push(from);
+    for (let step = 1; step <= 6; step++) {
+      const t = step / 6, inverse = 1 - t;
+      result.push(from.clone().multiplyScalar(inverse * inverse)
+        .addScaledVector(corner, 2 * inverse * t)
+        .addScaledVector(to, t * t));
     }
   }
-  if (underConstruction && constructionSections.length) constructionJobs.push({ sections: constructionSections, elapsed: 0 });
+  result.push(points[points.length - 1]!.clone());
+  return result;
+}
+
+function drawRoadSegments(points: THREE.Vector2[], parent: THREE.Group, preview = false, valid = true, underConstruction = false) {
+  if (points.length < 2) return;
+  const centerline = smoothRoadCenterline(points);
+  const positions: number[] = [];
+  const indices: number[] = [];
+  const halfWidth = 0.95;
+  for (let i = 0; i < centerline.length; i++) {
+    const before = centerline[Math.max(0, i - 1)]!;
+    const after = centerline[Math.min(centerline.length - 1, i + 1)]!;
+    const tangent = after.clone().sub(before).normalize();
+    const normal = new THREE.Vector2(-tangent.y, tangent.x);
+    const point = centerline[i]!;
+    positions.push(point.x + normal.x * halfWidth, 0.045, point.y + normal.y * halfWidth);
+    positions.push(point.x - normal.x * halfWidth, 0.045, point.y - normal.y * halfWidth);
+    if (i < centerline.length - 1) {
+      const base = i * 2;
+      indices.push(base, base + 1, base + 2, base + 1, base + 3, base + 2);
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  const material = new THREE.MeshLambertMaterial({
+    color: preview ? (valid ? '#e9c46a' : '#d96c62') : '#59666a',
+    transparent: preview || underConstruction,
+    opacity: preview ? 0.82 : (underConstruction ? 1 : 1),
+    side: THREE.DoubleSide
+  });
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.receiveShadow = true;
+  mesh.castShadow = !preview;
+  parent.add(mesh);
+  if (underConstruction) {
+    const indexCount = indices.length;
+    geometry.setDrawRange(0, 0);
+    constructionJobs.push({ geometry, indexCount, elapsed: 0 });
+  }
 }
 
 function refreshPreview() {
