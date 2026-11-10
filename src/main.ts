@@ -482,7 +482,9 @@ function createVehicle(path:Point[],speed:number,destination:TrafficDestination,
   const routeLength=lengths.reduce((sum,value)=>sum+value,0);
   return{path,lengths,routeLength,distance:Math.min(offset,routeLength),speed,direction:1,color:destination.color,destinationId:destination.id};
 }
+let reachableDestinations:TrafficDestination[]=[];
 function refreshVehicleRoutes(){
+  reachableDestinations=trafficDestinations.filter(destination=>buildTrafficRoute(destination.id)!==null);
   for(let i=vehicles.length-1;i>=0;i--){
     const vehicle=vehicles[i]!;
     const nextPath=buildTrafficRoute(vehicle.destinationId);
@@ -498,7 +500,7 @@ function refreshVehicleRoutes(){
 }
 // Only completed roads participate in traffic routing.
 rebuildRoadGraph();
-const reachableDestinations=trafficDestinations.filter(destination=>buildTrafficRoute(destination.id)!==null);
+reachableDestinations=trafficDestinations.filter(destination=>buildTrafficRoute(destination.id)!==null);
 let trafficSpawnTimer=5.5,trafficSpawnIndex=0;
 function updateTrafficCounter(){if(trafficCount)trafficCount.textContent=String(vehicles.length);}
 function spawnTrafficVehicle(){
