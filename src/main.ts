@@ -107,9 +107,19 @@ function strokeRoad(points:Point[],progress=1,color='#59666a',alpha=1,roadWidth=
   if(points.length<2||progress<=0)return;
   pathOnCanvas(points,progress);
   ctx!.save();ctx!.globalAlpha=alpha;ctx!.lineCap='round';ctx!.lineJoin='round';
-  ctx!.strokeStyle='#d9d2b9';ctx!.lineWidth=(roadWidth+.34)*camera.zoom;ctx!.stroke();
+  // A shallow verge/shoulder transition prevents the asphalt from reading
+  // as a flat dark strip pasted directly onto the grass.
+  ctx!.strokeStyle='#aeb894';ctx!.globalAlpha=alpha*.72;
+  ctx!.lineWidth=(roadWidth+.52)*camera.zoom;ctx!.stroke();
+  pathOnCanvas(points,progress);
+  ctx!.strokeStyle='#d9d2b9';ctx!.globalAlpha=alpha;
+  ctx!.lineWidth=(roadWidth+.30)*camera.zoom;ctx!.stroke();
   pathOnCanvas(points,progress);
   ctx!.strokeStyle=color;ctx!.lineWidth=roadWidth*camera.zoom;ctx!.stroke();
+  // Very restrained pavement crown: a soft tonal strip, not another lane.
+  pathOnCanvas(points,progress);
+  ctx!.strokeStyle='#718087';ctx!.globalAlpha=alpha*.16;
+  ctx!.lineWidth=roadWidth*.58*camera.zoom;ctx!.stroke();
   ctx!.restore();
 }
 function drawRoadCentreLinePath(points:Point[],subtle:boolean,junctions:{center:Point;arms:JunctionArm[]}[],progress=1){
