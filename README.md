@@ -23,8 +23,9 @@ A cheerful isometric traffic-planning puzzle about turning a small village into 
 - Visual foundation first, then simulation and progression
 - Mobile and desktop are first-class targets
 - Local-first saves; no account or server dependency for the core game
-- Small verified milestones (КТ), with work on feature branches
-- No public release or main-branch gameplay changes without explicit approval
+- Small verified milestones (КТ), with checkpoint notes and commit SHA tracking
+- During the active prototype phase, changes may go directly to `main` for fast browser testing when the user has approved that workflow
+- Keep every change reviewable and report unverified builds honestly
 
 ## Roadmap
 
