@@ -756,24 +756,34 @@ function classifyRoadActivity(){
   }
   for(const edge of roadGraph.edges)edge.active=activeIds.has(edge.id)&&reached.has(edge.from)&&reached.has(edge.to);
 }
-function estimatedRoadCost(edge:RoadGraphEdge){
+type TrafficRouteSnapshot={x:number;y:number;heading:Point;speed:number;cruiseSpeed:number};
+function estimatedRoadCost(edge:RoadGraphEdge,traffic:TrafficRouteSnapshot[]){
   const a=roadGraph.nodes[edge.from]!,b=roadGraph.nodes[edge.to]!;
   const length=distance(a,b),dx=(b.x-a.x)/(length||1),dy=(b.y-a.y)/(length||1);
-  let congestion=0;
-  for(const vehicle of vehicles){
-    const pose=vehiclePose(vehicle);
-    const lateral=distanceToSegment({x:pose.x,y:pose.y},a,b);
-    const alignment=Math.abs(pose.heading.x*dx+pose.heading.y*dy);
+  let movingTraffic=0,queuedTraffic=0;
+  for(const vehicle of traffic){
+    const lateral=distanceToSegment({x:vehicle.x,y:vehicle.y},a,b);
+    const alignment=Math.abs(vehicle.heading.x*dx+vehicle.heading.y*dy);
     if(lateral<edge.width*.5+.72&&alignment>.68){
-      congestion+=vehicle.speed<vehicle.cruiseSpeed*.68?1:.12;
+      if(vehicle.speed<vehicle.cruiseSpeed*.68)queuedTraffic++;
+      else movingTraffic++;
     }
   }
+  // A moving car adds a small delay; a stopped/slow queue adds a much
+  // stronger penalty, but the cap prevents an extreme detour from winning.
+  const congestionPenalty=Math.min(2.35,queuedTraffic*.58+movingTraffic*.075);
   const roadFactor=edge.kind==='highway'?.92:1;
-  return length*roadFactor*(1+congestion*.2);
+  return length*roadFactor*(1+congestionPenalty);
 }
 function findRoadPath(start:Point,end:Point):Point[]|null{
   const source=nearestGraphNode(start),target=nearestGraphNode(end);
   if(!source||!target)return null;
+  if(source.id===target.id)return[{x:source.x,y:source.y}];
+  const traffic=vehicles.map(vehicle=>{
+    const pose=vehiclePose(vehicle);
+    return{x:pose.x,y:pose.y,heading:pose.heading,speed:vehicle.speed,cruiseSpeed:vehicle.cruiseSpeed};
+  });
+  const edgeById=new Map(roadGraph.edges.map(edge=>[edge.id,edge]));
   const costs=new Map<number,number>([[source.id,0]]);
   const previous=new Map<number,number|null>([[source.id,null]]);
   const remaining=new Set(roadGraph.nodes.map(node=>node.id));
@@ -785,13 +795,13 @@ function findRoadPath(start:Point,end:Point):Point[]|null{
     if(current===target.id)break;
     const node=roadGraph.nodes[current]!;
     for(const edgeId of node.edgeIds){
-      const edge=roadGraph.edges.find(item=>item.id===edgeId);if(!edge)continue;
+      const edge=edgeById.get(edgeId);
+      if(!edge||!edge.active)continue;
       const movingForward=edge.from===current;
       if(movingForward?!edge.forward:!edge.reverse)continue;
       const next=movingForward?edge.to:edge.from;
       if(!remaining.has(next))continue;
-      const nextNode=roadGraph.nodes[next]!;
-      const candidate=best+estimatedRoadCost(edge);
+      const candidate=best+estimatedRoadCost(edge,traffic);
       if(candidate<(costs.get(next)??Infinity)){costs.set(next,candidate);previous.set(next,current);}
     }
   }
