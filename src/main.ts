@@ -338,157 +338,53 @@ function drawRoadNetwork(){
 }
 function drawTerrain(){
   ctx!.fillStyle='#e9eddf';ctx!.fillRect(0,0,width,height);
-  const patches=[
+  const s=camera.zoom;
+  const meadows=[
     {x:-18,y:-7,w:13,h:9,c:'#dce8cf',r:-.16},{x:-3,y:-13,w:13,h:7,c:'#e2e9d4',r:.08},
     {x:9,y:-11,w:12,h:9,c:'#dce8d0',r:-.2},{x:-17,y:13,w:12,h:7,c:'#e1e9d6',r:.1},
     {x:3,y:14,w:15,h:7,c:'#dce7d0',r:-.12},{x:20,y:3,w:7,h:11,c:'#e2ead8',r:.2}
   ];
-  for(const a of patches){const p=worldToScreen({x:a.x,y:a.y});ctx!.save();ctx!.translate(p.x,p.y);ctx!.rotate(a.r);ctx!.fillStyle=a.c;roundedRect(ctx!,-a.w*camera.zoom/2,-a.h*camera.zoom/2,a.w*camera.zoom,a.h*camera.zoom,1.5*camera.zoom);ctx!.fill();ctx!.restore();}
-  // Quiet cartographic parcel lines.
-  ctx!.save();ctx!.strokeStyle='#cbd8bf';ctx!.globalAlpha=.62;ctx!.lineWidth=Math.max(.7,.035*camera.zoom);
-  for(let i=0;i<7;i++){const p=worldToScreen({x:-21+i*6.4,y:-18});ctx!.beginPath();ctx!.moveTo(p.x,p.y);ctx!.quadraticCurveTo(p.x+2.5*camera.zoom,p.y+1.1*camera.zoom,p.x+4.7*camera.zoom,p.y+4.2*camera.zoom);ctx!.stroke();}
+  for(const a of meadows){const p=worldToScreen({x:a.x,y:a.y});ctx!.save();ctx!.translate(p.x,p.y);ctx!.rotate(a.r);ctx!.fillStyle=a.c;roundedRect(ctx!,-a.w*s/2,-a.h*s/2,a.w*s,a.h*s,1.5*s);ctx!.fill();ctx!.restore();}
+  // Gentle parcel contours and cultivated furrows give the valley visual depth.
+  ctx!.save();ctx!.strokeStyle='#cbd8bf';ctx!.globalAlpha=.58;ctx!.lineWidth=Math.max(.7,.035*s);
+  for(let i=0;i<7;i++){const p=worldToScreen({x:-21+i*6.4,y:-18});ctx!.beginPath();ctx!.moveTo(p.x,p.y);ctx!.quadraticCurveTo(p.x+2.5*s,p.y+1.1*s,p.x+4.7*s,p.y+4.2*s);ctx!.stroke();}
   ctx!.restore();
-  const field=worldToScreen({x:-15,y:6.1}),s=camera.zoom;
+  const field=worldToScreen({x:-15,y:6.1});
   ctx!.fillStyle='#d3dfb7';roundedRect(ctx!,field.x-2.65*s,field.y-1.9*s,5.3*s,3.8*s,.35*s);ctx!.fill();
-  ctx!.save();ctx!.strokeStyle='#b5c993';ctx!.lineWidth=Math.max(1,.055*s);
-  for(let row=0;row<8;row++){const y=field.y+(-1.48+row*.42)*s;ctx!.beginPath();ctx!.moveTo(field.x-2.25*s,y);ctx!.quadraticCurveTo(field.x,y-.18*s,field.x+2.25*s,y);ctx!.stroke();}
+  ctx!.save();
+  for(let row=0;row<8;row++){
+    const y=field.y+(-1.48+row*.42)*s;
+    ctx!.strokeStyle=row%2?'#c0d19f':'#b4c58f';ctx!.globalAlpha=.78;ctx!.lineWidth=Math.max(1,.085*s);
+    ctx!.beginPath();ctx!.moveTo(field.x-2.25*s,y);ctx!.quadraticCurveTo(field.x,y-.18*s,field.x+2.25*s,y);ctx!.stroke();
+    ctx!.strokeStyle='#e8edcf';ctx!.globalAlpha=.68;ctx!.lineWidth=Math.max(.7,.025*s);
+    ctx!.beginPath();ctx!.moveTo(field.x-2.2*s,y-.07*s);ctx!.quadraticCurveTo(field.x,y-.25*s,field.x+2.2*s,y-.07*s);ctx!.stroke();
+    for(let col=0;col<13;col++){const x=field.x+(-2.08+col*.345)*s+(row%2)*.06*s,yy=y+Math.sin(col*1.7+row)*.045*s;ctx!.fillStyle=col%3?'#91ad72':'#a8bd7e';ctx!.beginPath();ctx!.ellipse(x,yy,.045*s,.09*s,-.25,0,Math.PI*2);ctx!.fill();}
+  }
   ctx!.restore();
   const orchard=worldToScreen({x:16.8,y:-4.8});
   ctx!.fillStyle='#d9e5c7';roundedRect(ctx!,orchard.x-2.6*s,orchard.y-2.15*s,5.2*s,4.3*s,.35*s);ctx!.fill();
   ctx!.save();ctx!.strokeStyle='#c0d3a9';ctx!.lineWidth=Math.max(1,.04*s);
   for(let row=0;row<4;row++){ctx!.beginPath();ctx!.moveTo(orchard.x-2.25*s,orchard.y+(-1.45+row*.96)*s);ctx!.lineTo(orchard.x+2.25*s,orchard.y+(-1.45+row*.96)*s);ctx!.stroke();}
   ctx!.restore();
-  // A soft blue pond with an irregular shoreline, not a framed object.
+  // Irregular pond shoreline, shallow shelf, reflections and lily pads.
   const pond=worldToScreen({x:16,y:7});
-  ctx!.fillStyle='#cbd9c0';ctx!.beginPath();ctx!.ellipse(pond.x,pond.y,4.55*s,3.2*s,-.18,0,Math.PI*2);ctx!.fill();
+  ctx!.fillStyle='#c6d5bc';ctx!.beginPath();ctx!.ellipse(pond.x,pond.y,4.62*s,3.28*s,-.18,0,Math.PI*2);ctx!.fill();
+  ctx!.fillStyle='#b7d2c6';ctx!.beginPath();ctx!.ellipse(pond.x-.08*s,pond.y-.04*s,4.34*s,3.02*s,-.18,0,Math.PI*2);ctx!.fill();
   ctx!.fillStyle='#a9d1d0';ctx!.beginPath();ctx!.moveTo(pond.x-4.1*s,pond.y-.2*s);ctx!.bezierCurveTo(pond.x-3.5*s,pond.y-3.1*s,pond.x+.9*s,pond.y-3.3*s,pond.x+3.8*s,pond.y-1.3*s);ctx!.bezierCurveTo(pond.x+4.6*s,pond.y+.8*s,pond.x+2*s,pond.y+2.8*s,pond.x-.8*s,pond.y+2.6*s);ctx!.bezierCurveTo(pond.x-3.4*s,pond.y+2.4*s,pond.x-4.7*s,pond.y+1.1*s,pond.x-4.1*s,pond.y-.2*s);ctx!.fill();
-  ctx!.strokeStyle='#d9ece2';ctx!.lineWidth=Math.max(1,.09*s);ctx!.globalAlpha=.75;
-  for(let i=0;i<3;i++){ctx!.beginPath();ctx!.moveTo(pond.x+(-1.6+i*.5)*s,pond.y+(-.45+i*.45)*s);ctx!.quadraticCurveTo(pond.x,pond.y+(-.7+i*.45)*s,pond.x+(1.5-i*.2)*s,pond.y+(-.45+i*.45)*s);ctx!.stroke();}
-  ctx!.globalAlpha=1;
-  // Sparse meadow marks; density is low so roads and buildings remain dominant.
-  for(let i=0;i<68;i++){const x=((i*37)%45)-22,y=((i*61)%35)-18,p=worldToScreen({x,y});ctx!.fillStyle=i%2?'#b9cda7':'#f5f0d9';ctx!.globalAlpha=.42;ctx!.beginPath();ctx!.arc(p.x,p.y,Math.max(.7,.045*s),0,Math.PI*2);ctx!.fill();}
-  ctx!.globalAlpha=1;
-}
-function drawTree(x:number,y:number,size=1){
-  const p=worldToScreen({x,y}),s=camera.zoom*size,seed=Math.abs(Math.floor(x*7+y*13));
-  const greens=['#6f9878','#789f80','#83a989','#71977a'];
-  ctx!.save();
-  // Soft contact shadow and a small trunk anchor keep the canopy grounded.
-  ctx!.fillStyle='#718b70';ctx!.globalAlpha=.22;ctx!.beginPath();ctx!.ellipse(p.x+.12*s,p.y+.28*s,.68*s,.43*s,-.18,0,Math.PI*2);ctx!.fill();
-  ctx!.globalAlpha=1;ctx!.fillStyle='#947b5e';ctx!.beginPath();ctx!.arc(p.x,p.y+.05*s,.16*s,0,Math.PI*2);ctx!.fill();
-  const lobes=[[-.22,-.12,.36],[.2,-.2,.35],[-.32,.19,.32],[.18,.2,.39],[0,0,.43],[.02,-.36,.25]];
-  for(let i=0;i<lobes.length;i++){
-    const [dx,dy,r]=lobes[i]!;
-    ctx!.fillStyle=greens[(seed+i)%greens.length]!;
-    ctx!.beginPath();ctx!.arc(p.x+dx*s,p.y+dy*s,r*s,0,Math.PI*2);ctx!.fill();
+  ctx!.save();ctx!.strokeStyle='#d9ece2';ctx!.lineWidth=Math.max(1,.075*s);ctx!.globalAlpha=.72;
+  for(let i=0;i<4;i++){const yy=(-.72+i*.42)+Math.sin(ambientClock*.65+i)*.05;ctx!.beginPath();ctx!.moveTo(pond.x+(-1.8+i*.12)*s,pond.y+yy*s);ctx!.quadraticCurveTo(pond.x+(-.1+i*.12)*s,pond.y+(yy-.18)*s,pond.x+(1.45-i*.12)*s,pond.y+yy*s);ctx!.stroke();}
+  for(const [dx,dy] of [[-2.1,-1.1],[1.85,.85],[.65,-1.8]] as const){ctx!.fillStyle='#83b49b';ctx!.beginPath();ctx!.arc(pond.x+dx*s,pond.y+dy*s,.2*s,.25,Math.PI*1.82);ctx!.lineTo(pond.x+dx*s,pond.y+dy*s);ctx!.fill();ctx!.fillStyle='#f4ead1';ctx!.beginPath();ctx!.arc(pond.x+(dx+.04)*s,pond.y+(dy-.02)*s,.045*s,0,Math.PI*2);ctx!.fill();}
+  ctx!.restore();
+  for(let i=0;i<18;i++){const angle=i/18*Math.PI*2,rx=4.42+Math.sin(i*3.1)*.12,ry=3.1+Math.cos(i*2.2)*.1,x=pond.x+Math.cos(angle)*rx*s,y=pond.y+Math.sin(angle)*ry*s;if(i%2===0){ctx!.strokeStyle='#849f77';ctx!.lineWidth=Math.max(1,.045*s);ctx!.beginPath();ctx!.moveTo(x,y);ctx!.lineTo(x+Math.sin(i)*.11*s,y-.23*s);ctx!.stroke();}else{ctx!.fillStyle='#d7cba9';ctx!.beginPath();ctx!.ellipse(x,y,.1*s,.065*s,.2,0,Math.PI*2);ctx!.fill();}}
+  // Stable, sparse grass tufts and meadow flowers.
+  for(let i=0;i<116;i++){
+    const x=((i*37)%45)-22,y=((i*61)%35)-18;if(Math.hypot((x-16)/4.8,(y-7)/3.5)<1.08)continue;
+    const p=worldToScreen({x,y}),size=Math.max(.7,.04*s)*(i%4===0?1.5:1);
+    ctx!.save();ctx!.translate(p.x,p.y);ctx!.rotate((i%7)*.42);ctx!.strokeStyle=i%3===0?'#a4bb8f':'#b6c99e';ctx!.globalAlpha=.42;ctx!.lineWidth=Math.max(.65,.025*s);
+    ctx!.beginPath();ctx!.moveTo(0,size);ctx!.quadraticCurveTo(-size*.3,0,-size*.55,-size);ctx!.moveTo(0,size);ctx!.quadraticCurveTo(size*.2,0,size*.62,-size*.75);ctx!.stroke();
+    if(i%9===0){ctx!.fillStyle='#f4e8c9';ctx!.beginPath();ctx!.arc(size*.5,-size*.7,Math.max(.7,.045*s),0,Math.PI*2);ctx!.fill();}
+    ctx!.restore();
   }
-  ctx!.fillStyle='#a9c49b';ctx!.globalAlpha=.72;ctx!.beginPath();ctx!.arc(p.x-.13*s,p.y-.24*s,.18*s,0,Math.PI*2);ctx!.fill();
-  ctx!.globalAlpha=.25;ctx!.fillStyle='#496f58';ctx!.beginPath();ctx!.arc(p.x+.16*s,p.y+.13*s,.27*s,.1,Math.PI*.9);ctx!.fill();
-  ctx!.restore();
-}
-
-function drawHouse(x:number,y:number,scale=1,wall='#f4e7c9',roof='#d98c73'){
-  const p=worldToScreen({x,y}),s=camera.zoom*scale;ctx!.save();ctx!.translate(p.x,p.y);
-  // Garden plot, soft building shadow and a real roof silhouette.
-  ctx!.fillStyle='#d5e2c5';roundedRect(ctx!,-1.58*s,-1.32*s,3.16*s,2.64*s,.34*s);ctx!.fill();
-  ctx!.strokeStyle='#b9cda9';ctx!.lineWidth=Math.max(1,.035*s);ctx!.setLineDash([.12*s,.13*s]);roundedRect(ctx!,-1.48*s,-1.22*s,2.96*s,2.44*s,.28*s);ctx!.stroke();ctx!.setLineDash([]);
-  ctx!.fillStyle='#9ba98d';ctx!.globalAlpha=.2;roundedRect(ctx!,-1.12*s,-.77*s+.17*s,2.24*s,1.78*s,.18*s);ctx!.fill();ctx!.globalAlpha=1;
-  ctx!.fillStyle='#e9dfc7';roundedRect(ctx!,-1.13*s,-.83*s,2.26*s,1.76*s,.18*s);ctx!.fill();
-  ctx!.fillStyle=wall;roundedRect(ctx!,-1.02*s,-.75*s,2.04*s,1.58*s,.13*s);ctx!.fill();
-  ctx!.fillStyle=roof;
-  ctx!.beginPath();ctx!.moveTo(-1.13*s,-.78*s);ctx!.lineTo(-.72*s,-1.02*s);ctx!.lineTo(.73*s,-1.02*s);ctx!.lineTo(1.13*s,-.78*s);ctx!.lineTo(1.13*s,.77*s);ctx!.lineTo(.72*s,1.02*s);ctx!.lineTo(-.73*s,1.02*s);ctx!.lineTo(-1.13*s,.77*s);ctx!.closePath();ctx!.fill();
-  ctx!.strokeStyle='#a85f57';ctx!.lineWidth=Math.max(1,.045*s);ctx!.stroke();
-  // Roof panels, ridge cap and warm reflected light.
-  ctx!.strokeStyle='#ffffff';ctx!.globalAlpha=.19;ctx!.lineWidth=Math.max(1,.07*s);
-  for(const yy of [-.56,-.28,0,.28,.56]){ctx!.beginPath();ctx!.moveTo(-.91*s,yy*s);ctx!.lineTo(.91*s,yy*s);ctx!.stroke();}
-  ctx!.globalAlpha=.42;ctx!.strokeStyle='#784f4a';ctx!.lineWidth=Math.max(1,.07*s);ctx!.beginPath();ctx!.moveTo(0,-.9*s);ctx!.lineTo(0,.9*s);ctx!.stroke();ctx!.globalAlpha=1;
-  ctx!.fillStyle='#f4d8b2';roundedRect(ctx!,-.83*s,-.69*s,.32*s,.27*s,.05*s);ctx!.fill();
-  ctx!.fillStyle='#f4d8b2';roundedRect(ctx!,.51*s,-.69*s,.32*s,.27*s,.05*s);ctx!.fill();
-  ctx!.fillStyle='#b6d8d2';roundedRect(ctx!,-.77*s,-.62*s,.2*s,.17*s,.025*s);ctx!.fill();
-  ctx!.fillStyle='#b6d8d2';roundedRect(ctx!,.57*s,-.62*s,.2*s,.17*s,.025*s);ctx!.fill();
-  // Front porch, steps and a path through the garden.
-  ctx!.fillStyle='#c9b99b';roundedRect(ctx!,-.34*s,.72*s,.68*s,.36*s,.07*s);ctx!.fill();
-  ctx!.fillStyle='#ead9b8';roundedRect(ctx!,-.19*s,.31*s,.38*s,.48*s,.06*s);ctx!.fill();
-  ctx!.fillStyle='#f6e7c9';roundedRect(ctx!,-.25*s,.78*s,.5*s,.11*s,.04*s);ctx!.fill();
-  ctx!.fillStyle='#c7d6b4';ctx!.beginPath();ctx!.moveTo(-.2*s,1.05*s);ctx!.lineTo(.2*s,1.05*s);ctx!.lineTo(.34*s,1.31*s);ctx!.lineTo(-.34*s,1.31*s);ctx!.closePath();ctx!.fill();
-  // Small shrubs and a chimney cap add readable scale at normal zoom.
-  for(const [sx,sy] of [[-1.28,.72],[1.27,-.62],[-1.23,-.82]] as const){ctx!.fillStyle='#77a17e';ctx!.beginPath();ctx!.arc(sx*s,sy*s,.16*s,0,Math.PI*2);ctx!.fill();ctx!.fillStyle='#a8c69a';ctx!.beginPath();ctx!.arc((sx-.04)*s,(sy-.05)*s,.07*s,0,Math.PI*2);ctx!.fill();}
-  ctx!.fillStyle='#a9a18c';roundedRect(ctx!,.61*s,-1.03*s,.23*s,.31*s,.035*s);ctx!.fill();
-  ctx!.restore();
-}
-
-function drawShop(x:number,y:number){
-  const p=worldToScreen({x,y}),s=camera.zoom;ctx!.save();ctx!.translate(p.x,p.y);
-  // A paved forecourt is part of the site, not a separate road tile.
-  ctx!.fillStyle='#d7e2c9';roundedRect(ctx!,-2.35*s,-1.85*s,4.7*s,3.7*s,.3*s);ctx!.fill();
-  ctx!.fillStyle='#c8d1c2';roundedRect(ctx!,-2.18*s,.95*s,4.36*s,.62*s,.12*s);ctx!.fill();
-  ctx!.strokeStyle='#f2ead4';ctx!.lineWidth=Math.max(1,.045*s);
-  for(let i=0;i<3;i++){const x=-1.72+i*1.55;ctx!.beginPath();ctx!.moveTo(x*s,1.02*s);ctx!.lineTo((x+.92)*s,1.02*s);ctx!.stroke();}
-  ctx!.fillStyle='#a3b39a';ctx!.globalAlpha=.2;roundedRect(ctx!,-1.72*s,-1.12*s,3.44*s,2.52*s,.2*s);ctx!.fill();ctx!.globalAlpha=1;
-  ctx!.fillStyle='#e8dfc8';roundedRect(ctx!,-1.78*s,-1.36*s,3.56*s,2.62*s,.18*s);ctx!.fill();
-  ctx!.fillStyle='#648c86';ctx!.beginPath();ctx!.moveTo(-1.62*s,-1.1*s);ctx!.lineTo(-1.22*s,-1.48*s);ctx!.lineTo(1.22*s,-1.48*s);ctx!.lineTo(1.62*s,-1.1*s);ctx!.lineTo(1.62*s,1.08*s);ctx!.lineTo(-1.62*s,1.08*s);ctx!.closePath();ctx!.fill();
-  ctx!.strokeStyle='#416e6c';ctx!.lineWidth=Math.max(1,.05*s);ctx!.stroke();
-  // Roof seams and a bright shop canopy.
-  ctx!.strokeStyle='#a9c7b9';ctx!.globalAlpha=.55;ctx!.lineWidth=Math.max(1,.055*s);
-  for(let i=-2;i<=2;i++){ctx!.beginPath();ctx!.moveTo(i*.48*s,-1.18*s);ctx!.lineTo(i*.48*s,.88*s);ctx!.stroke();}
-  ctx!.globalAlpha=1;
-  ctx!.fillStyle='#f4e8cb';roundedRect(ctx!,-1.42*s,-.62*s,2.84*s,.48*s,.08*s);ctx!.fill();
-  for(let i=0;i<7;i++){ctx!.fillStyle=i%2?'#e4b86f':'#f8e9c7';roundedRect(ctx!,(-1.34+i*.45)*s,-.58*s,.4*s,.4*s,.035*s);ctx!.fill();}
-  ctx!.fillStyle='#d8e9df';roundedRect(ctx!,-.78*s,.03*s,1.56*s,.65*s,.07*s);ctx!.fill();
-  ctx!.strokeStyle='#f7ecd5';ctx!.lineWidth=Math.max(1,.05*s);ctx!.beginPath();ctx!.moveTo(0,.05*s);ctx!.lineTo(0,.65*s);ctx!.stroke();
-  ctx!.fillStyle='#e5d4b4';roundedRect(ctx!,-.2*s,.65*s,.4*s,.36*s,.04*s);ctx!.fill();
-  ctx!.fillStyle='#f2e6ca';roundedRect(ctx!,-.68*s,-1.67*s,1.36*s,.18*s,.06*s);ctx!.fill();
-  ctx!.fillStyle='#648c86';ctx!.font='700 '+Math.max(6,.22*s)+'px Arial';ctx!.textAlign='center';ctx!.textBaseline='middle';ctx!.fillText('MARKET',0,-1.58*s);
-  ctx!.restore();
-}
-
-function drawBarn(x:number,y:number){
-  const p=worldToScreen({x,y}),s=camera.zoom;ctx!.save();ctx!.translate(p.x,p.y);
-  ctx!.fillStyle='#d4e0c2';roundedRect(ctx!,-2.42*s,-1.86*s,4.84*s,3.72*s,.28*s);ctx!.fill();
-  // Loading yard faces the access road on the east side.
-  ctx!.fillStyle='#c8d0bd';roundedRect(ctx!,1.78*s,-.88*s,.52*s,1.76*s,.08*s);ctx!.fill();
-  ctx!.strokeStyle='#eee6d2';ctx!.lineWidth=Math.max(1,.045*s);ctx!.beginPath();ctx!.moveTo(1.9*s,-.65*s);ctx!.lineTo(2.18*s,-.65*s);ctx!.moveTo(1.9*s,.65*s);ctx!.lineTo(2.18*s,.65*s);ctx!.stroke();
-  ctx!.fillStyle='#9d8673';ctx!.globalAlpha=.2;roundedRect(ctx!,-1.92*s,-1.25*s+.16*s,3.82*s,2.5*s,.16*s);ctx!.fill();ctx!.globalAlpha=1;
-  ctx!.fillStyle='#d7a08a';roundedRect(ctx!,-1.96*s,-1.28*s,3.92*s,2.56*s,.14*s);ctx!.fill();
-  ctx!.fillStyle='#bd7567';ctx!.beginPath();ctx!.moveTo(-1.83*s,-1.12*s);ctx!.lineTo(-1.45*s,-1.42*s);ctx!.lineTo(1.45*s,-1.42*s);ctx!.lineTo(1.83*s,-1.12*s);ctx!.lineTo(1.83*s,1.12*s);ctx!.lineTo(-1.83*s,1.12*s);ctx!.closePath();ctx!.fill();
-  ctx!.strokeStyle='#9e5e55';ctx!.lineWidth=Math.max(1,.055*s);ctx!.stroke();
-  ctx!.strokeStyle='#e9b79d';ctx!.globalAlpha=.55;ctx!.lineWidth=Math.max(1,.045*s);
-  for(let i=-3;i<=3;i++){ctx!.beginPath();ctx!.moveTo(i*.43*s,-1.1*s);ctx!.lineTo(i*.43*s,1.1*s);ctx!.stroke();}
-  ctx!.globalAlpha=1;
-  // Broad sliding doors and a clear east-facing service entrance.
-  ctx!.fillStyle='#edc6a5';roundedRect(ctx!,-.72*s,.28*s,1.44*s,.72*s,.08*s);ctx!.fill();
-  ctx!.strokeStyle='#ad685c';ctx!.lineWidth=Math.max(1,.06*s);ctx!.beginPath();ctx!.moveTo(0,.31*s);ctx!.lineTo(0,.97*s);ctx!.stroke();
-  ctx!.fillStyle='#f1d8b8';roundedRect(ctx!,1.62*s,-.34*s,.2*s,.68*s,.04*s);ctx!.fill();
-  ctx!.fillStyle='#e8dfc7';roundedRect(ctx!,-1.62*s,-1.04*s,.42*s,.34*s,.04*s);ctx!.fill();
-  ctx!.fillStyle='#e8dfc7';roundedRect(ctx!,1.2*s,-1.04*s,.42*s,.34*s,.04*s);ctx!.fill();
-  ctx!.fillStyle='#d7b66f';ctx!.beginPath();ctx!.arc(-2.05*s,1.36*s,.23*s,0,Math.PI*2);ctx!.fill();
-  ctx!.restore();
-}
-
-function drawFuelStation(x:number,y:number){
-  const p=worldToScreen({x,y}),s=camera.zoom;ctx!.save();ctx!.translate(p.x,p.y);
-  ctx!.fillStyle='#d7e2c8';roundedRect(ctx!,-2.38*s,-1.78*s,4.76*s,3.56*s,.28*s);ctx!.fill();
-  // Compact service building at the back of the forecourt.
-  ctx!.fillStyle='#9eaa91';ctx!.globalAlpha=.2;roundedRect(ctx!,-.9*s,-1.46*s,1.8*s,.98*s,.12*s);ctx!.fill();ctx!.globalAlpha=1;
-  ctx!.fillStyle='#eee5d0';roundedRect(ctx!,-.94*s,-1.56*s,1.88*s,.94*s,.12*s);ctx!.fill();
-  ctx!.fillStyle='#77a79b';roundedRect(ctx!,-.78*s,-1.42*s,1.56*s,.64*s,.08*s);ctx!.fill();
-  ctx!.fillStyle='#d7e8df';roundedRect(ctx!,-.55*s,-1.28*s,1.1*s,.28*s,.05*s);ctx!.fill();
-  // One broad canopy with a soft cast shadow and four visible supports.
-  ctx!.fillStyle='#91a28f';ctx!.globalAlpha=.22;roundedRect(ctx!,-2.02*s,-.18*s,4.04*s,1.55*s,.18*s);ctx!.fill();ctx!.globalAlpha=1;
-  ctx!.fillStyle='#f3e7ca';roundedRect(ctx!,-2.02*s,-.32*s,4.04*s,1.48*s,.18*s);ctx!.fill();
-  ctx!.fillStyle='#6f9d91';roundedRect(ctx!,-1.9*s,-.25*s,3.8*s,1.32*s,.14*s);ctx!.fill();
-  ctx!.fillStyle='#f5e8c9';roundedRect(ctx!,-1.86*s,-.2*s,3.72*s,.17*s,.06*s);ctx!.fill();
-  ctx!.fillStyle='#f5f0df';
-  for(const dx of [-1.18,0,1.18]){
-    roundedRect(ctx!,(dx-.25)*s,.14*s,.5*s,.76*s,.08*s);ctx!.fill();
-    ctx!.fillStyle='#b9d8d2';roundedRect(ctx!,(dx-.16)*s,.23*s,.32*s,.2*s,.035*s);ctx!.fill();
-    ctx!.fillStyle='#c17d63';ctx!.lineWidth=Math.max(1,.045*s);ctx!.beginPath();ctx!.moveTo((dx+.2)*s,.3*s);ctx!.quadraticCurveTo((dx+.39)*s,.44*s,(dx+.27)*s,.73*s);ctx!.stroke();
-    ctx!.fillStyle='#f5f0df';
-  }
-  for(const [dx,dy] of [[-1.86,-.18],[1.86,-.18],[-1.86,.98],[1.86,.98]] as const){ctx!.fillStyle='#e8e0c8';roundedRect(ctx!,(dx-.045)*s,(dy-.045)*s,.09*s,.09*s,.025*s);ctx!.fill();}
-  ctx!.fillStyle='#d7a65f';roundedRect(ctx!,-.42*s,1.23*s,.84*s,.18*s,.06*s);ctx!.fill();
-  ctx!.fillStyle='#6f9d91';ctx!.font='700 '+Math.max(6,.2*s)+'px Arial';ctx!.textAlign='center';ctx!.textBaseline='middle';ctx!.fillText('FUEL',0,1.32*s);
-  ctx!.restore();
 }
 
 function drawDecor(){
@@ -540,12 +436,20 @@ const walkers=[
 ];
 function drawFarmDetails(){
   const s=camera.zoom,p=worldToScreen({x:-18.1,y:8.4});
-  ctx!.fillStyle='#d1dfba';roundedRect(ctx!,p.x-1.9*s,p.y-1.22*s,3.8*s,2.44*s,.24*s);ctx!.fill();
-  ctx!.strokeStyle='#b4c99d';ctx!.lineWidth=Math.max(1,.06*s);ctx!.setLineDash([.18*s,.18*s]);ctx!.strokeRect(p.x-1.7*s,p.y-1.02*s,3.4*s,2.04*s);ctx!.setLineDash([]);
-  for(const [dx,dy] of [[-.8,-.3],[.55,.35],[.1,-.65]] as const){ctx!.fillStyle='#f3eee0';ctx!.beginPath();ctx!.ellipse(p.x+dx*s,p.y+dy*s,.28*s,.17*s,0,0,Math.PI*2);ctx!.fill();ctx!.fillStyle='#6d7770';ctx!.beginPath();ctx!.arc(p.x+(dx+.22)*s,p.y+(dy-.03)*s,.08*s,0,Math.PI*2);ctx!.fill();}
-  for(const [x,y] of [[-16.1,-5.2],[-16.8,-5.6],[-15.4,-5.9]] as const){const q=worldToScreen({x,y});ctx!.fillStyle='#e6c77f';ctx!.beginPath();ctx!.arc(q.x,q.y,.25*s,0,Math.PI*2);ctx!.fill();}
-  const t=worldToScreen({x:-17.4,y:5.9});ctx!.save();ctx!.translate(t.x,t.y);ctx!.rotate(-.22);ctx!.fillStyle='#e1b65f';roundedRect(ctx!,-.48*s,-.22*s,.96*s,.44*s,.12*s);ctx!.fillStyle='#7fa39a';roundedRect(ctx!,-.12*s,-.4*s,.36*s,.28*s,.05*s);ctx!.restore();
+  // A soft paddock with a broken timber fence and a clear gate.
+  ctx!.fillStyle='#cddbb8';roundedRect(ctx!,p.x-1.98*s,p.y-1.28*s,3.96*s,2.56*s,.24*s);ctx!.fill();
+  ctx!.fillStyle='#d8dfbd';roundedRect(ctx!,p.x-1.78*s,p.y-1.08*s,3.56*s,2.16*s,.18*s);ctx!.fill();
+  ctx!.strokeStyle='#a9bd91';ctx!.lineWidth=Math.max(1,.055*s);ctx!.setLineDash([.2*s,.12*s]);ctx!.strokeRect(p.x-1.7*s,p.y-1.02*s,3.4*s,2.04*s);ctx!.setLineDash([]);
+  ctx!.fillStyle='#a88d68';roundedRect(ctx!,p.x-.3*s,p.y+.62*s,.92*s,.18*s,.06*s);ctx!.fill();
+  for(const [dx,dy] of [[-.8,-.3],[.55,.35],[.1,-.65]] as const){ctx!.fillStyle='#e6c77f';ctx!.beginPath();ctx!.ellipse(p.x+dx*s,p.y+dy*s,.25*s,.17*s,-.18,0,Math.PI*2);ctx!.fill();ctx!.strokeStyle='#c8a75f';ctx!.lineWidth=Math.max(1,.035*s);ctx!.beginPath();ctx!.arc(p.x+dx*s,p.y+dy*s,.16*s,-1.1,1.1);ctx!.stroke();}
+  // Cattle silhouettes with visible heads, patches and legs.
+  const cattle=[[-1.03,-.35,.94],[.72,-.25,1.18],[-.12,.15,.82]] as const;
+  for(const [dx,dy,scale] of cattle){const x=p.x+dx*s,y=p.y+dy*s,q=scale*s;ctx!.fillStyle='#f4eee0';ctx!.beginPath();ctx!.ellipse(x,y,.3*q,.19*q,-.12,0,Math.PI*2);ctx!.fill();ctx!.fillStyle='#7b8177';ctx!.beginPath();ctx!.ellipse(x+.1*q,y-.02*q,.12*q,.13*q,.4,0,Math.PI*2);ctx!.fill();ctx!.fillStyle='#f4eee0';ctx!.beginPath();ctx!.arc(x+.27*q,y-.07*q,.095*q,0,Math.PI*2);ctx!.fill();ctx!.fillStyle='#8a7562';ctx!.beginPath();ctx!.arc(x+.34*q,y-.08*q,.055*q,0,Math.PI*2);ctx!.fill();ctx!.strokeStyle='#887a67';ctx!.lineWidth=Math.max(1,.035*q);for(const leg of [-.17,.13]){ctx!.beginPath();ctx!.moveTo(x+leg*q,y+.11*q);ctx!.lineTo(x+(leg-.015)*q,y+.25*q);ctx!.stroke();}}
+  // Parked tractor and a small patch of churned soil.
+  const t=worldToScreen({x:-17.4,y:5.9});ctx!.fillStyle='#b8bd9a';ctx!.beginPath();ctx!.ellipse(t.x,t.y+.16*s,.68*s,.3*s,-.2,0,Math.PI*2);ctx!.fill();
+  ctx!.save();ctx!.translate(t.x,t.y);ctx!.rotate(-.22);ctx!.fillStyle='#c69b54';ctx!.beginPath();ctx!.arc(-.22*s,.14*s,.17*s,0,Math.PI*2);ctx!.arc(.34*s,.14*s,.13*s,0,Math.PI*2);ctx!.fill();ctx!.fillStyle='#d9ad58';roundedRect(ctx!,-.48*s,-.22*s,.96*s,.44*s,.12*s);ctx!.fill();ctx!.fillStyle='#7fa39a';roundedRect(ctx!,-.12*s,-.4*s,.36*s,.28*s,.05*s);ctx!.fill();ctx!.fillStyle='#e9e3d2';roundedRect(ctx!,-.04*s,-.35*s,.18*s,.16*s,.025*s);ctx!.fill();ctx!.restore();
 }
+
 function drawWorldLabel(text:string,point:Point,color='#53675a'){
   const p=worldToScreen(point),font=Math.max(7,Math.min(10,camera.zoom*.31));ctx!.save();ctx!.font='700 '+font+'px Arial,sans-serif';ctx!.textAlign='center';ctx!.textBaseline='middle';
   ctx!.fillStyle='#f4f5ebd9';const w=ctx!.measureText(text).width+12,h=font+7;roundedRect(ctx!,p.x-w/2,p.y-h/2,w,h,h/2);ctx!.fill();ctx!.fillStyle=color;ctx!.fillText(text,p.x,p.y+.4);ctx!.restore();
@@ -559,14 +463,25 @@ function drawMapLabels(){
   drawWorldLabel('САД',{x:16.8,y:-7.9});
 }
 function drawVillageLife(){
+  // Tiny residents walk slowly around their yards with a visible gait and shadow.
   for(const walker of walkers){
-    const travel=(ambientClock*.27+walker.phase)%4,segment=Math.floor(travel),t=travel-segment;
+    const travel=(ambientClock*.19+walker.phase)%4,segment=Math.floor(travel),t=travel-segment;
     const a=walker.path[segment]!,b=walker.path[(segment+1)%walker.path.length]!;
-    const p=worldToScreen({x:lerp(a.x,b.x,t),y:lerp(a.y,b.y,t)}),s=camera.zoom;
-    ctx!.fillStyle='#f3c8a4';ctx!.beginPath();ctx!.arc(p.x,p.y-.08*s,.075*s,0,Math.PI*2);ctx!.fill();
-    ctx!.fillStyle=walker.color;roundedRect(ctx!,p.x-.065*s,p.y-.04*s,.13*s,.19*s,.06*s);ctx!.fill();
+    const world={x:lerp(a.x,b.x,t),y:lerp(a.y,b.y,t)},p=worldToScreen(world),s=camera.zoom;
+    const angle=Math.atan2(b.y-a.y,b.x-a.x),step=Math.sin(ambientClock*7+walker.phase);
+    ctx!.save();ctx!.translate(p.x,p.y);ctx!.rotate(angle);
+    ctx!.fillStyle='#62725f';ctx!.globalAlpha=.18;ctx!.beginPath();ctx!.ellipse(0,.13*s,.13*s,.065*s,0,0,Math.PI*2);ctx!.fill();ctx!.globalAlpha=1;
+    ctx!.strokeStyle='#5b6258';ctx!.lineWidth=Math.max(1,.035*s);ctx!.lineCap='round';ctx!.beginPath();ctx!.moveTo(-.035*s,.02*s);ctx!.lineTo(-.07*s+step*.045*s,.15*s);ctx!.moveTo(.035*s,.02*s);ctx!.lineTo(.07*s-step*.045*s,.15*s);ctx!.stroke();
+    ctx!.fillStyle=walker.color;roundedRect(ctx!,-.075*s,-.08*s,.15*s,.19*s,.055*s);ctx!.fill();
+    ctx!.strokeStyle=walker.color;ctx!.lineWidth=Math.max(1,.045*s);ctx!.beginPath();ctx!.moveTo(-.06*s,-.015*s);ctx!.lineTo(-.12*s+step*.025*s,.075*s);ctx!.moveTo(.06*s,-.015*s);ctx!.lineTo(.12*s-step*.025*s,.075*s);ctx!.stroke();
+    ctx!.fillStyle='#e8b997';ctx!.beginPath();ctx!.arc(0,-.145*s,.072*s,0,Math.PI*2);ctx!.fill();ctx!.fillStyle='#6c665b';ctx!.beginPath();ctx!.arc(0,-.18*s,.074*s,Math.PI,Math.PI*2);ctx!.fill();ctx!.restore();
   }
+  // Soft chimney smoke rises and disperses above the houses.
+  const chimneys=[{x:-6.5,y:-4.23},{x:7.7,y:.76},{x:-10.4,y:4.95},{x:2.8,y:7.55}];
+  for(let i=0;i<chimneys.length;i++){const p=worldToScreen(chimneys[i]!),s=camera.zoom;for(let puff=0;puff<3;puff++){const phase=(ambientClock*.22+i*.37+puff*.34)%1,x=p.x+Math.sin(ambientClock*.5+i+puff)*.08*s+phase*.2*s,y=p.y-(phase*.72+puff*.08)*s;ctx!.fillStyle='#fff';ctx!.globalAlpha=(1-phase)*.16;ctx!.beginPath();ctx!.arc(x,y,(.035+phase*.055)*s,0,Math.PI*2);ctx!.fill();}}
+  ctx!.globalAlpha=1;
 }
+
 function render(){
   ctx!.clearRect(0,0,width,height);
   drawTerrain();drawDecor();drawRoadNetwork();
