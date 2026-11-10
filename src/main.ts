@@ -255,15 +255,23 @@ function drawTurningBulb(destination:TrafficDestination){
   const previous=approach[approach.length-2]!,end=approach[approach.length-1]!;
   const length=distance(previous,end);if(length<.001)return;
   const direction={x:(end.x-previous.x)/length,y:(end.y-previous.y)/length};
-  const center={x:end.x+direction.x*.84,y:end.y+direction.y*.84};
-  const p=worldToScreen(center),angle=Math.atan2(direction.y,direction.x);
-  // The turning head is painted underneath the road network. Its elongated
-  // footprint overlaps the approach, so shoulder and asphalt read as one
-  // continuous paved surface rather than a separate circular patch.
-  ctx!.save();ctx!.translate(p.x,p.y);ctx!.rotate(angle);
-  ctx!.fillStyle='#d9d2b9';ctx!.beginPath();ctx!.ellipse(0,0,2.08*camera.zoom,1.43*camera.zoom,0,0,Math.PI*2);ctx!.fill();
-  ctx!.fillStyle='#59666a';ctx!.beginPath();ctx!.ellipse(0,0,1.9*camera.zoom,1.25*camera.zoom,0,0,Math.PI*2);ctx!.fill();
-  ctx!.restore();
+  const normal={x:-direction.y,y:direction.x},offset=.36,handle=2.25;
+  const p0={x:end.x+normal.x*offset,y:end.y+normal.y*offset};
+  const p3={x:end.x-normal.x*offset,y:end.y-normal.y*offset};
+  const p1={x:p0.x+direction.x*handle,y:p0.y+direction.y*handle};
+  const p2={x:p3.x+direction.x*handle,y:p3.y+direction.y*handle};
+  const loop:Point[]=[end,p0];
+  for(let sample=1;sample<=28;sample++){
+    const t=sample/28,u=1-t;
+    loop.push({
+      x:u*u*u*p0.x+3*u*u*t*p1.x+3*u*t*t*p2.x+t*t*t*p3.x,
+      y:u*u*u*p0.y+3*u*u*t*p1.y+3*u*t*t*p2.y+t*t*t*p3.y
+    });
+  }
+  // Draw the same connected, rounded road ribbon used everywhere else.
+  // No ellipse or separate pad: the teardrop loop physically joins the road
+  // centreline and shares its shoulder/asphalt construction.
+  strokeRoad(loop,1,'#59666a',1,1.9);
 }
 function drawRoadNetwork(){
   const junctions=collectRoadJunctions();
@@ -364,10 +372,42 @@ function drawCar(vehicle:Vehicle){
   ctx!.fillStyle='#e9d4c2';ctx!.fillRect(-.55*s,-.17*s,.07*s,.11*s);ctx!.fillRect(-.55*s,.06*s,.07*s,.11*s);
   ctx!.restore();
 }
+let ambientClock=0;
+const walkers=[
+  {path:[{x:-7.15,y:-5.2},{x:-6.5,y:-5.65},{x:-5.85,y:-5.2},{x:-6.5,y:-4.75}],phase:0,color:'#d77c65'},
+  {path:[{x:7.05,y:3.8},{x:7.7,y:4.15},{x:8.35,y:3.8},{x:7.7,y:3.45}],phase:2.1,color:'#5e8fa0'},
+  {path:[{x:10.25,y:-2.9},{x:11.1,y:-2.65},{x:11.85,y:-2.9},{x:11.1,y:-3.2}],phase:4.2,color:'#d5a84f'}
+];
+function drawVillageLife(){
+  // Gentle chimney smoke and a few residents walking around the village.
+  const chimneys=[{x:-7.55,y:-4.35,phase:0},{x:6.85,y:.45,phase:1.7},{x:-11.1,y:4.55,phase:3.2},{x:2.2,y:6.95,phase:4.5}];
+  for(const chimney of chimneys){
+    const p=worldToScreen({x:chimney.x,y:chimney.y}),s=camera.zoom;
+    ctx!.fillStyle='#8d6654';ctx!.fillRect(p.x-.12*s,p.y-.18*s,.24*s,.38*s);
+    for(let puff=0;puff<3;puff++){
+      const drift=Math.sin(ambientClock*.8+chimney.phase+puff)*.12;
+      const rise=(ambientClock*.34+chimney.phase*.13+puff*.42)%1.25;
+      ctx!.globalAlpha=(1-rise/1.25)*.24;ctx!.fillStyle='#f5f4e9';
+      ctx!.beginPath();ctx!.arc(p.x+drift*s,p.y-(.35+rise)*s,(.11+rise*.07)*s,0,Math.PI*2);ctx!.fill();
+    }
+  }
+  ctx!.globalAlpha=1;
+  for(const walker of walkers){
+    const travel=(ambientClock*.34+walker.phase)%4,segment=Math.floor(travel),t=travel-segment;
+    const a=walker.path[segment]!,b=walker.path[(segment+1)%walker.path.length]!;
+    const x=lerp(a.x,b.x,t),y=lerp(a.y,b.y,t),p=worldToScreen({x,y}),s=camera.zoom;
+    const step=Math.sin(ambientClock*8+walker.phase)*.07*s;
+    ctx!.fillStyle='#63775d';ctx!.globalAlpha=.25;ctx!.beginPath();ctx!.ellipse(p.x,p.y+.09*s,.19*s,.12*s,0,0,Math.PI*2);ctx!.fill();ctx!.globalAlpha=1;
+    ctx!.strokeStyle='#594f48';ctx!.lineWidth=Math.max(1,.055*s);ctx!.lineCap='round';
+    ctx!.beginPath();ctx!.moveTo(p.x-.045*s,p.y+.08*s);ctx!.lineTo(p.x-.07*s+step,p.y+.2*s);ctx!.moveTo(p.x+.045*s,p.y+.08*s);ctx!.lineTo(p.x+.07*s-step,p.y+.2*s);ctx!.stroke();
+    ctx!.fillStyle=walker.color;ctx!.beginPath();ctx!.ellipse(p.x,p.y,.115*s,.15*s,0,0,Math.PI*2);ctx!.fill();
+    ctx!.fillStyle='#f0c6a2';ctx!.beginPath();ctx!.arc(p.x,p.y-.15*s,.095*s,0,Math.PI*2);ctx!.fill();
+  }
+}
 function render(){
   ctx!.clearRect(0,0,width,height);drawTerrain();drawRoadNetwork();drawDecor();
   drawHouse(-6.5,-3.2,1.05);drawHouse(7.7,1.7,.92,'#e8d9ad','#78a9b6');drawHouse(-10.4,5.8,.88,'#e8d4b5','#e9c46a');drawHouse(2.8,8.3,.8,'#e8e0c8','#dc8068');drawHouse(-5,-9,.72,'#e7d9b7','#78a9b6');
-  drawShop(11,-5);drawBarn(-13,-4);
+  drawShop(11,-5);drawBarn(-13,-4);drawVillageLife();
   const trees=[[-14,-10,1.2],[-17,-4,.9],[-16,1,.9],[-12,10,1.2],[-4,12,.9],[4,12,.9],[12,9,.9],[15,4,1.2],[14,-9,.9],[6,-5,.9],[-9,-1,.9],[17,0,1.2]] as const;
   for(const [x,y,s] of trees)drawTree(x,y,s);
   for(const vehicle of vehicles)drawCar(vehicle);
@@ -757,7 +797,7 @@ function junctionYieldSpeeds(){
   return limits;
 }
 function animate(time:number){
-  const delta=Math.min((time-previousTime)/1000||0,.05);previousTime=time;
+  const delta=Math.min((time-previousTime)/1000||0,.05);previousTime=time;ambientClock+=delta;
   let networkChanged=false;
   for(let i=constructionJobs.length-1;i>=0;i--){
     const job=constructionJobs[i]!;
