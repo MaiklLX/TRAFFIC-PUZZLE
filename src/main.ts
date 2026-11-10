@@ -441,34 +441,6 @@ const trafficDestinations:TrafficDestination[]=[
   {id:'centre',name:'Центральный квартал',access:{x:11,y:5},color:'#d98c78',weight:3},
   {id:'market',name:'Магазин у трассы',access:{x:10,y:-10.4},color:'#9aa9d0',weight:2}
 ];
-function findRoadPath(start:Point,end:Point):Point[]|null{
-  const source=nearestGraphNode(start),target=nearestGraphNode(end);
-  if(!source||!target)return null;
-  const costs=new Map<number,number>([[source.id,0]]);
-  const previous=new Map<number,number|null>([[source.id,null]]);
-  const remaining=new Set(roadGraph.nodes.map(node=>node.id));
-  while(remaining.size){
-    let current:number|null=null,best=Infinity;
-    for(const id of remaining){const cost=costs.get(id)??Infinity;if(cost<best){best=cost;current=id;}}
-    if(current===null||!Number.isFinite(best))break;
-    remaining.delete(current);
-    if(current===target.id)break;
-    const node=roadGraph.nodes[current]!;
-    for(const edgeId of node.edgeIds){
-      const edge=roadGraph.edges.find(item=>item.id===edgeId);if(!edge)continue;
-      const next=edge.from===current?edge.to:edge.from;
-      if(!remaining.has(next))continue;
-      const nextNode=roadGraph.nodes[next]!;
-      const candidate=best+distance(node,nextNode);
-      if(candidate<(costs.get(next)??Infinity)){costs.set(next,candidate);previous.set(next,current);}
-    }
-  }
-  if(!previous.has(target.id))return null;
-  const ids:number[]=[];let cursor:number|null=target.id;
-  while(cursor!==null){ids.push(cursor);cursor=previous.get(cursor)??null;}
-  ids.reverse();
-  return ids.map(id=>({x:roadGraph.nodes[id]!.x,y:roadGraph.nodes[id]!.y}));
-}
 function buildTrafficRoute(destinationId:string):Point[]|null{
   const destination=trafficDestinations.find(item=>item.id===destinationId);
   if(!destination)return null;
