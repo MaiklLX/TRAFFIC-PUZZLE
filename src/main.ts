@@ -34,7 +34,8 @@ const staticRoads: { a: Point; b: Point; width: number; direction?: 'both'|'forw
   { a: {x:-1,y:-13}, b:{x:-1,y:11}, width:1.5 },
   { a: {x:-1,y:5}, b:{x:11,y:5}, width:1.3 },
   { a: {x:-12,y:3}, b:{x:-1,y:3}, width:1.3 },
-  { a: {x:10,y:-15.6}, b:{x:10,y:-10.4}, width:1.5 }
+  { a: {x:10,y:-15.6}, b:{x:10,y:-10.4}, width:1.5 },
+  { a: {x:-8,y:-16.1}, b:{x:-8,y:-13}, width:1.12 }
 ];
 const obstacles = [
   {x:-6.5,y:-3.2,r:2.15,type:'house'},{x:7.7,y:1.7,r:1.95,type:'house'},{x:-10.4,y:5.8,r:1.85,type:'house'},{x:2.8,y:8.3,r:1.75,type:'house'},{x:-5,y:-9,r:1.55,type:'house'},
@@ -536,7 +537,7 @@ function findRoadPath(start:Point,end:Point):Point[]|null{
 }
 const demoStart={x:-18,y:-13},demoExit={x:18,y:-13};
 type TrafficDestination={id:string;name:string;access:Point;color:string;weight:number};
-const fuelStations=[{id:'highway',name:'Заправка на трассе',access:{x:-8,y:-13}}];
+const fuelStations=[{id:'highway',name:'Заправка на трассе',access:{x:-8,y:-16.1}}];
 const trafficDestinations:TrafficDestination[]=[
   {id:'west',name:'Западный квартал',access:{x:-12,y:3},color:'#e9c46a',weight:2},
   {id:'north',name:'Северный квартал',access:{x:-1,y:11},color:'#78a9b6',weight:1},
