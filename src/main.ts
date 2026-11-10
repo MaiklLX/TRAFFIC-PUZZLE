@@ -256,21 +256,27 @@ function drawTurningBulb(destination:TrafficDestination){
   const length=distance(previous,end);if(length<.001)return;
   const direction={x:(end.x-previous.x)/length,y:(end.y-previous.y)/length};
   const normal={x:-direction.y,y:direction.x},offset=.36,handle=2.25;
-  const p0={x:end.x+normal.x*offset,y:end.y+normal.y*offset};
-  const p3={x:end.x-normal.x*offset,y:end.y-normal.y*offset};
+  // The turnaround is a continuous U-shaped extension of the street, not
+  // a circle/ellipse laid on top of it. Both ends enter the existing carriageway
+  // on their respective lanes, with tangents aligned to the road direction.
+  const entry={x:end.x-direction.x*1.3+normal.x*offset,y:end.y-direction.y*1.3+normal.y*offset};
+  const exit={x:end.x-direction.x*1.3-normal.x*offset,y:end.y-direction.y*1.3-normal.y*offset};
+  const p0={x:end.x+direction.x*.25+normal.x*offset,y:end.y+direction.y*.25+normal.y*offset};
+  const p3={x:end.x+direction.x*.25-normal.x*offset,y:end.y+direction.y*.25-normal.y*offset};
   const p1={x:p0.x+direction.x*handle,y:p0.y+direction.y*handle};
   const p2={x:p3.x+direction.x*handle,y:p3.y+direction.y*handle};
-  const loop:Point[]=[end,p0];
-  for(let sample=1;sample<=28;sample++){
-    const t=sample/28,u=1-t;
+  const loop:Point[]=[entry,p0];
+  for(let sample=1;sample<=32;sample++){
+    const t=sample/32,u=1-t;
     loop.push({
       x:u*u*u*p0.x+3*u*u*t*p1.x+3*u*t*t*p2.x+t*t*t*p3.x,
       y:u*u*u*p0.y+3*u*u*t*p1.y+3*u*t*t*p2.y+t*t*t*p3.y
     });
   }
-  // Draw the same connected, rounded road ribbon used everywhere else.
-  // No ellipse or separate pad: the teardrop loop physically joins the road
-  // centreline and shares its shoulder/asphalt construction.
+  loop.push(exit);
+  // One stroked ribbon: straight lane entries flow into a broad rounded head
+  // and return to the opposite lane. The main street is drawn over the neck,
+  // hiding the caps and leaving a single, seamless asphalt surface.
   strokeRoad(loop,1,'#59666a',1,1.9);
 }
 function drawRoadNetwork(){
