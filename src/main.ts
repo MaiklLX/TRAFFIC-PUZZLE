@@ -284,11 +284,174 @@ document.querySelector<HTMLButtonElement>('#rotate-camera')?.addEventListener('c
   offset.applyAxisAngle(new THREE.Vector3(0,1,0), Math.PI/4);
   camera.position.copy(controls.target).add(offset);
 });
-document.querySelectorAll<HTMLButtonElement>('.tool').forEach(button => {
+let selectedTool = 'inspect';
+const toolButtons = [...document.querySelectorAll<HTMLButtonElement>('.tool')];
+toolButtons.forEach(button => {
   button.addEventListener('click', () => {
+    selectedTool = button.dataset.tool ?? 'inspect';
     document.querySelector('.tool.active')?.classList.remove('active');
     button.classList.add('active');
+    controls.enabled = selectedTool !== 'road';
+    const hud = document.querySelector<HTMLElement>('#build-hud');
+    if (hud) hud.hidden = selectedTool !== 'road';
+    const hint = document.querySelector<HTMLElement>('#build-message');
+    if (hint) hint.textContent = selectedTool === 'road'
+      ? 'Коснись поля и протяни дорогу. Отпусти, чтобы построить.'
+      : 'Выбери инструмент «Дороги», чтобы начать строительство.';
   });
+});
+
+// KT-003: drag-to-build road editor on a 1.5-unit isometric grid.
+const roadGrid = 1.5;
+const roadRaycaster = new THREE.Raycaster();
+const pointerNdc = new THREE.Vector2();
+const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+const previewGroup = new THREE.Group();
+scene.add(previewGroup);
+const builtRoads: THREE.Group[] = [];
+let drawing = false;
+let draft: THREE.Vector2[] = [];
+let budget = 2400;
+const budgetValue = document.querySelector<HTMLElement>('#budget-value');
+const roadCount = document.querySelector<HTMLElement>('#road-count');
+const missionCount = document.querySelector<HTMLElement>('.mission-count');
+const missionProgress = document.querySelector<HTMLElement>('.progress span');
+const buildMessage = document.querySelector<HTMLElement>('#build-message');
+
+function pointerToGrid(event: PointerEvent): THREE.Vector2 | null {
+  const rect = renderer.domElement.getBoundingClientRect();
+  pointerNdc.set(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
+  roadRaycaster.setFromCamera(pointerNdc, camera);
+  const hit = new THREE.Vector3();
+  if (!roadRaycaster.ray.intersectPlane(groundPlane, hit)) return null;
+  const x = THREE.MathUtils.clamp(Math.round(hit.x / roadGrid) * roadGrid, -18, 18);
+  const z = THREE.MathUtils.clamp(Math.round(hit.z / roadGrid) * roadGrid, -18, 15);
+  return new THREE.Vector2(x, z);
+}
+
+function appendGridPath(target: THREE.Vector2[], destination: THREE.Vector2) {
+  let current = target[target.length - 1];
+  if (!current || current.distanceTo(destination) < 0.1) return;
+  let x = current.x, z = current.y;
+  // Fill skipped cells when the pointer moves quickly; prefer the dominant axis.
+  while (Math.abs(destination.x - x) > 0.1 || Math.abs(destination.y - z) > 0.1) {
+    const dx = destination.x - x, dz = destination.y - z;
+    if (Math.abs(dx) >= Math.abs(dz) && Math.abs(dx) > 0.1) x += Math.sign(dx) * roadGrid;
+    else if (Math.abs(dz) > 0.1) z += Math.sign(dz) * roadGrid;
+    const next = new THREE.Vector2(x, z);
+    if (target[target.length - 1]?.distanceTo(next) > 0.1) target.push(next);
+  }
+}
+
+function clearPreview() {
+  while (previewGroup.children.length) {
+    const child = previewGroup.children.pop()!;
+    child.traverse(object => {
+      if (object instanceof THREE.Mesh) {
+        object.geometry.dispose();
+        const material = object.material;
+        if (Array.isArray(material)) material.forEach(item => item.dispose());
+        else material.dispose();
+      }
+    });
+  }
+}
+
+function drawRoadSegments(points: THREE.Vector2[], parent: THREE.Group, preview = false) {
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1]!, b = points[i]!;
+    const dx = b.x - a.x, dz = b.y - a.y;
+    const length = Math.hypot(dx, dz) + 0.08;
+    const material = preview
+      ? new THREE.MeshStandardMaterial({ color: '#f5d47a', transparent: true, opacity: 0.78, roughness: 0.85 })
+      : roadMat;
+    const segment = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.14, length), material);
+    segment.position.set((a.x + b.x) / 2, 0.055, (a.y + b.y) / 2);
+    segment.rotation.y = Math.atan2(dx, dz);
+    segment.receiveShadow = true;
+    segment.castShadow = !preview;
+    parent.add(segment);
+    if (!preview) {
+      const edgeMaterial = roadEdge;
+      for (const side of [-1, 1]) {
+        const edge = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.035, length), edgeMaterial);
+        edge.position.set(side * 0.91, 0.09, 0);
+        segment.add(edge);
+      }
+    }
+  }
+}
+
+function refreshPreview() {
+  clearPreview();
+  drawRoadSegments(draft, previewGroup, true);
+}
+
+function startRoad(event: PointerEvent) {
+  if (selectedTool !== 'road' || event.button !== 0) return;
+  const point = pointerToGrid(event);
+  if (!point) return;
+  drawing = true;
+  draft = [point];
+  renderer.domElement.setPointerCapture(event.pointerId);
+  refreshPreview();
+  event.preventDefault();
+}
+function moveRoad(event: PointerEvent) {
+  if (!drawing) return;
+  const point = pointerToGrid(event);
+  if (!point) return;
+  appendGridPath(draft, point);
+  refreshPreview();
+}
+function finishRoad(event: PointerEvent) {
+  if (!drawing) return;
+  drawing = false;
+  if (renderer.domElement.hasPointerCapture(event.pointerId)) renderer.domElement.releasePointerCapture(event.pointerId);
+  if (draft.length < 2) {
+    clearPreview();
+    draft = [];
+    if (buildMessage) buildMessage.textContent = 'Протяни дорогу хотя бы на одну клетку.';
+    return;
+  }
+  const cost = (draft.length - 1) * 25;
+  if (budget < cost) {
+    clearPreview();
+    draft = [];
+    if (buildMessage) buildMessage.textContent = 'Недостаточно монет для этой дороги.';
+    return;
+  }
+  const path = new THREE.Group();
+  drawRoadSegments(draft, path);
+  scene.add(path);
+  builtRoads.push(path);
+  budget -= cost;
+  if (budgetValue) budgetValue.textContent = budget.toLocaleString('ru-RU');
+  if (roadCount) roadCount.textContent = String(builtRoads.length);
+  if (missionCount) missionCount.textContent = '1 / 1';
+  if (missionProgress) missionProgress.style.width = '100%';
+  if (buildMessage) buildMessage.textContent = `Дорога построена! Сегментов: ${draft.length - 1}. Стоимость: ${cost} монет.`;
+  clearPreview();
+  draft = [];
+}
+renderer.domElement.addEventListener('pointerdown', startRoad);
+renderer.domElement.addEventListener('pointermove', moveRoad);
+renderer.domElement.addEventListener('pointerup', finishRoad);
+renderer.domElement.addEventListener('pointercancel', finishRoad);
+
+document.querySelector<HTMLButtonElement>('#cancel-road')?.addEventListener('click', () => {
+  drawing = false; draft = []; clearPreview();
+  if (buildMessage) buildMessage.textContent = 'Черновик дороги отменён.';
+});
+document.querySelector<HTMLButtonElement>('#undo-road')?.addEventListener('click', () => {
+  const last = builtRoads.pop();
+  if (!last) return;
+  scene.remove(last);
+  last.traverse(object => {
+    if (object instanceof THREE.Mesh) object.geometry.dispose();
+  });
+  if (roadCount) roadCount.textContent = String(builtRoads.length);
+  if (buildMessage) buildMessage.textContent = 'Последняя построенная дорога удалена.';
 });
 
 window.addEventListener('keydown', (event) => {
