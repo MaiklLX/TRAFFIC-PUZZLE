@@ -33,31 +33,31 @@ let pinchStart: { distance: number; zoom: number; center: Point } | null = null;
 const staticRoads: { a: Point; b: Point; points?: Point[]; width: number; direction?: 'both'|'forward' }[] = [
   // A single village spine branches from the federal highway and serves every building.
   {a:{x:-18,y:-13},b:{x:18,y:-13},width:1.55},
-  {a:{x:-1,y:-13},b:{x:.55,y:7.2},points:[
-    {x:-1,y:-13},{x:-.55,y:-11.2},{x:-.2,y:-9.2},{x:-.7,y:-7.1},
-    {x:-.35,y:-5.2},{x:.45,y:-3.1},{x:.9,y:-1},{x:.45,y:1.2},
-    {x:-.1,y:3.2},{x:.1,y:5.2},{x:.55,y:7.2}
+  {a:{x:-1,y:-13},b:{x:-.1,y:7.2},points:[
+    {x:-1,y:-13},{x:-.8,y:-11},{x:-.7,y:-9},{x:-.7,y:-7.1},
+    {x:-.7,y:-5.2},{x:-.7,y:-3.2},{x:-.4,y:-1.2},{x:-.1,y:1},
+    {x:-.1,y:3.2},{x:-.1,y:5.2},{x:-.1,y:7.2}
   ],width:1.48},
   // West branch: farm and two residential plots.
   {a:{x:-.1,y:3.2},b:{x:-10.4,y:7.45},points:[
-    {x:-.1,y:3.2},{x:-2.1,y:3.65},{x:-4.3,y:4.15},{x:-6.2,y:4.9},
-    {x:-8.2,y:6.2},{x:-10.4,y:7.45}
+    {x:-.1,y:3.2},{x:-2.2,y:3.7},{x:-4.3,y:4.2},{x:-6.4,y:4.7},
+    {x:-8.4,y:5.5},{x:-10.4,y:7.45}
   ],width:1.18},
-  {a:{x:-4.3,y:4.15},b:{x:-10.55,y:-4},points:[
-    {x:-4.3,y:4.15},{x:-6.1,y:2.7},{x:-7.7,y:.7},{x:-9.1,y:-1.5},{x:-10.55,y:-4}
+  {a:{x:-4.3,y:4.2},b:{x:-10.55,y:-4},points:[
+    {x:-4.3,y:4.2},{x:-6.1,y:2.6},{x:-7.7,y:.5},{x:-9.1,y:-1.7},{x:-10.55,y:-4}
   ],width:1.12},
-  {a:{x:-.35,y:-5.2},b:{x:-6.5,y:-1.65},points:[
-    {x:-.35,y:-5.2},{x:-2.1,y:-4.35},{x:-3.8,y:-3.15},{x:-5.1,y:-2.15},{x:-6.5,y:-1.65}
+  {a:{x:-.7,y:-5.2},b:{x:-6.5,y:-1.65},points:[
+    {x:-.7,y:-5.2},{x:-2.1,y:-4.35},{x:-3.8,y:-3.15},{x:-5.1,y:-2.15},{x:-6.5,y:-1.65}
   ],width:1.02},
   {a:{x:-.7,y:-7.1},b:{x:-5,y:-7.35},points:[
     {x:-.7,y:-7.1},{x:-2.1,y:-6.65},{x:-3.5,y:-6.85},{x:-5,y:-7.35}
   ],width:.98},
   // East branch: village home and market access.
-  {a:{x:.1,y:5.2},b:{x:7.7,y:3.15},points:[
-    {x:.1,y:5.2},{x:2.1,y:5.35},{x:4.1,y:4.95},{x:5.8,y:4.1},{x:7.7,y:3.15}
+  {a:{x:-.1,y:5.2},b:{x:7.7,y:3.15},points:[
+    {x:-.1,y:5.2},{x:2.1,y:5.35},{x:4.1,y:4.95},{x:5.8,y:4.1},{x:7.7,y:3.15}
   ],width:1.12},
-  {a:{x:.55,y:7.2},b:{x:2.8,y:9.65},points:[
-    {x:.55,y:7.2},{x:1.15,y:8.1},{x:1.95,y:8.95},{x:2.8,y:9.65}
+  {a:{x:-.1,y:7.2},b:{x:2.8,y:9.65},points:[
+    {x:-.1,y:7.2},{x:1.15,y:8.1},{x:1.95,y:8.95},{x:2.8,y:9.65}
   ],width:.98},
   {a:{x:18,y:-13},b:{x:11,y:-7.25},points:[
     {x:18,y:-13},{x:15.8,y:-12.4},{x:13.8,y:-11.1},{x:12.2,y:-9.25},{x:11,y:-7.25}
@@ -239,8 +239,8 @@ function collectRoadJunctions():{center:Point;arms:JunctionArm[]}[]{
   // Keep each road as a separate source: neighbouring samples of one curved
   // road must never be interpreted as a junction with itself.
   const sources:{id:string;points:Point[];width:number}[]=[
-    ...staticRoads.map((road,index)=>({id:'static-'+index,points:staticRoadPath(road),width:road.width})),
-    ...builtRoads.filter(road=>road.progress>=.999).map((road,index)=>({id:'built-'+index,points:road.points,width:road.width}))
+    ...staticRoads.map((road,index)=>({id:'static-'+index,points:smoothPoints(staticRoadPath(road)),width:road.width})),
+    ...builtRoads.filter(road=>road.progress>=.999).map((road,index)=>({id:'built-'+index,points:smoothPoints(road.points),width:road.width}))
   ];
   const segments:RoadSegment[]=sources.flatMap(source=>source.points.slice(1).map((point,index)=>({
     a:source.points[index]!,b:point,width:source.width,source:source.id
@@ -508,8 +508,8 @@ const networkStatus=document.querySelector<HTMLElement>('#network-status');
 function rebuildRoadGraph(){
   roadGraph.nodes.length=0;roadGraph.edges.length=0;
   const sources:{id:string;points:Point[];width:number;kind:'highway'|'local';direction:'both'|'forward'}[]=[
-    ...staticRoads.map((r,i)=>({id:'base-'+i,points:staticRoadPath(r),width:r.width,kind:r.width>1.45?'highway' as const:'local' as const,direction:r.direction??'both'})),
-    ...builtRoads.filter(r=>r.progress>=.999).map((r,i)=>({id:'built-'+i,points:r.points,width:r.width,kind:r.width>1.45?'highway' as const:'local' as const,direction:r.direction}))
+    ...staticRoads.map((r,i)=>({id:'base-'+i,points:smoothPoints(staticRoadPath(r)),width:r.width,kind:r.width>1.45?'highway' as const:'local' as const,direction:r.direction??'both'})),
+    ...builtRoads.filter(r=>r.progress>=.999).map((r,i)=>({id:'built-'+i,points:smoothPoints(r.points),width:r.width,kind:r.width>1.45?'highway' as const:'local' as const,direction:r.direction}))
   ];
   const getNode=(p:Point)=>{
     let node=roadGraph.nodes.find(n=>Math.hypot(n.x-p.x,n.y-p.y)<.08);
