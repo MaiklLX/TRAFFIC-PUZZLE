@@ -30,14 +30,52 @@ let pointerId: number | null = null;
 const activePointers = new Map<number, Point>();
 let pinchStart: { distance: number; zoom: number; center: Point } | null = null;
 
-const staticRoads: { a: Point; b: Point; width: number; direction?: 'both'|'forward' }[] = [
-  { a: {x:-18,y:-13}, b:{x:18,y:-13}, width:1.55 },
-  { a: {x:-1,y:-13}, b:{x:-1,y:11}, width:1.5 },
-  { a: {x:-1,y:5}, b:{x:11,y:5}, width:1.3 },
-  { a: {x:-12,y:3}, b:{x:-1,y:3}, width:1.3 },
-  { a: {x:10,y:-15.6}, b:{x:10,y:-10.4}, width:1.5 },
-  { a: {x:-8,y:-16.1}, b:{x:-8,y:-13}, width:1.12 }
+const staticRoads: { a: Point; b: Point; points?: Point[]; width: number; direction?: 'both'|'forward' }[] = [
+  // The federal highway remains broad and straight; village streets branch from it organically.
+  { a:{x:-18,y:-13}, b:{x:18,y:-13}, width:1.55 },
+  { a:{x:-1,y:-13}, b:{x:0,y:11}, points:[
+    {x:-1,y:-13},{x:-.25,y:-10.5},{x:-.55,y:-7.8},{x:-.2,y:-5},
+    {x:.35,y:-2.2},{x:.2,y:.5},{x:-.18,y:3.1},{x:-.05,y:5.3},
+    {x:.35,y:8.2},{x:0,y:11}
+  ], width:1.5 },
+  { a:{x:-.05,y:5.3}, b:{x:11,y:5}, points:[
+    {x:-.05,y:5.3},{x:2.2,y:4.75},{x:4.8,y:5.2},{x:7.2,y:4.85},{x:9.3,y:5.35},{x:11,y:5}
+  ], width:1.3 },
+  { a:{x:-12,y:3}, b:{x:-1,y:3.1}, points:[
+    {x:-12,y:3},{x:-9.3,y:3.45},{x:-6.7,y:2.75},{x:-4.1,y:3.35},{x:-1,y:3.1}
+  ], width:1.3 },
+  // Access spur from the highway to the market district.
+  { a:{x:10,y:-15.6}, b:{x:10.2,y:-10.1}, points:[
+    {x:10,y:-15.6},{x:10.45,y:-13.8},{x:9.9,y:-12.1},{x:10.2,y:-10.1}
+  ], width:1.5 },
+  // The service-station driveway stops at its forecourt instead of crossing the building.
+  { a:{x:-8,y:-13}, b:{x:-8.1,y:-14.55}, points:[
+    {x:-8,y:-13},{x:-8.65,y:-13.65},{x:-8.2,y:-14.55}
+  ], width:1.12 },
+  // Short, curved access roads make the settlement's buildings part of the road network.
+  { a:{x:-1,y:-4.8}, b:{x:-6.5,y:-5.65}, points:[
+    {x:-1,y:-4.8},{x:-2.6,y:-4.65},{x:-4.2,y:-5.25},{x:-5.5,y:-5.75},{x:-6.5,y:-5.65}
+  ], width:1.02 },
+  { a:{x:6.2,y:5.05}, b:{x:7.7,y:3.45}, points:[
+    {x:6.2,y:5.05},{x:6.75,y:4.35},{x:7.7,y:3.45}
+  ], width:1.02 },
+  { a:{x:-7.9,y:3.15}, b:{x:-7.8,y:5.75}, points:[
+    {x:-7.9,y:3.15},{x:-7.35,y:4.1},{x:-7.55,y:5.05},{x:-7.8,y:5.75}
+  ], width:.98 },
+  { a:{x:-.05,y:8.2}, b:{x:2.8,y:9.55}, points:[
+    {x:-.05,y:8.2},{x:.9,y:8.75},{x:1.8,y:9.45},{x:2.8,y:9.55}
+  ], width:.98 },
+  { a:{x:-1,y:-8.7}, b:{x:-5,y:-10.55}, points:[
+    {x:-1,y:-8.7},{x:-2.1,y:-9.1},{x:-3.4,y:-10.1},{x:-5,y:-10.55}
+  ], width:.98 },
+  { a:{x:10.2,y:-10.1}, b:{x:11,y:-7.05}, points:[
+    {x:10.2,y:-10.1},{x:10.8,y:-9.2},{x:11.35,y:-8.1},{x:11,y:-7.05}
+  ], width:1.02 },
+  { a:{x:-10.2,y:2.95}, b:{x:-13,y:-1.25}, points:[
+    {x:-10.2,y:2.95},{x:-11.5,y:1.9},{x:-12.7,y:.25},{x:-13,y:-1.25}
+  ], width:1.02 }
 ];
+function staticRoadPath(road:{a:Point;b:Point;points?:Point[]}):Point[]{return road.points??[road.a,road.b];}
 const obstacles = [
   {x:-6.5,y:-3.2,r:2.15,type:'house'},{x:7.7,y:1.7,r:1.95,type:'house'},{x:-10.4,y:5.8,r:1.85,type:'house'},{x:2.8,y:8.3,r:1.75,type:'house'},{x:-5,y:-9,r:1.55,type:'house'},
   {x:11,y:-5,r:2.25,type:'shop'},{x:-13,y:-4,r:2.35,type:'barn'},
@@ -179,7 +217,7 @@ function collectRoadJunctions():{center:Point;arms:JunctionArm[]}[]{
   // Keep each road as a separate source: neighbouring samples of one curved
   // road must never be interpreted as a junction with itself.
   const sources:{id:string;points:Point[];width:number}[]=[
-    ...staticRoads.map((road,index)=>({id:'static-'+index,points:[road.a,road.b],width:road.width})),
+    ...staticRoads.map((road,index)=>({id:'static-'+index,points:staticRoadPath(road),width:road.width})),
     ...builtRoads.filter(road=>road.progress>=.999).map((road,index)=>({id:'built-'+index,points:road.points,width:road.width}))
   ];
   const segments:RoadSegment[]=sources.flatMap(source=>source.points.slice(1).map((point,index)=>({
@@ -236,12 +274,12 @@ function drawRoadNetwork(){
   const junctions=collectRoadJunctions();
   for(const destination of trafficDestinations)drawTurningBulb(destination);
   const surfaces=[
-    ...staticRoads.map(road=>({points:[road.a,road.b],progress:1,width:road.width})),
+    ...staticRoads.map(road=>({points:staticRoadPath(road),progress:1,width:road.width})),
     ...builtRoads.map(road=>({points:road.points,progress:road.progress,width:road.width}))
   ].sort((a,b)=>b.width-a.width);
   for(const surface of surfaces)strokeRoad(surface.points,surface.progress,'#69777d',1,surface.width);
   // Only the federal highway gets a centre dash; village streets stay visually quiet.
-  if(staticRoads[0])drawRoadCentreLinePath([staticRoads[0].a,staticRoads[0].b],true,junctions);
+  if(staticRoads[0])drawRoadCentreLinePath(staticRoadPath(staticRoads[0]),true,junctions);
 }
 function drawTerrain(){
   ctx!.fillStyle='#e9eddf';ctx!.fillRect(0,0,width,height);
@@ -448,7 +486,7 @@ const networkStatus=document.querySelector<HTMLElement>('#network-status');
 function rebuildRoadGraph(){
   roadGraph.nodes.length=0;roadGraph.edges.length=0;
   const sources:{id:string;points:Point[];width:number;kind:'highway'|'local';direction:'both'|'forward'}[]=[
-    ...staticRoads.map((r,i)=>({id:'base-'+i,points:[r.a,r.b],width:r.width,kind:r.width>1.45?'highway' as const:'local' as const,direction:r.direction??'both'})),
+    ...staticRoads.map((r,i)=>({id:'base-'+i,points:staticRoadPath(r),width:r.width,kind:r.width>1.45?'highway' as const:'local' as const,direction:r.direction??'both'})),
     ...builtRoads.filter(r=>r.progress>=.999).map((r,i)=>({id:'built-'+i,points:r.points,width:r.width,kind:r.width>1.45?'highway' as const:'local' as const,direction:r.direction}))
   ];
   const getNode=(p:Point)=>{
@@ -725,7 +763,7 @@ function validateRoadPath(points:Point[]):RoadValidation{
   // parallel travel along an existing road remains forbidden.
   const junctionContacts:{point:Point;radius:number}[]=[];
   const existingSegments:{a:Point;b:Point;width:number}[]=[
-    ...staticRoads.map(road=>({a:road.a,b:road.b,width:road.width})),
+    ...staticRoads.flatMap(road=>staticRoadPath(road).slice(1).map((point,index)=>({a:staticRoadPath(road)[index]!,b:point,width:road.width}))),
     ...builtRoads.flatMap(road=>road.points.slice(1).map((point,index)=>({a:road.points[index]!,b:point,width:road.width})))
   ];
   for(let i=1;i<points.length;i++){
@@ -744,7 +782,7 @@ function validateRoadPath(points:Point[]):RoadValidation{
       if(obstacles.some(o=>Math.hypot(p.x-o.x,p.y-o.y)<o.r+roadHalfWidth))return{valid:false,reason:'На пути препятствие: здание, дерево или водоём. Обойди его.'};
       const along=travelled+len*t;
       const atStart=along<endpointOverlapAllowance,atEnd=total-along<endpointOverlapAllowance;
-      const overlapStatic=staticRoads.some(road=>distanceToSegment(p,road.a,road.b)<roadOverlapDistance);
+      const overlapStatic=staticRoads.some(road=>staticRoadPath(road).some((point,index,path)=>index>0&&distanceToSegment(p,path[index-1]!,point)<roadOverlapDistance));
       const overlapBuilt=builtRoads.some(road=>road.points.some((q,index)=>index>0&&distanceToSegment(p,road.points[index-1]!,q)<roadOverlapDistance));
       const atJunction=junctionContacts.some(contact=>distance(p,contact.point)<=contact.radius);
       if((overlapStatic||overlapBuilt)&&!(atStart||atEnd||atJunction))return{valid:false,reason:'Линия слишком долго идёт поверх существующей дороги. Сделай отдельное ответвление.'};
