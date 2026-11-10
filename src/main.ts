@@ -1,7 +1,7 @@
 import './style.css';
 
 type Point = { x: number; y: number };
-type Road = { points: Point[]; progress: number; connectsVillageToHighway: boolean };
+type Road = { points: Point[]; progress: number; connectsVillageToHighway: boolean; width: number };\ntype RoadGraphNode = { id: number; x: number; y: number; edgeIds: string[] };\ntype RoadGraphEdge = { id: string; from: number; to: number; width: number; kind: 'highway' | 'local'; source: string };\ntype RoadGraph = { nodes: RoadGraphNode[]; edges: RoadGraphEdge[] };
 type Vehicle = { distance: number; speed: number; direction: number; color: string };
 
 const mount = document.querySelector<HTMLDivElement>('#world');
@@ -231,13 +231,69 @@ function render(){
   for(const vehicle of vehicles)drawCar(vehicle);
   if(draft.length>1){const valid=isValidRoadPath(draft);strokeRoad(draft,1,valid?'#e9c46a':'#d96c62',.88);const first=worldToScreen(draft[0]!);ctx!.fillStyle=valid?'#fff1bd':'#f4b5ad';ctx!.beginPath();ctx!.arc(first.x,first.y,.22*camera.zoom,0,Math.PI*2);ctx!.fill();}
 }
+function segmentIntersection(a:Point,b:Point,c:Point,d:Point):Point|null{
+  const rx=b.x-a.x,ry=b.y-a.y,sx=d.x-c.x,sy=d.y-c.y;
+  const denominator=rx*sy-ry*sx;
+  if(Math.abs(denominator)<1e-8)return null;
+  const qx=c.x-a.x,qy=c.y-a.y;
+  const t=(qx*sy-qy*sx)/denominator,u=(qx*ry-qy*rx)/denominator;
+  if(t<-.0001||t>1.0001||u<-.0001||u>1.0001)return null;
+  return{x:a.x+clamp(t,0,1)*rx,y:a.y+clamp(t,0,1)*ry};
+}
+const roadGraph:RoadGraph={nodes:[],edges:[]};
+const networkStatus=document.querySelector<HTMLElement>('#network-status');
+function rebuildRoadGraph(){
+  roadGraph.nodes.length=0;roadGraph.edges.length=0;
+  const sources:{id:string;points:Point[];width:number;kind:'highway'|'local'}[]=[
+    ...staticRoads.map((r,i)=>({id:'base-'+i,points:[r.a,r.b],width:r.width,kind:r.width>1.45?'highway' as const:'local' as const})),
+    ...builtRoads.map((r,i)=>({id:'built-'+i,points:r.points,width:r.width,kind:r.width>1.45?'highway' as const:'local' as const}))
+  ];
+  const getNode=(p:Point)=>{
+    let node=roadGraph.nodes.find(n=>Math.hypot(n.x-p.x,n.y-p.y)<.08);
+    if(!node){node={id:roadGraph.nodes.length,x:p.x,y:p.y,edgeIds:[]};roadGraph.nodes.push(node);}
+    return node;
+  };
+  for(const source of sources){
+    for(let i=1;i<source.points.length;i++){
+      const a=source.points[i-1]!,b=source.points[i]!;
+      const splits:{t:number;p:Point}[]=[{t:0,p:a},{t:1,p:b}];
+      for(const other of sources){
+        for(let j=1;j<other.points.length;j++){
+          const hit=segmentIntersection(a,b,other.points[j-1]!,other.points[j]!);
+          if(hit){
+            const dx=b.x-a.x,dy=b.y-a.y;
+            const t=Math.abs(dx)>=Math.abs(dy)?(hit.x-a.x)/(dx||1):(hit.y-a.y)/(dy||1);
+            if(t>.0001&&t<.9999)splits.push({t,p:hit});
+          }
+        }
+      }
+      splits.sort((x,y)=>x.t-y.t);
+      const unique=splits.filter((s,k)=>k===0||Math.abs(s.t-splits[k-1]!.t)>.0001);
+      for(let k=1;k<unique.length;k++){
+        const from=getNode(unique[k-1]!.p),to=getNode(unique[k]!.p);
+        if(from.id===to.id)continue;
+        const id=source.id+'-'+i+'-'+k;
+        const edge:RoadGraphEdge={id,from:from.id,to:to.id,width:source.width,kind:source.kind,source:source.id};
+        roadGraph.edges.push(edge);from.edgeIds.push(id);to.edgeIds.push(id);
+      }
+    }
+  }
+  if(networkStatus)networkStatus.textContent='Сеть: '+roadGraph.nodes.length+' узлов · '+roadGraph.edges.length+' участков';
+}
+function nearestNetworkDistance(p:Point){
+  let nearest=Infinity;
+  for(const edge of roadGraph.edges){
+    const a=roadGraph.nodes[edge.from]!,b=roadGraph.nodes[edge.to]!;
+    nearest=Math.min(nearest,distanceToSegment(p,a,b));
+  }
+  return nearest;
+}
 function distanceToSegment(p:Point,a:Point,b:Point){
   const dx=b.x-a.x,dy=b.y-a.y,t=clamp(((p.x-a.x)*dx+(p.y-a.y)*dy)/Math.max(dx*dx+dy*dy,.0001),0,1);
   return distance(p,{x:a.x+dx*t,y:a.y+dy*t});
 }
 function touchesRoadNetwork(p:Point){
-  if(staticRoads.some(r=>distanceToSegment(p,r.a,r.b)<=r.width+.55))return true;
-  return builtRoads.some(r=>r.points.some((q,i)=>i>0&&distanceToSegment(p,r.points[i-1]!,q)<=roadHalfWidth+.55));
+  return nearestNetworkDistance(p)<=roadHalfWidth+.55;
 }
 function isValidRoadPath(points:Point[]){
   if(points.length<2)return false;
@@ -292,8 +348,8 @@ function finishRoad(event:PointerEvent){
   if(!isValidRoadPath(draft)){draft=[];if(buildMessage)buildMessage.textContent='Проект отклонён: линия должна соединяться с сетью и обходить здания, деревья и воду.';render();return;}
   const touchesHighway=draft.some(p=>Math.abs(p.y+13)<=1.65&&Math.abs(p.x)<=18);
   const touchesVillage=draft.some(p=>(Math.abs(p.x+1)<=1.65&&p.y>=-12&&p.y<=11)||(Math.abs(p.x)<=1.65&&p.y>=-12&&p.y<=-2)||(Math.abs(p.y-5)<=1.4&&p.x>=3&&p.x<=11)||(Math.abs(p.y-3)<=1.4&&p.x>=-11&&p.x<=-3));
-  const road:Road={points:draft.map(p=>({...p})),progress:0,connectsVillageToHighway:touchesHighway&&touchesVillage};
-  builtRoads.push(road);constructionJobs.push(road);draft=[];updateMission();
+  const road:Road={points:draft.map(p=>({...p})),progress:0,width:roadHalfWidth*2,connectsVillageToHighway:touchesHighway&&touchesVillage};
+  builtRoads.push(road);constructionJobs.push(road);rebuildRoadGraph();draft=[];updateMission();
   if(buildMessage)buildMessage.textContent='Проект принят. Дорога постепенно прокладывается по намеченной линии.';
   render();
 }
@@ -330,7 +386,7 @@ toolButtons.forEach(button=>button.addEventListener('click',()=>{
 }));
 document.querySelector<HTMLButtonElement>('#cancel-road')?.addEventListener('click',()=>{clearDraft();if(buildMessage)buildMessage.textContent='Черновик дороги отменён.';});
 document.querySelector<HTMLButtonElement>('#undo-road')?.addEventListener('click',()=>{
-  const road=builtRoads.pop();if(!road)return;const index=constructionJobs.indexOf(road);if(index>=0)constructionJobs.splice(index,1);updateMission();if(buildMessage)buildMessage.textContent='Последний построенный участок удалён.';render();
+  const road=builtRoads.pop();if(!road)return;const index=constructionJobs.indexOf(road);if(index>=0)constructionJobs.splice(index,1);rebuildRoadGraph();updateMission();if(buildMessage)buildMessage.textContent='Последний построенный участок удалён.';render();
 });
 window.addEventListener('keydown',event=>{
   if(event.key==='+'||event.key==='=')setZoom(1.12);if(event.key==='-')setZoom(.89);
