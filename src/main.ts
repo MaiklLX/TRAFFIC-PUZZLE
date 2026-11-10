@@ -245,7 +245,7 @@ const clock = new THREE.Clock();
 function resize() {
   const w = mount!.clientWidth, h = mount!.clientHeight;
   if (!w || !h) return;
-  camera.aspect = w / h; camera.updateProjectionMatrix();
+  camera.aspect = w / h;
   camera.fov = w < 680 ? 39 : 34;
   camera.updateProjectionMatrix();
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, w < 680 ? 1.5 : 2));
