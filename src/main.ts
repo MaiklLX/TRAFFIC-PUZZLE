@@ -338,12 +338,12 @@ function drawRoadNetwork(){
   const constructing=builtRoads.filter(road=>road.progress<.999).map(road=>({points:road.points,progress:road.progress,width:road.width}));
   // All finished streets share one pair of filled surface layers. Junction
   // patches are calculated from their arms, so the asphalt is one connected shape.
-  strokeRoadNetworkGroup([...base,...complete],'#69777d','#d7dfd0',junctions);
+  strokeRoadNetworkGroup([...base,...complete],'#707d79','#cbd5c7',junctions);
   for(const road of constructing)strokeRoad(road.points,road.progress,'#69777d',1,road.width);
   if(staticRoads[0])drawRoadCentreLinePath(staticRoadPath(staticRoads[0]),true,junctions);
 }
 function drawTerrain(){
-  ctx!.fillStyle='#e9eddf';ctx!.fillRect(0,0,width,height);
+  const ground=ctx!.createLinearGradient(0,0,width,height);ground.addColorStop(0,'#edf0e3');ground.addColorStop(.52,'#e6ebdc');ground.addColorStop(1,'#dfe8d7');ctx!.fillStyle=ground;ctx!.fillRect(0,0,width,height);
   const s=camera.zoom;
   const meadows=[
     {x:-18,y:-7,w:13,h:9,c:'#dce8cf',r:-.16},{x:-3,y:-13,w:13,h:7,c:'#e2e9d4',r:.08},
@@ -391,6 +391,9 @@ function drawTerrain(){
     if(i%9===0){ctx!.fillStyle='#f4e8c9';ctx!.beginPath();ctx!.arc(size*.5,-size*.7,Math.max(.7,.045*s),0,Math.PI*2);ctx!.fill();}
     ctx!.restore();
   }
+  const vignette=ctx!.createRadialGradient(width*.5,height*.46,Math.min(width,height)*.18,width*.5,height*.5,Math.max(width,height)*.76);
+  vignette.addColorStop(0,'rgba(255,255,255,0)');vignette.addColorStop(.72,'rgba(93,117,91,.025)');vignette.addColorStop(1,'rgba(76,101,82,.105)');
+  ctx!.fillStyle=vignette;ctx!.fillRect(0,0,width,height);
 }
 
 function drawDecor(){
