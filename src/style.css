@@ -140,3 +140,17 @@ button:focus-visible { outline: 3px solid #e4b85e; outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }
+
+
+/* KT-003: interactive road-building HUD. */
+.build-hud { position: absolute; z-index: 3; top: 22px; right: 22px; width: min(300px, calc(100% - 44px)); padding: 12px; border: 1px solid #ffffffc9; border-radius: 14px; background: #fbfcf0ed; box-shadow: 0 6px 22px #40583c25; backdrop-filter: blur(10px); color: #526b56; }
+.build-hud[hidden] { display: none; }
+.build-hud strong, .build-hud span { display: block; }
+.build-hud strong { font: 900 10px 'Nunito'; letter-spacing: 1px; }
+.build-hud span { margin-top: 5px; font-size: 10px; line-height: 1.45; color: #7c8c7e; }
+.build-hud div { display: flex; gap: 6px; margin-top: 9px; }
+.build-hud button { min-height: 32px; flex: 1; border: 1px solid #dce6d7; border-radius: 9px; background: #f1f5e9; color: #5c7d62; font-size: 9px; font-weight: 700; cursor: pointer; }
+@media (max-width: 680px) {
+  .build-hud { top: 78px; right: 10px; width: min(270px, calc(100% - 20px)); padding: 10px; }
+  .build-hud button { min-height: 36px; }
+}
