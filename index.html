@@ -15,16 +15,16 @@
           <span><strong>TRAFFIC</strong><small>PUZZLE</small></span>
         </a>
         <div class="chapter"><span class="chapter-dot"></span><span>ГЛАВА 01</span><strong>Тихая долина</strong></div>
-        <div class="top-actions"><span class="weather">☀️ <b>22°</b></span><button class="icon-button" id="reset-camera" aria-label="Сбросить камеру" title="Сбросить камеру">⌖</button></div>
+        <div class="top-actions"><span class="weather">☀️ <b>22°</b></span><button class="icon-button" id="reset-camera" aria-label="Вернуть обзор сверху" title="Вернуть обзор сверху">⌖</button></div>
       </header>
       <main class="game-shell">
         <section class="world-frame" aria-label="Игровое поле">
-          <div id="world"></div>
+          <div id="world" role="img" aria-label="2D игровое поле с видом строго сверху"></div>
           <div class="world-vignette"></div>
           <div class="location-tag"><span class="pin">⌖</span><span><b>Зелёная долина</b><small>Небольшая деревушка · 124 жителя</small></span></div>
-          <div class="world-hint"><span class="hint-icon">✥</span> <span class="desktop-hint">Перетаскивай поле · Колесо — масштаб · Правая кнопка — вращение</span><span class="mobile-hint">Свайп — обзор · Два пальца — масштаб и поворот</span></div>
+          <div class="world-hint"><span class="hint-icon">✥</span> <span class="desktop-hint">Перетаскивай поле · Колесо — масштаб</span><span class="mobile-hint">Свайп — обзор · Два пальца — масштаб</span></div>
           <div id="build-hud" class="build-hud" hidden><strong>ПРОЕКТИРОВАНИЕ ДОРОГ</strong><span id="build-message">Наметь линию будущей дороги. После проверки проект начнёт строиться.</span><div><button id="undo-road" type="button">Убрать последний участок</button><button id="cancel-road" type="button">Отменить проект</button></div></div>
-          <div class="world-controls"><button id="zoom-out" aria-label="Отдалить">−</button><button id="zoom-in" aria-label="Приблизить">+</button><button id="rotate-camera" aria-label="Повернуть камеру">↻</button></div>
+          <div class="world-controls"><button id="zoom-out" aria-label="Отдалить">−</button><button id="zoom-in" aria-label="Приблизить">+</button></div>
         </section>
         <aside class="side-panel">
           <div class="panel-heading"><div><span class="eyebrow">ТВОЯ ДЕРЕВНЯ</span><h1>Управляй потоком,<br/>а не городом</h1></div><span class="sun-badge">☀</span></div>
