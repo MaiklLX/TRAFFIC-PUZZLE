@@ -293,5 +293,16 @@ document.querySelectorAll<HTMLButtonElement>('.tool').forEach(button => {
   });
 });
 
-window.addEventListener('beforeunload', () => observer.disconnect());
-void clock;
+window.addEventListener('keydown', (event) => {
+  if (event.key === '+' || event.key === '=') camera.position.sub(controls.target).multiplyScalar(0.9).add(controls.target);
+  if (event.key === '-') camera.position.sub(controls.target).multiplyScalar(1.1).add(controls.target);
+  if (event.key.toLowerCase() === 'r') {
+    camera.position.set(17, 19, 17);
+    controls.target.set(0, 0, 0);
+  }
+});
+window.addEventListener('beforeunload', () => {
+  observer.disconnect();
+  controls.dispose();
+  renderer.dispose();
+});
