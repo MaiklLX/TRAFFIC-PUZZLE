@@ -338,11 +338,11 @@ function vehiclePose(vehicle:Vehicle){
 function drawCar(vehicle:Vehicle){
   const pose=vehiclePose(vehicle),p=worldToScreen({x:pose.x,y:pose.y}),angle=pose.angle,s=camera.zoom;
   ctx!.save();ctx!.translate(p.x,p.y);ctx!.rotate(angle);
-  ctx!.fillStyle='#344b45';roundedRect(ctx!,-.82*s,-.48*s,1.64*s,.96*s,.24*s);ctx!.fill();
-  ctx!.fillStyle=vehicle.color;roundedRect(ctx!,-.72*s,-.42*s,1.44*s,.84*s,.22*s);ctx!.fill();
-  ctx!.fillStyle='#c9e1df';roundedRect(ctx!,-.2*s,-.34*s,.65*s,.68*s,.13*s);ctx!.fill();
-  ctx!.fillStyle='#f8e7ad';ctx!.fillRect(.56*s,-.29*s,.12*s,.18*s);ctx!.fillRect(.56*s,.11*s,.12*s,.18*s);
-  ctx!.fillStyle='#e9d4c2';ctx!.fillRect(-.68*s,-.3*s,.09*s,.16*s);ctx!.fillRect(-.68*s,.14*s,.09*s,.16*s);
+  ctx!.fillStyle='#344b45';roundedRect(ctx!,-.64*s,-.28*s,1.28*s,.56*s,.18*s);ctx!.fill();
+  ctx!.fillStyle=vehicle.color;roundedRect(ctx!,-.57*s,-.24*s,1.14*s,.48*s,.16*s);ctx!.fill();
+  ctx!.fillStyle='#c9e1df';roundedRect(ctx!,-.13*s,-.2*s,.48*s,.4*s,.1*s);ctx!.fill();
+  ctx!.fillStyle='#f8e7ad';ctx!.fillRect(.45*s,-.18*s,.09*s,.12*s);ctx!.fillRect(.45*s,.06*s,.09*s,.12*s);
+  ctx!.fillStyle='#e9d4c2';ctx!.fillRect(-.55*s,-.17*s,.07*s,.11*s);ctx!.fillRect(-.55*s,.06*s,.07*s,.11*s);
   ctx!.restore();
 }
 function render(){
@@ -455,7 +455,7 @@ function buildTrafficRoute(destinationId:string):Point[]|null{
   if(!inbound||!outbound)return null;
   return inbound.concat(outbound.slice(1));
 }
-function offsetRouteToRightSide(path:Point[],offset=.27):Point[]{
+function offsetRouteToRightSide(path:Point[],offset=.36):Point[]{
   if(path.length<2)return path.map(point=>({...point}));
   const normals=path.slice(1).map((point,index)=>{
     const previous=path[index]!,dx=point.x-previous.x,dy=point.y-previous.y,length=Math.hypot(dx,dy)||1;
@@ -733,9 +733,9 @@ function animate(time:number){
       const other=poses[j]!,dx=other.x-pose.x,dy=other.y-pose.y;
       const longitudinal=dx*pose.heading.x+dy*pose.heading.y;
       const lateral=Math.abs(dx*pose.heading.y-dy*pose.heading.x);
-      if(longitudinal>0&&lateral<.82){
-        const gap=longitudinal-1.64;
-        desiredSpeed=Math.min(desiredSpeed,clamp((gap-1.35)*2.2,0,vehicle.cruiseSpeed));
+      if(longitudinal>0&&lateral<.38){
+        const gap=longitudinal-1.28;
+        desiredSpeed=Math.min(desiredSpeed,clamp((gap-1.1)*2.2,0,vehicle.cruiseSpeed));
       }
     }
     const rate=desiredSpeed<vehicle.speed?7.5:2.1;
