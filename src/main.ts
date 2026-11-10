@@ -33,8 +33,8 @@ let pinchStart: { distance: number; zoom: number; center: Point } | null = null;
 const staticRoads: { a: Point; b: Point; points?: Point[]; width: number; direction?: 'both'|'forward' }[] = [
   // A single village spine branches from the federal highway and serves every building.
   {a:{x:-18,y:-13},b:{x:18,y:-13},width:1.55},
-  {a:{x:-1,y:-13},b:{x:-.1,y:7.2},points:[
-    {x:-1,y:-13},{x:-.8,y:-11},{x:-.7,y:-9},{x:-.7,y:-7.1},
+  {a:{x:-1,y:-10.5},b:{x:-.1,y:7.2},points:[
+    {x:-1,y:-10.5},{x:-.8,y:-9.6},{x:-.7,y:-8.5},{x:-.7,y:-7.1},
     {x:-.7,y:-5.2},{x:-.7,y:-3.2},{x:-.4,y:-1.2},{x:-.1,y:1},
     {x:-.1,y:3.2},{x:-.1,y:5.2},{x:-.1,y:7.2}
   ],width:1.48},
