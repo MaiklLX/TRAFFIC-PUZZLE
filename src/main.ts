@@ -313,7 +313,6 @@ let drawing = false;
 let draft: THREE.Vector2[] = [];
 let budget = 2400;
 const budgetValue = document.querySelector<HTMLElement>('#budget-value');
-const roadCount = document.querySelector<HTMLElement>('#road-count');
 const missionCount = document.querySelector<HTMLElement>('.mission-count');
 const missionProgress = document.querySelector<HTMLElement>('.progress span');
 const buildMessage = document.querySelector<HTMLElement>('#build-message');
@@ -424,13 +423,23 @@ function finishRoad(event: PointerEvent) {
   const path = new THREE.Group();
   drawRoadSegments(draft, path);
   scene.add(path);
+  const touchesHighway = draft.some(point => Math.abs(point.y + 13) <= 1.65 && Math.abs(point.x) <= 18);
+  const touchesVillage = draft.some(point =>
+    (Math.abs(point.x + 1) <= 1.65 && point.y >= -12 && point.y <= 11) ||
+    (Math.abs(point.x) <= 1.65 && point.y >= -12 && point.y <= -2) ||
+    (Math.abs(point.y - 5) <= 1.4 && point.x >= 3 && point.x <= 11) ||
+    (Math.abs(point.y - 3) <= 1.4 && point.x >= -11 && point.x <= -3)
+  );
+  path.userData.connectsVillageToHighway = touchesHighway && touchesVillage;
   builtRoads.push(path);
   budget -= cost;
   if (budgetValue) budgetValue.textContent = budget.toLocaleString('ru-RU');
-  if (roadCount) roadCount.textContent = String(builtRoads.length);
-  if (missionCount) missionCount.textContent = '1 / 1';
-  if (missionProgress) missionProgress.style.width = '100%';
-  if (buildMessage) buildMessage.textContent = `Дорога построена! Сегментов: ${draft.length - 1}. Стоимость: ${cost} монет.`;
+  const missionDone = builtRoads.some(item => item.userData.connectsVillageToHighway === true);
+  if (missionCount) missionCount.textContent = missionDone ? '1 / 1' : '0 / 1';
+  if (missionProgress) missionProgress.style.width = missionDone ? '100%' : '8%';
+  if (buildMessage) buildMessage.textContent = missionDone
+    ? `Отлично! Деревня соединена с федеральной трассой. +300 монет — награда за задание пока отображается как цель прототипа. Дорога: ${draft.length - 1} сегм.`
+    : `Дорога построена: ${draft.length - 1} сегм. Для задания соедини её с деревенской дорогой и федеральной трассой. Стоимость: ${cost} монет.`;
   clearPreview();
   draft = [];
 }
@@ -450,7 +459,9 @@ document.querySelector<HTMLButtonElement>('#undo-road')?.addEventListener('click
   last.traverse(object => {
     if (object instanceof THREE.Mesh) object.geometry.dispose();
   });
-  if (roadCount) roadCount.textContent = String(builtRoads.length);
+  const missionDone = builtRoads.some(item => item.userData.connectsVillageToHighway === true);
+  if (missionCount) missionCount.textContent = missionDone ? '1 / 1' : '0 / 1';
+  if (missionProgress) missionProgress.style.width = missionDone ? '100%' : '8%';
   if (buildMessage) buildMessage.textContent = 'Последняя построенная дорога удалена.';
 });
 
