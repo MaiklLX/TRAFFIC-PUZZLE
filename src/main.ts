@@ -432,6 +432,7 @@ function finishRoad(event: PointerEvent) {
     (Math.abs(point.y - 3) <= 1.4 && point.x >= -11 && point.x <= -3)
   );
   path.userData.connectsVillageToHighway = touchesHighway && touchesVillage;
+  path.userData.cost = cost;
   builtRoads.push(path);
   budget -= cost;
   const missionDone = builtRoads.some(item => item.userData.connectsVillageToHighway === true);
@@ -458,6 +459,7 @@ document.querySelector<HTMLButtonElement>('#undo-road')?.addEventListener('click
   const last = builtRoads.pop();
   if (!last) return;
   scene.remove(last);
+  budget += Number(last.userData.cost ?? 0);
   last.traverse(object => {
     if (object instanceof THREE.Mesh) object.geometry.dispose();
   });
