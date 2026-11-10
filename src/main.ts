@@ -328,7 +328,6 @@ const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 const previewGroup = new THREE.Group();
 scene.add(previewGroup);
 const builtRoads: THREE.Group[] = [];
-const roadTraffic: never[] = [];
 const junctionMarkers = new Map<string, THREE.Mesh>();
 let drawing = false;
 let draft: THREE.Vector2[] = [];
