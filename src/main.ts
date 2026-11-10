@@ -690,7 +690,7 @@ function routeProjectionToPoint(path:Point[],point:Point){
   }
   return{lateral:bestLateral,distance:bestDistance};
 }
-function junctionYieldSpeeds(poses:{x:number;y:number;heading:Point;angle:number}[]){
+function junctionYieldSpeeds(){
   const limits=vehicles.map(vehicle=>vehicle.cruiseSpeed);
   const junctions=collectRoadJunctions();
   for(const junction of junctions){
@@ -724,7 +724,7 @@ function animate(time:number){
   // Follow the vehicle directly ahead on the same lane. Braking is gradual,
   // and acceleration is slower than braking so gaps recover smoothly.
   const poses=vehicles.map(vehicle=>vehiclePose(vehicle));
-  const junctionLimits=junctionYieldSpeeds(poses);
+  const junctionLimits=junctionYieldSpeeds();
   for(let i=0;i<vehicles.length;i++){
     const vehicle=vehicles[i]!,pose=poses[i]!;
     let desiredSpeed=junctionLimits[i]??vehicle.cruiseSpeed;
