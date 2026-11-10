@@ -3,7 +3,7 @@ import './style.css';
 type Point = { x: number; y: number };
 type Road = { points: Point[]; progress: number; connectsVillageToHighway: boolean; width: number; direction: 'both'|'forward' };
 type RoadGraphNode = { id: number; x: number; y: number; edgeIds: string[] };
-type RoadGraphEdge = { id: string; from: number; to: number; width: number; kind: 'highway' | 'local'; source: string; forward: boolean; reverse: boolean };
+type RoadGraphEdge = { id: string; from: number; to: number; width: number; kind: 'highway' | 'local'; source: string; forward: boolean; reverse: boolean; active: boolean };
 type RoadGraph = { nodes: RoadGraphNode[]; edges: RoadGraphEdge[] };
 type Vehicle = { path: Point[]; lengths: number[]; routeLength: number; distance: number; speed: number; cruiseSpeed: number; direction: number; color: string; destinationId: string };
 
@@ -421,18 +421,73 @@ function rebuildRoadGraph(){
         const from=getNode(unique[k-1]!.p),to=getNode(unique[k]!.p);
         if(from.id===to.id)continue;
         const id=source.id+'-'+i+'-'+k;
-        const edge:RoadGraphEdge={id,from:from.id,to:to.id,width:source.width,kind:source.kind,source:source.id,forward:true,reverse:source.direction==='both'};
+        const edge:RoadGraphEdge={id,from:from.id,to:to.id,width:source.width,kind:source.kind,source:source.id,forward:true,reverse:source.direction==='both',active:false};
         roadGraph.edges.push(edge);from.edgeIds.push(id);to.edgeIds.push(id);
       }
     }
   }
-  if(networkStatus)networkStatus.textContent='Сеть: '+roadGraph.nodes.length+' узлов · '+roadGraph.edges.length+' участков';
+  classifyRoadActivity();
+  if(networkStatus){const active=roadGraph.edges.filter(edge=>edge.active).length;networkStatus.textContent='Сеть: '+active+'/'+roadGraph.edges.length+' активных участков';}
 }
 // KT-011: graph-based shortest path for all demonstration vehicles.
 function nearestGraphNode(point:Point):RoadGraphNode|null{
   let best:RoadGraphNode|null=null,bestDistance=Infinity;
   for(const node of roadGraph.nodes){const d=distance(point,node);if(d<bestDistance){bestDistance=d;best=node;}}
   return best;
+}
+// A road segment is useful when it belongs to a route between meaningful
+// access points. Repeatedly peel unanchored leaf branches: this keeps loops
+// and links between two existing roads, while closing blind spurs.
+function classifyRoadActivity(){
+  const anchorPoints=[demoStart,demoExit,...trafficDestinations.map(destination=>destination.access)];
+  const anchors=new Set<number>();
+  for(const point of anchorPoints){const node=nearestGraphNode(point);if(node)anchors.add(node.id);}
+  const activeIds=new Set(roadGraph.edges.map(edge=>edge.id));
+  let changed=true;
+  while(changed){
+    changed=false;
+    const degree=new Map<number,number>(roadGraph.nodes.map(node=>[node.id,0]));
+    for(const edge of roadGraph.edges){
+      if(!activeIds.has(edge.id))continue;
+      degree.set(edge.from,(degree.get(edge.from)??0)+1);
+      degree.set(edge.to,(degree.get(edge.to)??0)+1);
+    }
+    const remove:string[]=[];
+    for(const node of roadGraph.nodes){
+      if(anchors.has(node.id)||(degree.get(node.id)??0)>1)continue;
+      for(const edgeId of node.edgeIds)if(activeIds.has(edgeId))remove.push(edgeId);
+    }
+    for(const edgeId of remove){if(activeIds.delete(edgeId))changed=true;}
+  }
+  // A detached loop is not useful merely because it has no loose endpoint.
+  const reached=new Set<number>(),queue=[...anchors];
+  for(const id of queue)reached.add(id);
+  while(queue.length){
+    const current=queue.shift()!;
+    const node=roadGraph.nodes[current];if(!node)continue;
+    for(const edgeId of node.edgeIds){
+      if(!activeIds.has(edgeId))continue;
+      const edge=roadGraph.edges.find(item=>item.id===edgeId);if(!edge||!edge.active)continue;
+      const next=edge.from===current?edge.to:edge.from;
+      if(!reached.has(next)){reached.add(next);queue.push(next);}
+    }
+  }
+  for(const edge of roadGraph.edges)edge.active=activeIds.has(edge.id)&&reached.has(edge.from)&&reached.has(edge.to);
+}
+function estimatedRoadCost(edge:RoadGraphEdge){
+  const a=roadGraph.nodes[edge.from]!,b=roadGraph.nodes[edge.to]!;
+  const length=distance(a,b),dx=(b.x-a.x)/(length||1),dy=(b.y-a.y)/(length||1);
+  let congestion=0;
+  for(const vehicle of vehicles){
+    const pose=vehiclePose(vehicle);
+    const lateral=distanceToSegment({x:pose.x,y:pose.y},a,b);
+    const alignment=Math.abs(pose.heading.x*dx+pose.heading.y*dy);
+    if(lateral<edge.width*.5+.72&&alignment>.68){
+      congestion+=vehicle.speed<vehicle.cruiseSpeed*.68?1:.12;
+    }
+  }
+  const roadFactor=edge.kind==='highway'?.92:1;
+  return length*roadFactor*(1+congestion*.2);
 }
 function findRoadPath(start:Point,end:Point):Point[]|null{
   const source=nearestGraphNode(start),target=nearestGraphNode(end);
@@ -454,7 +509,7 @@ function findRoadPath(start:Point,end:Point):Point[]|null{
       const next=movingForward?edge.to:edge.from;
       if(!remaining.has(next))continue;
       const nextNode=roadGraph.nodes[next]!;
-      const candidate=best+distance(node,nextNode);
+      const candidate=best+estimatedRoadCost(edge);
       if(candidate<(costs.get(next)??Infinity)){costs.set(next,candidate);previous.set(next,current);}
     }
   }
