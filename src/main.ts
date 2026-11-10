@@ -260,6 +260,13 @@ function drawRoadNetwork(){
   }
   for(const road of builtRoads)drawRoadCentreLinePath(road.points,false,junctions,road.progress);
   for(const junction of junctions)drawJunctionPatch(junction.center,junction.arms);
+  // Rounded turning heads give cars room to reverse at the end of local streets.
+  for(const destination of trafficDestinations){
+    if(!findRoadPath(demoStart,destination.access))continue;
+    const p=worldToScreen(destination.access),radius=1.42*camera.zoom;
+    ctx!.fillStyle='#d9d2b9';ctx!.beginPath();ctx!.arc(p.x,p.y,radius,0,Math.PI*2);ctx!.fill();
+    ctx!.fillStyle='#59666a';ctx!.beginPath();ctx!.arc(p.x,p.y,radius*.86,0,Math.PI*2);ctx!.fill();
+  }
   // Highway merge marker stays outside the intersection surface.
   const merge=worldToScreen({x:10,y:-14.05});
   ctx!.save();ctx!.strokeStyle='#f1e6c8';ctx!.globalAlpha=.75;ctx!.lineWidth=.055*camera.zoom;
@@ -468,20 +475,23 @@ function offsetRouteToRightSide(path:Point[],offset=.36):Point[]{
     const point=path[index]!,before=directions[index-1]!,after=directions[index]!;
     const beforeNormal=normals[index-1]!,afterNormal=normals[index]!;
     const dot=before.x*after.x+before.y*after.y;
-    // A destination at the end of a dead-end street creates a 180-degree
-    // reversal. Join the two lane centres with a sampled semicircle instead
-    // of a tiny lateral kink that makes the car snap around.
     if(dot<-.82){
-      const startAngle=Math.atan2(beforeNormal.y,beforeNormal.x);
-      const endAngle=Math.atan2(afterNormal.y,afterNormal.x);
-      let sweep=endAngle-startAngle;
-      while(sweep>Math.PI)sweep-=Math.PI*2;
-      while(sweep< -Math.PI)sweep+=Math.PI*2;
-      const cross=before.x*after.y-before.y*after.x;
-      if(Math.abs(Math.abs(sweep)-Math.PI)<.001)sweep=cross>=0?Math.PI:-Math.PI;
-      for(let sample=1;sample<=12;sample++){
-        const angle=startAngle+sweep*sample/12;
-        result.push({x:point.x+Math.cos(angle)*offset,y:point.y+Math.sin(angle)*offset});
+      // A compact semicircle made the vehicle spin in place. Use a teardrop
+      // turnaround: ease out beyond the street end, then return on the opposite
+      // lane with tangent-aligned cubic Bezier handles.
+      const p0={x:point.x+beforeNormal.x*offset,y:point.y+beforeNormal.y*offset};
+      const p3={x:point.x+afterNormal.x*offset,y:point.y+afterNormal.y*offset};
+      const turnRadius=1.35;
+      const handle=turnRadius*1.72;
+      const p1={x:p0.x+before.x*handle,y:p0.y+before.y*handle};
+      const p2={x:p3.x+after.x*handle,y:p3.y+after.y*handle};
+      const samples=24;
+      for(let sample=1;sample<=samples;sample++){
+        const t=sample/samples,u=1-t;
+        result.push({
+          x:u*u*u*p0.x+3*u*u*t*p1.x+3*u*t*t*p2.x+t*t*t*p3.x,
+          y:u*u*u*p0.y+3*u*u*t*p1.y+3*u*t*t*p2.y+t*t*t*p3.y
+        });
       }
       continue;
     }
