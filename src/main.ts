@@ -417,7 +417,7 @@ function drawWorldLabel(text:string,point:Point,color='#526b58'){
   const w=ctx!.measureText(text).width+18,h=font+11;ctx!.fillStyle='#f7f7e8d9';roundedRect(ctx!,p.x-w/2,p.y-h/2,w,h,h/2);ctx!.fill();ctx!.strokeStyle='#ffffffb0';ctx!.lineWidth=1;ctx!.stroke();ctx!.fillStyle=color;ctx!.fillText(text,p.x,p.y+.5);ctx!.restore();
 }
 function drawMapLabels(){
-  drawWorldLabel('ФЕДЕРАЛЬНАЯ ТРАССА',{x:0,y:-15.25},'#e9e5d2');
+  drawWorldLabel('ФЕДЕРАЛЬНАЯ ТРАССА',{x:0,y:-15.25},'#526b58');
   drawWorldLabel('АЗС · 24/7',{x:-8,y:-18.25},'#557b68');
   drawWorldLabel('ФЕРМА',{x:-15.1,y:3.2});
   drawWorldLabel('ЖИЛОЙ КВАРТАЛ',{x:4.2,y:10.9});
