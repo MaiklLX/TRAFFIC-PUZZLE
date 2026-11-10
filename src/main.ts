@@ -1,9 +1,9 @@
 import './style.css';
 
 type Point = { x: number; y: number };
-type Road = { points: Point[]; progress: number; connectsVillageToHighway: boolean; width: number };
+type Road = { points: Point[]; progress: number; connectsVillageToHighway: boolean; width: number; direction: 'both'|'forward' };
 type RoadGraphNode = { id: number; x: number; y: number; edgeIds: string[] };
-type RoadGraphEdge = { id: string; from: number; to: number; width: number; kind: 'highway' | 'local'; source: string };
+type RoadGraphEdge = { id: string; from: number; to: number; width: number; kind: 'highway' | 'local'; source: string; forward: boolean; reverse: boolean };
 type RoadGraph = { nodes: RoadGraphNode[]; edges: RoadGraphEdge[] };
 type Vehicle = { path: Point[]; lengths: number[]; routeLength: number; distance: number; speed: number; cruiseSpeed: number; direction: number; color: string; destinationId: string };
 
@@ -29,7 +29,7 @@ let pointerId: number | null = null;
 const activePointers = new Map<number, Point>();
 let pinchStart: { distance: number; zoom: number; center: Point } | null = null;
 
-const staticRoads: { a: Point; b: Point; width: number }[] = [
+const staticRoads: { a: Point; b: Point; width: number; direction?: 'both'|'forward' }[] = [
   { a: {x:-18,y:-13}, b:{x:18,y:-13}, width:1.55 },
   { a: {x:-1,y:-13}, b:{x:-1,y:11}, width:1.5 },
   { a: {x:-1,y:5}, b:{x:11,y:5}, width:1.3 },
@@ -367,9 +367,9 @@ const roadGraph:RoadGraph={nodes:[],edges:[]};
 const networkStatus=document.querySelector<HTMLElement>('#network-status');
 function rebuildRoadGraph(){
   roadGraph.nodes.length=0;roadGraph.edges.length=0;
-  const sources:{id:string;points:Point[];width:number;kind:'highway'|'local'}[]=[
-    ...staticRoads.map((r,i)=>({id:'base-'+i,points:[r.a,r.b],width:r.width,kind:r.width>1.45?'highway' as const:'local' as const})),
-    ...builtRoads.filter(r=>r.progress>=.999).map((r,i)=>({id:'built-'+i,points:r.points,width:r.width,kind:r.width>1.45?'highway' as const:'local' as const}))
+  const sources:{id:string;points:Point[];width:number;kind:'highway'|'local';direction:'both'|'forward'}[]=[
+    ...staticRoads.map((r,i)=>({id:'base-'+i,points:[r.a,r.b],width:r.width,kind:r.width>1.45?'highway' as const:'local' as const,direction:r.direction??'both'})),
+    ...builtRoads.filter(r=>r.progress>=.999).map((r,i)=>({id:'built-'+i,points:r.points,width:r.width,kind:r.width>1.45?'highway' as const:'local' as const,direction:r.direction}))
   ];
   const getNode=(p:Point)=>{
     let node=roadGraph.nodes.find(n=>Math.hypot(n.x-p.x,n.y-p.y)<.08);
@@ -396,7 +396,7 @@ function rebuildRoadGraph(){
         const from=getNode(unique[k-1]!.p),to=getNode(unique[k]!.p);
         if(from.id===to.id)continue;
         const id=source.id+'-'+i+'-'+k;
-        const edge:RoadGraphEdge={id,from:from.id,to:to.id,width:source.width,kind:source.kind,source:source.id};
+        const edge:RoadGraphEdge={id,from:from.id,to:to.id,width:source.width,kind:source.kind,source:source.id,forward:true,reverse:source.direction==='both'};
         roadGraph.edges.push(edge);from.edgeIds.push(id);to.edgeIds.push(id);
       }
     }
@@ -424,7 +424,9 @@ function findRoadPath(start:Point,end:Point):Point[]|null{
     const node=roadGraph.nodes[current]!;
     for(const edgeId of node.edgeIds){
       const edge=roadGraph.edges.find(item=>item.id===edgeId);if(!edge)continue;
-      const next=edge.from===current?edge.to:edge.from;
+      const movingForward=edge.from===current;
+      if(movingForward?!edge.forward:!edge.reverse)continue;
+      const next=movingForward?edge.to:edge.from;
       if(!remaining.has(next))continue;
       const nextNode=roadGraph.nodes[next]!;
       const candidate=best+distance(node,nextNode);
@@ -453,7 +455,16 @@ function buildTrafficRoute(destinationId:string):Point[]|null{
   if(!inbound||!outbound)return null;
   return inbound.concat(outbound.slice(1));
 }
+function offsetRouteToRightSide(path:Point[],offset=.27):Point[]{
+  if(path.length<2)return path.map(point=>({...point}));
+  return path.map((point,index)=>{
+    const before=path[Math.max(0,index-1)]!,after=path[Math.min(path.length-1,index+1)]!;
+    const dx=after.x-before.x,dy=after.y-before.y,length=Math.hypot(dx,dy)||1;
+    return{x:point.x-(dy/length)*offset,y:point.y+(dx/length)*offset};
+  });
+}
 function createVehicle(path:Point[],speed:number,destination:TrafficDestination,offset:number):Vehicle{
+  path=offsetRouteToRightSide(path);
   const lengths=path.slice(1).map((point,index)=>distance(path[index]!,point));
   const routeLength=lengths.reduce((sum,value)=>sum+value,0);
   return{path,lengths,routeLength,distance:Math.min(offset,routeLength),speed,cruiseSpeed:speed,direction:1,color:destination.color,destinationId:destination.id};
@@ -466,7 +477,7 @@ function refreshVehicleRoutes(){
     const nextPath=buildTrafficRoute(vehicle.destinationId);
     if(!nextPath){vehicles.splice(i,1);continue;}
     const progress=vehicle.routeLength>0?vehicle.distance/vehicle.routeLength:0;
-    vehicle.path=nextPath.map(point=>({...point}));
+    vehicle.path=offsetRouteToRightSide(nextPath);
     vehicle.lengths=nextPath.slice(1).map((point,index)=>distance(nextPath[index]!,point));
     vehicle.routeLength=vehicle.lengths.reduce((sum,value)=>sum+value,0);
     vehicle.distance=clamp(progress*vehicle.routeLength,0,vehicle.routeLength);
@@ -609,7 +620,8 @@ function finishRoad(event:PointerEvent){
   if(!validation.valid){draft=[];if(buildMessage)buildMessage.textContent='Проект отклонён: '+validation.reason;render();return;}
   const touchesHighway=draft.some(p=>Math.abs(p.y+13)<=1.65&&Math.abs(p.x)<=18);
   const touchesVillage=draft.some(p=>(Math.abs(p.x+1)<=1.65&&p.y>=-12&&p.y<=11)||(Math.abs(p.x)<=1.65&&p.y>=-12&&p.y<=-2)||(Math.abs(p.y-5)<=1.4&&p.x>=3&&p.x<=11)||(Math.abs(p.y-3)<=1.4&&p.x>=-11&&p.x<=-3));
-  const road:Road={points:draft.map(p=>({...p})),progress:0,width:roadHalfWidth*2,connectsVillageToHighway:touchesHighway&&touchesVillage};
+  const direction=(document.querySelector<HTMLSelectElement>('#road-direction')?.value??'both') as 'both'|'forward';
+   const road:Road={points:draft.map(p=>({...p})),progress:0,width:roadHalfWidth*2,connectsVillageToHighway:touchesHighway&&touchesVillage,direction};
   builtRoads.push(road);constructionJobs.push(road);rebuildRoadGraph();refreshVehicleRoutes();draft=[];updateMission();
   if(buildMessage)buildMessage.textContent='Проект принят. Дорога постепенно прокладывается по намеченной линии.';
   render();
