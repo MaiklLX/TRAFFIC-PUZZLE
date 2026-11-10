@@ -272,7 +272,6 @@ function animate() {
   controls.update();
   renderer.render(scene, camera);
 }
-animate();
 
 document.querySelector<HTMLButtonElement>('#reset-camera')?.addEventListener('click', () => {
   camera.position.set(17,19,17); controls.target.set(0,0,0); controls.update();
@@ -571,3 +570,6 @@ window.addEventListener('beforeunload', () => {
   controls.dispose();
   renderer.dispose();
 });
+
+// Start only after every scene object, simulation collection and input handler is initialized.
+animate();
