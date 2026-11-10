@@ -132,3 +132,14 @@ button:focus-visible,select:focus-visible{outline:2px solid #9dbd9f;outline-offs
   .map-controls{right:12px;bottom:12px}
   .build-hud{left:auto;right:12px;bottom:12px;width:min(270px,42vw)}
 }
+
+
+/* KT-048: destination demand is tied to the actual road graph. */
+.destination-row{display:flex;align-items:center;gap:10px}
+.destination-row>i{width:10px;height:10px;flex:0 0 10px;border-radius:50%;background:var(--destination-color,#9aa99a);box-shadow:0 0 0 3px color-mix(in srgb,var(--destination-color,#9aa99a) 18%,transparent)}
+.destination-row>span{min-width:0;flex:1}
+.destination-row>span b{display:block}
+.destination-row>span small{display:block}
+.destination-row>em{font-style:normal;font-size:8px;font-weight:800;letter-spacing:.04em;white-space:nowrap;color:#a36d53}
+.destination-row.is-connected>em{color:#5f8a68}
+.destination-summary{padding-top:9px;margin-top:8px;border-top:1px solid #e5e9df;color:#6d7c6d;font-size:9px;font-weight:750;letter-spacing:.05em;text-transform:uppercase}
