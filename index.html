@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#b9d9bd" />
-    <meta name="description" content="TRAFFIC PUZZLE — уютная изометрическая головоломка о дорогах и развитии города." />
-    <title>TRAFFIC PUZZLE — строим город вместе</title>
+    <meta name="description" content="TRAFFIC PUZZLE — мультяшная головоломка об управлении дорожным движением." />
+    <title>TRAFFIC PUZZLE — управляй потоком</title>
   </head>
   <body>
     <div id="app">
@@ -27,19 +27,19 @@
           <div class="world-controls"><button id="zoom-out" aria-label="Отдалить">−</button><button id="zoom-in" aria-label="Приблизить">+</button><button id="rotate-camera" aria-label="Повернуть камеру">↻</button></div>
         </section>
         <aside class="side-panel">
-          <div class="panel-heading"><div><span class="eyebrow">ТВОЯ ДЕРЕВНЯ</span><h1>Всё начинается<br/>с одной дороги</h1></div><span class="sun-badge">☀</span></div>
-          <p class="intro">Помоги жителям добираться домой быстро и безопасно. Впереди — целый город!</p>
+          <div class="panel-heading"><div><span class="eyebrow">ТВОЯ ДЕРЕВНЯ</span><h1>Управляй потоком,<br/>а не городом</h1></div><span class="sun-badge">☀</span></div>
+          <p class="intro">Прокладывай маршруты, разводи потоки и не допускай заторов. Поселение будет расти само — решения за дорогами остаются за тобой.</p>
           <div class="stats">
-            <div class="stat"><span class="stat-icon people">♟</span><span><small>Жители</small><b>124</b></span><em>+8 сегодня</em></div>
-            <div class="stat"><span class="stat-icon cars">🚗</span><span><small>Машины</small><b id="traffic-count">18</b></span><em>на дорогах</em></div>
-            <div class="stat"><span class="stat-icon coin">✦</span><span><small>Бюджет</small><b id="budget-value">2 400</b></span><em>монет</em></div>
+            <div class="stat"><span class="stat-icon cars">🚗</span><span><small>Машины</small><b id="traffic-count">2</b></span><em>в потоке</em></div>
+            <div class="stat"><span class="stat-icon people">↗</span><span><small>Заторы</small><b id="jam-count">0</b></span><em>на маршруте</em></div>
+            <div class="stat"><span class="stat-icon coin">◎</span><span><small>Этап</small><b>01</b></span><em>деревня</em></div>
           </div>
           <div class="mission">
-            <div class="mission-top"><span class="eyebrow">ПЕРВОЕ ЗАДАНИЕ</span><span class="mission-count">0 / 1</span></div>
-            <h2>Соедини деревню с трассой</h2>
-            <p>Построй удобный выезд, чтобы жители могли отправляться в большое путешествие.</p>
+            <div class="mission-top"><span class="eyebrow">ЗАДАЧА</span><span class="mission-count">0 / 1</span></div>
+            <h2>Проложи безопасный участок</h2>
+            <p>Соедини новую дорогу с сетью, обходя дома, деревья и водоём.</p>
             <div class="progress"><span></span></div>
-            <small class="reward">✦ Награда: <b>300 монет</b></small>
+            <small class="reward">Подсказка: красный предпросмотр означает препятствие или отсутствие соединения</small>
           </div>
           <div class="build-title"><span class="eyebrow">ИНСТРУМЕНТЫ</span><span class="soon">РЕЖИМ СТРОЙКИ</span></div>
           <div class="tool-grid">
@@ -48,7 +48,7 @@
             <button class="tool" data-tool="junction"><span>✣</span><b>Развязки</b></button>
             <button class="tool" data-tool="signal"><span>🚦</span><b>Знаки</b></button>
           </div>
-          <div class="footer-note"><span>🌱</span> Маленький шаг — большое будущее</div>
+          <div class="footer-note"><span>🚦</span> Поток меняется — решения за тобой</div>
         </aside>
       </main>
       <footer class="bottom-bar"><span>TRAFFIC PUZZLE <i>·</i> PRE-ALPHA</span><span>Мир растёт вместе с тобой <b>♥</b></span></footer>
