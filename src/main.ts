@@ -30,8 +30,7 @@ const staticRoads: { a: Point; b: Point; width: number }[] = [
   { a: {x:-18,y:-13}, b:{x:18,y:-13}, width:1.55 },
   { a: {x:-1,y:-13}, b:{x:-1,y:11}, width:1.5 },
   { a: {x:-1,y:5}, b:{x:11,y:5}, width:1.3 },
-  { a: {x:-12,y:3}, b:{x:-2,y:3}, width:1.3 },
-  { a: {x:0,y:-13}, b:{x:0,y:-2.4}, width:1.5 },
+  { a: {x:-12,y:3}, b:{x:-1,y:3}, width:1.3 },
   { a: {x:10,y:-15.6}, b:{x:10,y:-10.4}, width:1.5 }
 ];
 const obstacles = [
@@ -139,10 +138,9 @@ function drawRoadNetwork(){
   }
   // Junction radii match the widest road entering each node, avoiding oversized round blobs.
   drawJunction({x:-1,y:-13},[1.55,1.5]);
-  drawJunction({x:0,y:-13},[1.55,1.5]);
   drawJunction({x:10,y:-13},[1.55,1.5]);
   drawJunction({x:-1,y:5},[1.5,1.3]);
-  drawJunction({x:-2,y:3},[1.3,1.3]);
+  drawJunction({x:-1,y:3},[1.5,1.3]);
   // A small stop/merge cue on the side-road approach to the highway.
   const merge=worldToScreen({x:10,y:-14.05});
   ctx!.save();ctx!.strokeStyle='#f1e6c8';ctx!.globalAlpha=.75;ctx!.lineWidth=.055*camera.zoom;
