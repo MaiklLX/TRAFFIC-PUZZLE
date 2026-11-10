@@ -112,3 +112,31 @@ h2 { margin: 10px 0 5px; font: 900 15px 'Nunito'; color: #435748; }
   .tool-grid { gap: 5px; }
   .tool b { font-size: 8px; }
 }
+
+
+/* KT-002: clearer feedback and comfortable touch targets. */
+button { -webkit-tap-highlight-color: transparent; }
+button:focus-visible { outline: 3px solid #e4b85e; outline-offset: 2px; }
+.world-controls button, .icon-button, .tool { transition: transform .16s ease, background .16s ease, box-shadow .16s ease; }
+.world-controls button:active, .icon-button:active, .tool:active { transform: translateY(1px) scale(.96); }
+.mobile-hint { display: none; }
+@media (max-width: 680px) {
+  .desktop-hint { display: none; }
+  .mobile-hint { display: inline; }
+  .world-hint { line-height: 1.35; }
+  .world-controls button { width: 40px; height: 40px; font-size: 22px; }
+  .icon-button { width: 42px; height: 42px; }
+  .tool { min-height: 66px; justify-content: center; }
+  .tool span { font-size: 21px; }
+}
+@media (max-width: 680px) and (orientation: landscape) {
+  .game-shell { display: grid; grid-template-columns: minmax(0,1fr) 260px; align-items: stretch; }
+  .world-frame { height: calc(100vh - 88px); min-height: 250px; }
+  .side-panel { max-height: calc(100vh - 88px); overflow-y: auto; }
+  .stats { grid-template-columns: 1fr; }
+  .stat { flex-wrap: nowrap; }
+  .stat em { display: block; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
+}
