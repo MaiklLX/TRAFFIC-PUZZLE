@@ -255,9 +255,12 @@ const observer = new ResizeObserver(resize);
 observer.observe(mount);
 resize();
 
+let previousFrameTime = 0;
 function animate() {
   requestAnimationFrame(animate);
   const elapsed = clock.getElapsedTime();
+  const delta = Math.min(Math.max(elapsed - previousFrameTime, 0), 0.05);
+  previousFrameTime = elapsed;
   for (const vehicle of movingCars) {
     const span = vehicle.to - vehicle.from;
     const progress = ((elapsed * vehicle.speed + vehicle.offset) % (span * 2)) / span;
@@ -265,6 +268,7 @@ function animate() {
     vehicle.mesh.position.set(x, 0.18, vehicle.z);
     vehicle.mesh.rotation.y = progress <= 1 ? 0 : Math.PI;
   }
+  updateRoadTraffic(delta);
   controls.update();
   renderer.render(scene, camera);
 }
@@ -309,6 +313,8 @@ const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 const previewGroup = new THREE.Group();
 scene.add(previewGroup);
 const builtRoads: THREE.Group[] = [];
+const roadTraffic: { mesh: THREE.Group; points: THREE.Vector2[]; lengths: number[]; total: number; distance: number; speed: number; direction: number; road: THREE.Group }[] = [];
+const junctionMarkers = new Map<string, THREE.Mesh>();
 let drawing = false;
 let draft: THREE.Vector2[] = [];
 let budget = 2400;
@@ -317,6 +323,7 @@ const budgetValue = document.querySelector<HTMLElement>('#budget-value');
 const missionCount = document.querySelector<HTMLElement>('.mission-count');
 const missionProgress = document.querySelector<HTMLElement>('.progress span');
 const buildMessage = document.querySelector<HTMLElement>('#build-message');
+const trafficCount = document.querySelector<HTMLElement>('#traffic-count');
 
 function pointerToGrid(event: PointerEvent): THREE.Vector2 | null {
   const rect = renderer.domElement.getBoundingClientRect();
@@ -387,6 +394,74 @@ function refreshPreview() {
   drawRoadSegments(draft, previewGroup, true);
 }
 
+function refreshJunctions() {
+  for (const marker of junctionMarkers.values()) {
+    scene.remove(marker);
+    marker.geometry.dispose();
+  }
+  junctionMarkers.clear();
+  const usage = new Map<string, { point: THREE.Vector2; roads: number }>();
+  for (const built of builtRoads) {
+    const points = built.userData.gridPoints as THREE.Vector2[] | undefined;
+    if (!points) continue;
+    const seen = new Set<string>();
+    for (const point of points) {
+      const key = `${point.x.toFixed(2)},${point.y.toFixed(2)}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const entry = usage.get(key) ?? { point, roads: 0 };
+      entry.roads += 1;
+      usage.set(key, entry);
+    }
+  }
+  for (const [key, entry] of usage) {
+    if (entry.roads < 2) continue;
+    const marker = new THREE.Mesh(new THREE.CircleGeometry(0.92, 20), roadMat);
+    marker.rotation.x = -Math.PI / 2;
+    marker.position.set(entry.point.x, 0.132, entry.point.y);
+    marker.receiveShadow = true;
+    scene.add(marker);
+    junctionMarkers.set(key, marker);
+  }
+}
+
+function launchRoadTraffic(road: THREE.Group, points: THREE.Vector2[]) {
+  if (points.length < 3) return;
+  const route = points.map(point => point.clone());
+  const lengths = route.slice(1).map((point, index) => point.distanceTo(route[index]!));
+  const total = lengths.reduce((sum, length) => sum + length, 0);
+  if (total < 3) return;
+  const mesh = car(route[0]!.x, route[0]!.y, yellow);
+  roadTraffic.push({ mesh, points: route, lengths, total, distance: 0, speed: 2.2, direction: 1, road });
+  if (trafficCount) trafficCount.textContent = String(18 + roadTraffic.length);
+}
+
+function updateRoadTraffic(delta: number) {
+  for (const vehicle of roadTraffic) {
+    vehicle.distance += vehicle.speed * delta * vehicle.direction;
+    if (vehicle.distance >= vehicle.total) {
+      vehicle.distance = vehicle.total;
+      vehicle.direction = -1;
+    } else if (vehicle.distance <= 0) {
+      vehicle.distance = 0;
+      vehicle.direction = 1;
+    }
+    let remaining = vehicle.distance;
+    let segment = 0;
+    while (segment < vehicle.lengths.length - 1 && remaining > vehicle.lengths[segment]!) {
+      remaining -= vehicle.lengths[segment]!;
+      segment++;
+    }
+    const a = vehicle.points[segment]!;
+    const b = vehicle.points[segment + 1]!;
+    const length = vehicle.lengths[segment] || 1;
+    const t = THREE.MathUtils.clamp(remaining / length, 0, 1);
+    vehicle.mesh.position.set(THREE.MathUtils.lerp(a.x, b.x, t), 0.18, THREE.MathUtils.lerp(a.y, b.y, t));
+    const dx = b.x - a.x, dz = b.y - a.y;
+    vehicle.mesh.rotation.y = Math.atan2(-dz, dx) + (vehicle.direction < 0 ? Math.PI : 0);
+  }
+}
+
 function startRoad(event: PointerEvent) {
   if (selectedTool !== 'road' || event.button !== 0) return;
   const point = pointerToGrid(event);
@@ -422,7 +497,9 @@ function finishRoad(event: PointerEvent) {
     return;
   }
   const path = new THREE.Group();
-  drawRoadSegments(draft, path);
+  const routePoints = draft.map(point => point.clone());
+  drawRoadSegments(routePoints, path);
+  path.userData.gridPoints = routePoints;
   scene.add(path);
   const touchesHighway = draft.some(point => Math.abs(point.y + 13) <= 1.65 && Math.abs(point.x) <= 18);
   const touchesVillage = draft.some(point =>
@@ -434,6 +511,8 @@ function finishRoad(event: PointerEvent) {
   path.userData.connectsVillageToHighway = touchesHighway && touchesVillage;
   path.userData.cost = cost;
   builtRoads.push(path);
+  refreshJunctions();
+  launchRoadTraffic(path, routePoints);
   budget -= cost;
   const missionDone = builtRoads.some(item => item.userData.connectsVillageToHighway === true);
   if (missionDone && !rewardClaimed) { budget += 300; rewardClaimed = true; }
@@ -459,6 +538,14 @@ document.querySelector<HTMLButtonElement>('#undo-road')?.addEventListener('click
   const last = builtRoads.pop();
   if (!last) return;
   scene.remove(last);
+  const trafficToRemove = roadTraffic.filter(vehicle => vehicle.road === last);
+  for (const vehicle of trafficToRemove) {
+    scene.remove(vehicle.mesh);
+    const index = roadTraffic.indexOf(vehicle);
+    if (index >= 0) roadTraffic.splice(index, 1);
+  }
+  if (trafficCount) trafficCount.textContent = String(18 + roadTraffic.length);
+  refreshJunctions();
   budget += Number(last.userData.cost ?? 0);
   last.traverse(object => {
     if (object instanceof THREE.Mesh) object.geometry.dispose();
