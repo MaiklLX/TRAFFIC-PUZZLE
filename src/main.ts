@@ -5,7 +5,7 @@ type Road = { points: Point[]; progress: number; connectsVillageToHighway: boole
 type RoadGraphNode = { id: number; x: number; y: number; edgeIds: string[] };
 type RoadGraphEdge = { id: string; from: number; to: number; width: number; kind: 'highway' | 'local'; source: string; forward: boolean; reverse: boolean; active: boolean };
 type RoadGraph = { nodes: RoadGraphNode[]; edges: RoadGraphEdge[] };
-type Vehicle = { path: Point[]; lengths: number[]; routeLength: number; distance: number; speed: number; cruiseSpeed: number; direction: number; color: string; destinationId: string };
+type Vehicle = { path: Point[]; lengths: number[]; routeLength: number; distance: number; speed: number; cruiseSpeed: number; direction: number; color: string; destinationId: string; fuel: number; fuelCapacity: number; stalled: boolean };
 
 const mount = document.querySelector<HTMLDivElement>('#world');
 if (!mount) throw new Error('World mount not found');
@@ -48,6 +48,8 @@ const missionCount = document.querySelector<HTMLElement>('.mission-count');
 const missionProgress = document.querySelector<HTMLElement>('.progress span');
 const buildMessage = document.querySelector<HTMLElement>('#build-message');
 const trafficCount = document.querySelector<HTMLElement>('#traffic-count');
+const jamCount = document.querySelector<HTMLElement>('#jam-count');
+const fuelCount = document.querySelector<HTMLElement>('#fuel-count');
 
 
 function distance(a: Point,b: Point) { return Math.hypot(a.x-b.x,a.y-b.y); }
@@ -310,6 +312,18 @@ function drawBarn(x:number,y:number){
   ctx!.fillStyle='#704f45';ctx!.fillRect(p.x-.6*s,p.y+.05*s,1.2*s,1.15*s);
   ctx!.strokeStyle='#e9b29a';ctx!.lineWidth=.09*s;ctx!.strokeRect(p.x-1.7*s,p.y-.8*s,3.4*s,2*s);
 }
+function drawFuelStation(x:number,y:number){
+  const p=worldToScreen({x,y}),s=camera.zoom;
+  // Compact roadside station: canopy, pumps and a small service building.
+  ctx!.fillStyle='#718a68';ctx!.globalAlpha=.2;roundedRect(ctx!,p.x-1.8*s,p.y-1.05*s,3.6*s,2.1*s,.28*s);ctx!.fill();ctx!.globalAlpha=1;
+  ctx!.fillStyle='#e8dfc5';roundedRect(ctx!,p.x-.72*s,p.y-.82*s,1.45*s,1.35*s,.12*s);ctx!.fill();
+  ctx!.fillStyle='#c66f5c';ctx!.fillRect(p.x-.72*s,p.y-.82*s,1.45*s,.28*s);
+  ctx!.fillStyle='#a9d8d8';ctx!.fillRect(p.x-.48*s,p.y-.38*s,.42*s,.38*s);
+  ctx!.fillStyle='#8b6d53';ctx!.fillRect(p.x+.12*s,p.y-.35*s,.34*s,.88*s);
+  ctx!.fillStyle='#d8e1d4';roundedRect(ctx!,p.x-1.75*s,p.y+.28*s,3.5*s,.22*s,.05*s);ctx!.fill();
+  ctx!.fillStyle='#e6eee2';roundedRect(ctx!,p.x-1.5*s,p.y-.25*s,3*s,.22*s,.06*s);ctx!.fill();
+  for(const pumpX of [-1.05,1.05]){ctx!.fillStyle='#f2eee0';roundedRect(ctx!,p.x+(pumpX-.16)*s,p.y-.02*s,.32*s,.68*s,.08*s);ctx!.fill();ctx!.fillStyle='#d77e62';ctx!.fillRect(p.x+(pumpX-.1)*s,p.y+.08*s,.2*s,.12*s);ctx!.strokeStyle='#596f5b';ctx!.lineWidth=.045*s;ctx!.beginPath();ctx!.moveTo(p.x+(pumpX+.12)*s,p.y+.12*s);ctx!.quadraticCurveTo(p.x+(pumpX+.4)*s,p.y+.35*s,p.x+(pumpX+.18)*s,p.y+.58*s);ctx!.stroke();}
+}
 function drawDecor(){
   // Fences, garden paths and roadside lamps.
   const fences=[[-8.9,-5.4,4.2,0],[-11.2,7.5,4.4,Math.PI/2],[5.8,3.5,3.5,0],[4.2,9.7,5,0]] as const;
@@ -336,6 +350,7 @@ function drawCar(vehicle:Vehicle){
   ctx!.fillStyle='#c9e1df';roundedRect(ctx!,-.13*s,-.2*s,.48*s,.4*s,.1*s);ctx!.fill();
   ctx!.fillStyle='#f8e7ad';ctx!.fillRect(.45*s,-.18*s,.09*s,.12*s);ctx!.fillRect(.45*s,.06*s,.09*s,.12*s);
   ctx!.fillStyle='#e9d4c2';ctx!.fillRect(-.55*s,-.17*s,.07*s,.11*s);ctx!.fillRect(-.55*s,.06*s,.07*s,.11*s);
+  ctx!.fillStyle=vehicle.fuel<18?'#e4a64f':'#9bc58a';roundedRect(ctx!,-.2*s,-.365*s,.4*s,.045*s,.02*s);ctx!.fill();
   ctx!.restore();
 }
 let ambientClock=0;
@@ -373,7 +388,7 @@ function drawVillageLife(){
 function render(){
   ctx!.clearRect(0,0,width,height);drawTerrain();drawRoadNetwork();drawDecor();
   drawHouse(-6.5,-3.2,1.05);drawHouse(7.7,1.7,.92,'#e8d9ad','#78a9b6');drawHouse(-10.4,5.8,.88,'#e8d4b5','#e9c46a');drawHouse(2.8,8.3,.8,'#e8e0c8','#dc8068');drawHouse(-5,-9,.72,'#e7d9b7','#78a9b6');
-  drawShop(11,-5);drawBarn(-13,-4);drawVillageLife();
+  drawShop(11,-5);drawBarn(-13,-4);drawFuelStation(-8,-16.1);drawVillageLife();
   const trees=[[-14,-10,1.2],[-17,-4,.9],[-16,1,.9],[-12,10,1.2],[-4,12,.9],[4,12,.9],[12,9,.9],[15,4,1.2],[14,-9,.9],[6,-5,.9],[-9,-1,.9],[17,0,1.2]] as const;
   for(const [x,y,s] of trees)drawTree(x,y,s);
   for(const vehicle of vehicles)drawCar(vehicle);
@@ -439,7 +454,7 @@ function nearestGraphNode(point:Point):RoadGraphNode|null{
 // access points. Repeatedly peel unanchored leaf branches: this keeps loops
 // and links between two existing roads, while closing blind spurs.
 function classifyRoadActivity(){
-  const anchorPoints=[demoStart,demoExit,...trafficDestinations.map(destination=>destination.access)];
+  const anchorPoints=[demoStart,demoExit,...trafficDestinations.map(destination=>destination.access),...fuelStations.map(station=>station.access)];
   const anchors=new Set<number>();
   for(const point of anchorPoints){const node=nearestGraphNode(point);if(node)anchors.add(node.id);}
   const activeIds=new Set(roadGraph.edges.map(edge=>edge.id));
@@ -521,6 +536,7 @@ function findRoadPath(start:Point,end:Point):Point[]|null{
 }
 const demoStart={x:-18,y:-13},demoExit={x:18,y:-13};
 type TrafficDestination={id:string;name:string;access:Point;color:string;weight:number};
+const fuelStations=[{id:'highway',name:'Заправка на трассе',access:{x:-8,y:-13}}];
 const trafficDestinations:TrafficDestination[]=[
   {id:'west',name:'Западный квартал',access:{x:-12,y:3},color:'#e9c46a',weight:2},
   {id:'north',name:'Северный квартал',access:{x:-1,y:11},color:'#78a9b6',weight:1},
@@ -530,7 +546,10 @@ const trafficDestinations:TrafficDestination[]=[
 function buildTrafficRoute(destinationId:string):Point[]|null{
   const destination=trafficDestinations.find(item=>item.id===destinationId);
   if(!destination)return null;
-  const inbound=findRoadPath(demoStart,destination.access);
+  const station=fuelStations[0];
+  const toStation=station?findRoadPath(demoStart,station.access):null;
+  const fromStation=station?findRoadPath(station.access,destination.access):null;
+  const inbound=toStation&&fromStation?toStation.concat(fromStation.slice(1)):findRoadPath(demoStart,destination.access);
   const outbound=findRoadPath(destination.access,demoExit);
   if(!inbound||!outbound)return null;
   return inbound.concat(outbound.slice(1));
@@ -584,7 +603,7 @@ function createVehicle(path:Point[],speed:number,destination:TrafficDestination,
   path=offsetRouteToRightSide(path);
   const lengths=path.slice(1).map((point,index)=>distance(path[index]!,point));
   const routeLength=lengths.reduce((sum,value)=>sum+value,0);
-  return{path,lengths,routeLength,distance:Math.min(offset,routeLength),speed,cruiseSpeed:speed,direction:1,color:destination.color,destinationId:destination.id};
+  return{path,lengths,routeLength,distance:Math.min(offset,routeLength),speed,cruiseSpeed:speed,direction:1,color:destination.color,destinationId:destination.id,fuel:72,fuelCapacity:72,stalled:false};
 }
 let reachableDestinations:TrafficDestination[]=[];
 function refreshVehicleRoutes(){
@@ -606,7 +625,11 @@ function refreshVehicleRoutes(){
 rebuildRoadGraph();
 reachableDestinations=trafficDestinations.filter(destination=>buildTrafficRoute(destination.id)!==null);
 let trafficSpawnTimer=5.5,trafficSpawnIndex=0;
-function updateTrafficCounter(){if(trafficCount)trafficCount.textContent=String(vehicles.length);}
+function updateTrafficCounter(){
+  if(trafficCount)trafficCount.textContent=String(vehicles.length);
+  if(jamCount)jamCount.textContent=String(vehicles.filter(vehicle=>vehicle.speed<.32).length);
+  if(fuelCount){const average=vehicles.length?vehicles.reduce((sum,vehicle)=>sum+vehicle.fuel/vehicle.fuelCapacity,0)/vehicles.length:1;fuelCount.textContent=vehicles.length?Math.round(average*100)+'%':'—';}
+}
 function spawnTrafficVehicle(){
   if(!reachableDestinations.length)return false;
   // All routes share the same highway entry: keep a safe gap there.
@@ -833,7 +856,7 @@ function animate(time:number){
   const junctionLimits=junctionYieldSpeeds();
   for(let i=0;i<vehicles.length;i++){
     const vehicle=vehicles[i]!,pose=poses[i]!;
-    let desiredSpeed=junctionLimits[i]??vehicle.cruiseSpeed;
+    let desiredSpeed=vehicle.fuel>0?(junctionLimits[i]??vehicle.cruiseSpeed):0;
     for(let j=0;j<vehicles.length;j++){
       if(i===j)continue;
       const other=poses[j]!,dx=other.x-pose.x,dy=other.y-pose.y;
@@ -846,11 +869,20 @@ function animate(time:number){
     }
     const rate=desiredSpeed<vehicle.speed?7.5:2.1;
     vehicle.speed+=clamp(desiredSpeed-vehicle.speed,-rate*delta,rate*delta);
+    // Fuel is spent both on distance travelled and while a vehicle is held in a queue.
+    vehicle.fuel=Math.max(0,vehicle.fuel-vehicle.speed*delta*.42-(vehicle.speed<.25?delta*.075:0));
+    if(vehicle.fuel<=0)vehicle.stalled=true;
     vehicle.distance+=vehicle.speed*delta;
+    const poseAfterMove=vehiclePose(vehicle);
+    if(fuelStations.some(station=>distance(poseAfterMove,station.access)<1.05)){
+      vehicle.fuel=Math.min(vehicle.fuelCapacity,vehicle.fuel+48*delta);
+      if(vehicle.fuel>0)vehicle.stalled=false;
+    }
   }
   for(let i=vehicles.length-1;i>=0;i--){
     if(vehicles[i]!.distance>=vehicles[i]!.routeLength){vehicles.splice(i,1);updateTrafficCounter();}
   }
+  updateTrafficCounter();
   trafficSpawnTimer-=delta;
   if(trafficSpawnTimer<=0){spawnTrafficVehicle();trafficSpawnTimer=7.5;}
   render();requestAnimationFrame(animate);
