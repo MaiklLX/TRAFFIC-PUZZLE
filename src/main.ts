@@ -14,11 +14,9 @@ camera.position.set(17, 19, 17);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, window.innerWidth < 700 ? 1.5 : 2));
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.enabled = false;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.15;
+renderer.toneMapping = THREE.NoToneMapping;
 mount.appendChild(renderer.domElement);
 
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -40,13 +38,10 @@ controls.touches.TWO = THREE.TOUCH.DOLLY_ROTATE;
 scene.add(new THREE.HemisphereLight('#f4fff0', '#788d65', 2.1));
 const sun = new THREE.DirectionalLight('#fff2d2', 3.1);
 sun.position.set(-12, 22, 12);
-sun.castShadow = true;
-sun.shadow.mapSize.set(window.innerWidth < 700 ? 1024 : 2048, window.innerWidth < 700 ? 1024 : 2048);
-sun.shadow.camera.left = -30; sun.shadow.camera.right = 30;
-sun.shadow.camera.top = 30; sun.shadow.camera.bottom = -30;
+sun.castShadow = false;
 scene.add(sun);
 
-const mat = (color: string, roughness = 0.9) => new THREE.MeshStandardMaterial({ color, roughness });
+const mat = (color: string, _roughness = 0.9) => new THREE.MeshLambertMaterial({ color });
 const grass = mat('#91bd83');
 const grassLight = mat('#a6cb8c');
 const roadMat = mat('#59666a');
@@ -123,7 +118,7 @@ house(-6.5, -3.2, cream, red, 1.05);
 house(7.7, 1.7, mat('#e8d9ad'), blue, 0.92);
 house(-10.4, 5.8, mat('#e8d4b5'), yellow, 0.88);
 house(2.8, 8.3, mat('#e8e0c8'), red, 0.8);
-house(-2.1, -9.0, mat('#e7d9b7'), blue, 0.72);
+house(-5.0, -9.0, mat('#e7d9b7'), blue, 0.72);
 
 // Small shop and a barn.
 const shop = new THREE.Group(); shop.position.set(11, -5, 0); scene.add(shop);
@@ -235,10 +230,13 @@ for (let i = 0; i < 7; i++) {
   step.rotation.y = i * 0.24; scene.add(step);
 }
 
-// Two cars follow simple village routes so the prototype already feels alive.
+// Traffic enters from the federal highway, then turns into the village.
+const trafficRoute = [new THREE.Vector2(-18,-13), new THREE.Vector2(-1,-13), new THREE.Vector2(-1,5), new THREE.Vector2(9,5)];
+const trafficRouteLengths = trafficRoute.slice(1).map((point,index) => point.distanceTo(trafficRoute[index]!));
+const trafficRouteLength = trafficRouteLengths.reduce((sum,value)=>sum+value,0);
 const movingCars = [
-  { mesh: car(-8, -13, yellow), from: -8, to: 8, z: -13, speed: 1.65, offset: 0 },
-  { mesh: car(1, 4.85, blue), from: 1, to: 9, z: 4.85, speed: 1.15, offset: 2.4 }
+  { mesh: car(-16,-13,yellow), distance: 2, speed: 2.25, direction: 1 },
+  { mesh: car(-10,-13,blue), distance: 8.5, speed: 1.85, direction: 1 }
 ];
 
 const clock = new THREE.Clock();
@@ -246,7 +244,7 @@ function resize() {
   const w = mount!.clientWidth, h = mount!.clientHeight;
   if (!w || !h) return;
   camera.aspect = w / h;
-  camera.fov = w < 680 ? 39 : 34;
+  camera.fov = w < 680 ? 42 : 37;
   camera.updateProjectionMatrix();
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, w < 680 ? 1.5 : 2));
   renderer.setSize(w, h, false);
@@ -262,13 +260,18 @@ function animate() {
   const delta = Math.min(Math.max(elapsed - previousFrameTime, 0), 0.05);
   previousFrameTime = elapsed;
   for (const vehicle of movingCars) {
-    const span = vehicle.to - vehicle.from;
-    const progress = ((elapsed * vehicle.speed + vehicle.offset) % (span * 2)) / span;
-    const x = progress <= 1 ? vehicle.from + progress * span : vehicle.to - (progress - 1) * span;
-    vehicle.mesh.position.set(x, 0.18, vehicle.z);
-    vehicle.mesh.rotation.y = progress <= 1 ? 0 : Math.PI;
+    vehicle.distance += vehicle.speed * delta * vehicle.direction;
+    if (vehicle.distance >= trafficRouteLength) { vehicle.distance = trafficRouteLength; vehicle.direction = -1; }
+    if (vehicle.distance <= 0) { vehicle.distance = 0; vehicle.direction = 1; }
+    let remaining = vehicle.distance, segment = 0;
+    while (segment < trafficRouteLengths.length - 1 && remaining > trafficRouteLengths[segment]!) {
+      remaining -= trafficRouteLengths[segment]!; segment++;
+    }
+    const a = trafficRoute[segment]!, b = trafficRoute[segment + 1]!;
+    const t = THREE.MathUtils.clamp(remaining / (trafficRouteLengths[segment] || 1),0,1);
+    vehicle.mesh.position.set(THREE.MathUtils.lerp(a.x,b.x,t),0.18,THREE.MathUtils.lerp(a.y,b.y,t));
+    vehicle.mesh.rotation.y = Math.atan2(-(b.y-a.y),b.x-a.x) + (vehicle.direction < 0 ? Math.PI : 0);
   }
-  updateRoadTraffic(delta);
   controls.update();
   renderer.render(scene, camera);
 }
@@ -306,23 +309,34 @@ toolButtons.forEach(button => {
 
 // KT-003: drag-to-build road editor on a 1.5-unit isometric grid.
 const roadGrid = 1.5;
+const roadHalfWidth = 0.95;
+const staticRoads = [
+ [new THREE.Vector2(-18,-13),new THREE.Vector2(18,-13),1.55],
+ [new THREE.Vector2(-1,-13),new THREE.Vector2(-1,11),1.5],
+ [new THREE.Vector2(-1,5),new THREE.Vector2(11,5),1.3],
+ [new THREE.Vector2(-12,3),new THREE.Vector2(-2,3),1.3],
+ [new THREE.Vector2(0,-13),new THREE.Vector2(0,-2.4),1.5],
+ [new THREE.Vector2(10,-15.6),new THREE.Vector2(10,-10.4),1.5]
+] as const;
+const obstacles = [
+ {x:-6.5,z:-3.2,r:2.15},{x:7.7,z:1.7,r:1.95},{x:-10.4,z:5.8,r:1.85},{x:2.8,z:8.3,r:1.75},{x:-5,z:-9,r:1.55},{x:11,z:-5,r:2.25},{x:-13,z:-4,r:2.35},
+ {x:-14,z:-10,r:1.25},{x:-11,z:-11,r:1.05},{x:-16,z:1,r:1.15},{x:-12,z:10,r:1.1},{x:-4,z:12,r:1.05},{x:4,z:12,r:1.05},{x:12,z:9,r:1.05},{x:15,z:4,r:1.05},{x:14,z:-9,r:1.05},{x:6,z:-5,r:1.05},{x:-9,z:-1,r:1.05},{x:0,z:5,r:1.05},{x:16,z:7,r:4.0}
+];
 const roadRaycaster = new THREE.Raycaster();
 const pointerNdc = new THREE.Vector2();
 const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 const previewGroup = new THREE.Group();
 scene.add(previewGroup);
 const builtRoads: THREE.Group[] = [];
-const roadTraffic: { mesh: THREE.Group; points: THREE.Vector2[]; lengths: number[]; total: number; distance: number; speed: number; direction: number; road: THREE.Group }[] = [];
+const roadTraffic: never[] = [];
 const junctionMarkers = new Map<string, THREE.Mesh>();
 let drawing = false;
 let draft: THREE.Vector2[] = [];
-let budget = 2400;
-let rewardClaimed = false;
-const budgetValue = document.querySelector<HTMLElement>('#budget-value');
 const missionCount = document.querySelector<HTMLElement>('.mission-count');
 const missionProgress = document.querySelector<HTMLElement>('.progress span');
 const buildMessage = document.querySelector<HTMLElement>('#build-message');
 const trafficCount = document.querySelector<HTMLElement>('#traffic-count');
+if (trafficCount) trafficCount.textContent = String(movingCars.length);
 
 function pointerToGrid(event: PointerEvent): THREE.Vector2 | null {
   const rect = renderer.domElement.getBoundingClientRect();
@@ -349,6 +363,30 @@ function appendGridPath(target: THREE.Vector2[], destination: THREE.Vector2) {
   }
 }
 
+function distanceToSegment(point: THREE.Vector2,a: THREE.Vector2,b: THREE.Vector2) {
+ const ab=b.clone().sub(a); const t=THREE.MathUtils.clamp(point.clone().sub(a).dot(ab)/Math.max(ab.lengthSq(),0.0001),0,1);
+ return point.distanceTo(a.clone().addScaledVector(ab,t));
+}
+function touchesRoadNetwork(point: THREE.Vector2) {
+ if(staticRoads.some(([a,b,width])=>distanceToSegment(point,a,b)<=width+0.55)) return true;
+ return builtRoads.some(road=>{
+  const points=road.userData.gridPoints as THREE.Vector2[]|undefined;
+  return !!points && points.some((p,i)=>i>0 && distanceToSegment(point,points[i-1]!,p)<=roadHalfWidth+0.55);
+ });
+}
+function isValidRoadPath(points: THREE.Vector2[]) {
+ if(points.length<2) return false;
+ if(!touchesRoadNetwork(points[0]!) && !touchesRoadNetwork(points[points.length-1]!)) return false;
+ for(let i=1;i<points.length;i++){
+  const a=points[i-1]!,b=points[i]!,steps=Math.max(2,Math.ceil(a.distanceTo(b)/0.35));
+  for(let step=0;step<=steps;step++){
+   const p=a.clone().lerp(b,step/steps);
+   if(obstacles.some(o=>Math.hypot(p.x-o.x,p.y-o.z)<o.r+roadHalfWidth)) return false;
+  }
+ }
+ return true;
+}
+
 function clearPreview() {
   while (previewGroup.children.length) {
     const child = previewGroup.children.pop()!;
@@ -363,21 +401,23 @@ function clearPreview() {
   }
 }
 
-function drawRoadSegments(points: THREE.Vector2[], parent: THREE.Group, preview = false) {
+function drawRoadSegments(points: THREE.Vector2[], parent: THREE.Group, preview = false, valid = true) {
   for (let i = 1; i < points.length; i++) {
     const a = points[i - 1]!, b = points[i]!;
     const dx = b.x - a.x, dz = b.y - a.y;
     const length = Math.hypot(dx, dz) + 0.08;
     const material = preview
-      ? new THREE.MeshStandardMaterial({ color: '#f5d47a', transparent: true, opacity: 0.78, roughness: 0.85 })
+      ? new THREE.MeshLambertMaterial({ color: valid ? '#e9c46a' : '#d96c62', transparent: true, opacity: 0.82 })
       : roadMat;
-    const segment = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.14, length), material);
-    segment.position.set((a.x + b.x) / 2, 0.055, (a.y + b.y) / 2);
+    const segment = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.055, length + 0.06), material);
+    segment.position.set((a.x + b.x) / 2, 0.025, (a.y + b.y) / 2);
     segment.rotation.y = Math.atan2(dx, dz);
     segment.receiveShadow = true;
     segment.castShadow = !preview;
     parent.add(segment);
     if (!preview) {
+      const joint = new THREE.Mesh(new THREE.CircleGeometry(roadHalfWidth, 20), roadMat);
+      joint.rotation.x = -Math.PI / 2; joint.position.set(b.x, 0.055, b.y); parent.add(joint);
       const edgeMaterial = roadEdge;
       for (const side of [-1, 1]) {
         const edge = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.035, length), edgeMaterial);
@@ -390,7 +430,7 @@ function drawRoadSegments(points: THREE.Vector2[], parent: THREE.Group, preview 
 
 function refreshPreview() {
   clearPreview();
-  drawRoadSegments(draft, previewGroup, true);
+  drawRoadSegments(draft, previewGroup, true, isValidRoadPath(draft));
 }
 
 function refreshJunctions() {
@@ -424,47 +464,15 @@ function refreshJunctions() {
   }
 }
 
-function launchRoadTraffic(road: THREE.Group, points: THREE.Vector2[]) {
-  if (points.length < 3) return;
-  const route = points.map(point => point.clone());
-  const lengths = route.slice(1).map((point, index) => point.distanceTo(route[index]!));
-  const total = lengths.reduce((sum, length) => sum + length, 0);
-  if (total < 3) return;
-  const mesh = car(route[0]!.x, route[0]!.y, yellow);
-  roadTraffic.push({ mesh, points: route, lengths, total, distance: 0, speed: 2.2, direction: 1, road });
-  if (trafficCount) trafficCount.textContent = String(18 + roadTraffic.length);
-}
-
-function updateRoadTraffic(delta: number) {
-  for (const vehicle of roadTraffic) {
-    vehicle.distance += vehicle.speed * delta * vehicle.direction;
-    if (vehicle.distance >= vehicle.total) {
-      vehicle.distance = vehicle.total;
-      vehicle.direction = -1;
-    } else if (vehicle.distance <= 0) {
-      vehicle.distance = 0;
-      vehicle.direction = 1;
-    }
-    let remaining = vehicle.distance;
-    let segment = 0;
-    while (segment < vehicle.lengths.length - 1 && remaining > vehicle.lengths[segment]!) {
-      remaining -= vehicle.lengths[segment]!;
-      segment++;
-    }
-    const a = vehicle.points[segment]!;
-    const b = vehicle.points[segment + 1]!;
-    const length = vehicle.lengths[segment] || 1;
-    const t = THREE.MathUtils.clamp(remaining / length, 0, 1);
-    vehicle.mesh.position.set(THREE.MathUtils.lerp(a.x, b.x, t), 0.18, THREE.MathUtils.lerp(a.y, b.y, t));
-    const dx = b.x - a.x, dz = b.y - a.y;
-    vehicle.mesh.rotation.y = Math.atan2(-dz, dx) + (vehicle.direction < 0 ? Math.PI : 0);
-  }
-}
 
 function startRoad(event: PointerEvent) {
   if (selectedTool !== 'road' || event.button !== 0) return;
   const point = pointerToGrid(event);
   if (!point) return;
+  if (obstacles.some(o => Math.hypot(point.x-o.x,point.y-o.z) < o.r + roadHalfWidth)) {
+    if (buildMessage) buildMessage.textContent = 'Нельзя начинать дорогу внутри здания, дерева или водоёма.';
+    return;
+  }
   drawing = true;
   draft = [point];
   renderer.domElement.setPointerCapture(event.pointerId);
@@ -488,11 +496,9 @@ function finishRoad(event: PointerEvent) {
     if (buildMessage) buildMessage.textContent = 'Протяни дорогу хотя бы на одну клетку.';
     return;
   }
-  const cost = (draft.length - 1) * 25;
-  if (budget < cost) {
-    clearPreview();
-    draft = [];
-    if (buildMessage) buildMessage.textContent = 'Недостаточно монет для этой дороги.';
+  if (!isValidRoadPath(draft)) {
+    clearPreview(); draft = [];
+    if (buildMessage) buildMessage.textContent = 'Здесь нельзя проложить дорогу: она должна соединяться с дорожной сетью и обходить здания, деревья и воду.';
     return;
   }
   const path = new THREE.Group();
@@ -508,19 +514,14 @@ function finishRoad(event: PointerEvent) {
     (Math.abs(point.y - 3) <= 1.4 && point.x >= -11 && point.x <= -3)
   );
   path.userData.connectsVillageToHighway = touchesHighway && touchesVillage;
-  path.userData.cost = cost;
   builtRoads.push(path);
   refreshJunctions();
-  launchRoadTraffic(path, routePoints);
-  budget -= cost;
-  const missionDone = builtRoads.some(item => item.userData.connectsVillageToHighway === true);
-  if (missionDone && !rewardClaimed) { budget += 300; rewardClaimed = true; }
-  if (budgetValue) budgetValue.textContent = budget.toLocaleString('ru-RU');
+  const missionDone = builtRoads.length > 0;
   if (missionCount) missionCount.textContent = missionDone ? '1 / 1' : '0 / 1';
   if (missionProgress) missionProgress.style.width = missionDone ? '100%' : '8%';
   if (buildMessage) buildMessage.textContent = missionDone
     ? `Отлично! Деревня соединена с федеральной трассой. Награда +300 монет начислена. Дорога: ${draft.length - 1} сегм.`
-    : `Дорога построена: ${draft.length - 1} сегм. Для задания соедини её с деревенской дорогой и федеральной трассой. Стоимость: ${cost} монет.`;
+    : `Дорога построена: ${draft.length - 1} участков. Машины продолжают движение по существующему маршруту.`;
   clearPreview();
   draft = [];
 }
@@ -537,21 +538,11 @@ document.querySelector<HTMLButtonElement>('#undo-road')?.addEventListener('click
   const last = builtRoads.pop();
   if (!last) return;
   scene.remove(last);
-  const trafficToRemove = roadTraffic.filter(vehicle => vehicle.road === last);
-  for (const vehicle of trafficToRemove) {
-    scene.remove(vehicle.mesh);
-    const index = roadTraffic.indexOf(vehicle);
-    if (index >= 0) roadTraffic.splice(index, 1);
-  }
-  if (trafficCount) trafficCount.textContent = String(18 + roadTraffic.length);
   refreshJunctions();
-  budget += Number(last.userData.cost ?? 0);
   last.traverse(object => {
     if (object instanceof THREE.Mesh) object.geometry.dispose();
   });
   const missionDone = builtRoads.some(item => item.userData.connectsVillageToHighway === true);
-  if (!missionDone && rewardClaimed) { budget -= 300; rewardClaimed = false; }
-  if (budgetValue) budgetValue.textContent = budget.toLocaleString('ru-RU');
   if (missionCount) missionCount.textContent = missionDone ? '1 / 1' : '0 / 1';
   if (missionProgress) missionProgress.style.width = missionDone ? '100%' : '8%';
   if (buildMessage) buildMessage.textContent = 'Последняя построенная дорога удалена.';
