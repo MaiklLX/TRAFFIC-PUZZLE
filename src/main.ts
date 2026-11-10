@@ -330,12 +330,18 @@ function updateDraftPath(destination:Point){
   const current=draft[draft.length-1];if(!current||distance(current,destination)<.1)return;
   for(let i=draft.length-2;i>=0;i--){if(distance(draft[i]!,destination)<.1){draft.splice(i+1);return;}}
   let x=current.x,y=current.y;
-  while(Math.abs(destination.x-x)>.1||Math.abs(destination.y-y)>.1){
+  // The first point may be snapped to a road centreline and therefore sit
+  // between grid coordinates. Clamp each step to the remaining delta so we
+  // never overshoot and oscillate forever near the pointer destination.
+  let guard=0;
+  while((Math.abs(destination.x-x)>.1||Math.abs(destination.y-y)>.1)&&guard++<256){
     const dx=destination.x-x,dy=destination.y-y;
-    if(Math.abs(dx)>=Math.abs(dy)&&Math.abs(dx)>.1)x+=Math.sign(dx)*roadGrid;
-    else if(Math.abs(dy)>.1)y+=Math.sign(dy)*roadGrid;
-    const next={x,y};if(distance(draft[draft.length-1]!,next)>.1)draft.push(next);
+    if(Math.abs(dx)>=Math.abs(dy)&&Math.abs(dx)>.1)x+=Math.sign(dx)*Math.min(roadGrid,Math.abs(dx));
+    else if(Math.abs(dy)>.1)y+=Math.sign(dy)*Math.min(roadGrid,Math.abs(dy));
+    const next={x:Math.abs(destination.x-x)<=.1?destination.x:x,y:Math.abs(destination.y-y)<=.1?destination.y:y};
+    if(distance(draft[draft.length-1]!,next)>.1)draft.push(next);
   }
+  if(guard>=256){const last=draft[draft.length-1]!;if(distance(last,destination)>.1)draft.push({...destination});}
 }
 function pointerPosition(event:MouseEvent):Point{
   const rect=canvas.getBoundingClientRect();return{x:event.clientX-rect.left,y:event.clientY-rect.top};
