@@ -1,0 +1,114 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Nunito:wght@500;600;700;800;900&display=swap');
+
+:root {
+  font-family: 'DM Sans', sans-serif;
+  color: #33483d;
+  background: #e6eee0;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  --ink: #34483d;
+  --muted: #819087;
+  --green: #668e6d;
+  --gold: #e4b85e;
+  --panel: #fbfaf3;
+}
+* { box-sizing: border-box; }
+html, body, #app { margin: 0; width: 100%; min-width: 320px; min-height: 100%; height: 100%; }
+body { overflow: hidden; background: radial-gradient(ellipse at 20% 20%, #f4f6e9, #dce9d9 70%); }
+button { font: inherit; }
+#app { display: flex; flex-direction: column; padding: 0 22px 14px; }
+.topbar { height: 76px; flex: 0 0 76px; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); }
+.brand-mark { display: grid; place-items: center; width: 39px; height: 39px; border-radius: 13px; background: #6d9474; color: white; font: 900 14px 'Nunito'; box-shadow: 0 4px 0 #52775a; }
+.brand strong, .brand small { display: block; letter-spacing: 1.8px; line-height: 1.05; }
+.brand strong { font: 900 15px 'Nunito'; }
+.brand small { font-size: 9px; font-weight: 800; letter-spacing: 3px; margin-top: 4px; color: #819184; }
+.chapter { display: flex; align-items: center; gap: 10px; font-size: 11px; color: #829087; letter-spacing: 1.3px; }
+.chapter strong { color: var(--ink); font-size: 13px; letter-spacing: 0; margin-left: 5px; }
+.chapter-dot { width: 8px; height: 8px; background: #e5b75e; border-radius: 50%; box-shadow: 0 0 0 4px #e5b75e33; }
+.top-actions { display: flex; align-items: center; gap: 16px; }
+.weather { font-size: 13px; color: #77877c; }
+.weather b { color: var(--ink); margin-left: 4px; }
+.icon-button { border: 1px solid #d5dfd1; border-radius: 12px; width: 38px; height: 38px; background: #f9fbf4; color: #65866b; font-size: 21px; cursor: pointer; }
+.game-shell { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 16px; flex: 1; min-height: 0; }
+.world-frame { position: relative; overflow: hidden; border-radius: 24px; background: #b9d9bd; box-shadow: 0 12px 35px #536d4d24, inset 0 0 0 1px #ffffff8a; }
+#world { position: absolute; inset: 0; }
+#world canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+.world-vignette { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg,#f8f6e51c,transparent 45%,#456a4a1c); }
+.location-tag { position: absolute; left: 22px; top: 22px; display: flex; gap: 10px; align-items: center; padding: 10px 14px 10px 11px; border: 1px solid #ffffffb0; border-radius: 14px; background: #fbfcf0dd; backdrop-filter: blur(10px); box-shadow: 0 5px 18px #4a66431c; }
+.pin { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 10px; background: #e4edda; color: #668c6a; font-size: 18px; }
+.location-tag b, .location-tag small { display: block; }
+.location-tag b { font: 800 12px 'Nunito'; }
+.location-tag small { margin-top: 2px; font-size: 10px; color: #859087; }
+.world-hint { position: absolute; left: 22px; bottom: 20px; padding: 9px 12px; border-radius: 11px; background: #f8f9efc9; color: #728278; font-size: 10px; backdrop-filter: blur(8px); }
+.hint-icon { color: #729779; font-size: 14px; margin-right: 6px; }
+.world-controls { position: absolute; right: 18px; bottom: 18px; display: flex; gap: 6px; }
+.world-controls button { width: 34px; height: 34px; border: 1px solid #ffffffa8; border-radius: 10px; background: #f8f9efdc; color: #5c7c62; font-size: 20px; cursor: pointer; box-shadow: 0 3px 9px #52684b1b; }
+.side-panel { display: flex; flex-direction: column; min-height: 0; overflow: auto; padding: 23px 22px 16px; border: 1px solid #fff; border-radius: 22px; background: var(--panel); box-shadow: 0 10px 30px #536d4d13; }
+.panel-heading { display: flex; justify-content: space-between; align-items: flex-start; }
+.eyebrow { font-size: 9px; font-weight: 800; letter-spacing: 1.7px; color: #91a095; }
+h1 { margin: 9px 0 0; font: 900 24px/1.12 'Nunito'; letter-spacing: -.6px; color: var(--ink); }
+.sun-badge { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 12px; background: #f8edcf; color: #d6a849; font-size: 20px; }
+.intro { margin: 12px 0 17px; color: #849087; font-size: 11px; line-height: 1.6; }
+.stats { display: grid; gap: 8px; }
+.stat { display: flex; align-items: center; gap: 10px; min-height: 49px; padding: 7px 9px; border: 1px solid #edf0e7; border-radius: 12px; background: #fffefa; }
+.stat-icon { display: grid; place-items: center; width: 31px; height: 31px; border-radius: 10px; font-size: 15px; }
+.people { background: #e5efe0; color: #6e9672; }
+.cars { background: #e2eef0; }
+.coin { background: #fbefd4; color: #d7a944; }
+.stat small, .stat b { display: block; }
+.stat small { color: #9aa59b; font-size: 9px; }
+.stat b { margin-top: 1px; font: 900 15px 'Nunito'; }
+.stat em { margin-left: auto; color: #9aa69b; font-size: 9px; font-style: normal; }
+.mission { margin-top: 16px; padding: 14px 14px 12px; border: 1px solid #e8e9d8; border-radius: 15px; background: #f4f5e8; }
+.mission-top { display: flex; align-items: center; justify-content: space-between; }
+.mission-count { color: #a2aa93; font-size: 10px; font-weight: 700; }
+h2 { margin: 10px 0 5px; font: 900 15px 'Nunito'; color: #435748; }
+.mission p { margin: 0; color: #879387; font-size: 10px; line-height: 1.55; }
+.progress { height: 5px; margin: 12px 0 8px; border-radius: 5px; background: #e0e5d6; overflow: hidden; }
+.progress span { display: block; width: 8%; height: 100%; border-radius: inherit; background: #82a77c; }
+.reward { color: #9a9e8a; font-size: 9px; }
+.reward b { color: #b48c43; }
+.build-title { display: flex; justify-content: space-between; align-items: center; margin: 18px 0 10px; }
+.soon { color: #b2b9aa; font-size: 8px; letter-spacing: 1px; }
+.tool-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 7px; }
+.tool { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 9px 2px 8px; border: 1px solid #edf0e8; border-radius: 12px; background: #fffefa; color: #8a988c; cursor: pointer; }
+.tool span { font-size: 19px; line-height: 1; }
+.tool b { font-size: 9px; font-weight: 700; }
+.tool.active { border-color: #a8c3a5; background: #eaf1e5; color: #5c8462; box-shadow: inset 0 0 0 1px #d5e4d1; }
+.footer-note { display: flex; align-items: center; gap: 7px; margin-top: auto; padding-top: 16px; color: #9aa598; font-size: 9px; }
+.bottom-bar { height: 27px; flex: 0 0 27px; display: flex; justify-content: space-between; align-items: end; padding: 0 5px; color: #9aa99b; font-size: 9px; letter-spacing: .8px; }
+.bottom-bar i { margin: 0 5px; color: #c3cdbd; font-style: normal; }
+.bottom-bar b { color: #d98b7b; margin-left: 4px; }
+@media (max-width: 900px) {
+  #app { padding: 0 10px 9px; }
+  .topbar { height: 60px; flex-basis: 60px; padding: 0 5px; }
+  .game-shell { grid-template-columns: minmax(0,1fr) 285px; gap: 10px; }
+  .side-panel { padding: 18px 15px 13px; }
+  h1 { font-size: 21px; }
+}
+@media (max-width: 680px) {
+  body { overflow: auto; }
+  #app { height: auto; min-height: 100%; padding: 0 8px 8px; }
+  .topbar { height: 55px; flex-basis: 55px; }
+  .chapter { display: none; }
+  .brand-mark { width: 34px; height: 34px; }
+  .game-shell { display: flex; flex-direction: column; }
+  .world-frame { height: min(62vh, 520px); min-height: 330px; flex: 0 0 auto; border-radius: 18px; }
+  .side-panel { min-height: 0; overflow: visible; border-radius: 18px; padding: 18px; }
+  .panel-heading h1 br { display: none; }
+  .panel-heading h1 { max-width: 260px; }
+  .stats { grid-template-columns: repeat(3,1fr); gap: 5px; }
+  .stat { flex-wrap: wrap; gap: 5px; padding: 7px; }
+  .stat em { display: none; }
+  .stat-icon { width: 26px; height: 26px; }
+  .world-hint { left: 12px; bottom: 12px; max-width: calc(100% - 110px); font-size: 9px; }
+  .location-tag { top: 12px; left: 12px; }
+  .world-controls { right: 10px; bottom: 10px; }
+  .bottom-bar { padding: 8px 3px 0; height: 27px; flex-basis: 27px; font-size: 8px; }
+}
+@media (max-width: 390px) {
+  .weather { display: none; }
+  .tool-grid { gap: 5px; }
+  .tool b { font-size: 8px; }
+}
