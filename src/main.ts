@@ -168,9 +168,7 @@ function car(x: number, z: number, color: THREE.Material, rotation = 0) {
   return g;
 }
 car(-1, -11.8, red, Math.PI/2);
-car(2.5, -13, yellow);
-car(4.7, 4.85, blue);
-car(-1, -4.2, mat('#e9e3d2'), 0);
+car(-1, -4.2, mat('#e9e3d2'), Math.PI / 2);
 
 // A distant highway sign gives the scene a sense of place.
 const sign = new THREE.Group(); sign.position.set(-13,0,-15.1); scene.add(sign);
@@ -208,7 +206,7 @@ function streetLamp(x: number, z: number) {
   const shade = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 8), lampGlow);
   shade.position.set(0.52, 2.17, 0); g.add(shade);
 }
-[[-3,-9.8],[7,-1.4],[9,5.8],[-7,1.5],[0,-13.2],[13,-13.2]].forEach(([x,z]) => streetLamp(x!, z!));
+[[-3,-9.8],[7,-1.4],[9,5.8],[-7,1.5],[-3,-15],[8,-15]].forEach(([x,z]) => streetLamp(x!, z!));
 
 const pathMat = mat('#d5c59b');
 function gardenPath(x: number, z: number, w: number, d: number, rotation = 0) {
