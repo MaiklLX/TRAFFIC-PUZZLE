@@ -507,7 +507,8 @@ function spawnTrafficVehicle(){
   if(!reachableDestinations.length)return false;
   // All routes share the same highway entry: keep a safe gap there.
   if(vehicles.some(vehicle=>vehicle.distance<9))return false;
-  const destination=reachableDestinations[trafficSpawnIndex%reachableDestinations.length]!;
+  const demandQueue=reachableDestinations.flatMap(item=>Array.from({length:item.weight},()=>item));
+  const destination=demandQueue[trafficSpawnIndex%demandQueue.length]!;
   trafficSpawnIndex++;
   const path=buildTrafficRoute(destination.id);if(!path)return false;
   vehicles.push(createVehicle(path,2.05+Math.random()*.35,destination,0));
