@@ -1,7 +1,10 @@
 import './style.css';
 
 type Point = { x: number; y: number };
-type Road = { points: Point[]; progress: number; connectsVillageToHighway: boolean; width: number };\ntype RoadGraphNode = { id: number; x: number; y: number; edgeIds: string[] };\ntype RoadGraphEdge = { id: string; from: number; to: number; width: number; kind: 'highway' | 'local'; source: string };\ntype RoadGraph = { nodes: RoadGraphNode[]; edges: RoadGraphEdge[] };
+type Road = { points: Point[]; progress: number; connectsVillageToHighway: boolean; width: number };
+type RoadGraphNode = { id: number; x: number; y: number; edgeIds: string[] };
+type RoadGraphEdge = { id: string; from: number; to: number; width: number; kind: 'highway' | 'local'; source: string };
+type RoadGraph = { nodes: RoadGraphNode[]; edges: RoadGraphEdge[] };
 type Vehicle = { distance: number; speed: number; direction: number; color: string };
 
 const mount = document.querySelector<HTMLDivElement>('#world');
