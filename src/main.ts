@@ -156,7 +156,7 @@ function drawJunctionPatch(center:Point,arms:JunctionArm[]){
     const rounded=hull.map((point,index)=>{
       const previous=hull[(index-1+hull.length)%hull.length]!,next=hull[(index+1)%hull.length]!;
       const beforeLength=distance(point,previous),afterLength=distance(point,next);
-      const radius=Math.min(extra>.0?.48:.38,beforeLength*.4,afterLength*.4);
+      const radius=Math.min(extra > 0 ? .48 : .38,beforeLength*.4,afterLength*.4);
       return{
         before:{x:point.x+(previous.x-point.x)*radius/Math.max(beforeLength,.001),y:point.y+(previous.y-point.y)*radius/Math.max(beforeLength,.001)},
         corner:point,
