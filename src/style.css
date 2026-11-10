@@ -164,3 +164,6 @@ button:focus-visible { outline: 3px solid #e4b85e; outline-offset: 2px; }
 @media (max-width: 680px) {
   .world-hint { max-width: calc(100% - 110px); }
 }
+
+/* KT-009: compact live road-network diagnostics. */
+.network-status { display:block; margin-top:7px; padding-top:7px; border-top:1px solid #e6eadb; color:#879783; font-size:9px; letter-spacing:.15px; }
