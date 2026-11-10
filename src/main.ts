@@ -929,13 +929,25 @@ function refreshVehicleRoutes(){
   reachableDestinations=tripDestinations.filter(destination=>reachableTrips.some(trip=>trip.destination.id===destination.id));
   for(let i=vehicles.length-1;i>=0;i--){
     const vehicle=vehicles[i]!;
-    const nextPath=buildTrafficRoute(vehicle.originId,vehicle.destinationId);
-    if(!nextPath){vehicles.splice(i,1);continue;}
-    const progress=vehicle.routeLength>0?vehicle.distance/vehicle.routeLength:0;
-    vehicle.path=offsetRouteToRightSide(nextPath);
-    vehicle.lengths=vehicle.path.slice(1).map((point,index)=>distance(vehicle.path[index]!,point));
-    vehicle.routeLength=vehicle.lengths.reduce((sum,value)=>sum+value,0);
-    vehicle.distance=clamp(progress*vehicle.routeLength,0,vehicle.routeLength);
+    const destination=tripDestinations.find(item=>item.id===vehicle.destinationId);
+    if(!destination)continue;
+    // Re-route from the car's actual position, not from its original home.
+    // This prevents a newly completed road from teleporting vehicles back
+    // to the start of a freshly calculated route.
+    const currentPose=vehiclePose(vehicle);
+    const currentPoint={x:currentPose.x,y:currentPose.y};
+    const nextPath=findRoadPath(currentPoint,destination.access);
+    if(!nextPath)continue;
+    const lanePath=offsetRouteToRightSide(nextPath);
+    const rebuiltPath=[currentPoint,...lanePath.filter((point,index)=>index>0||distance(point,currentPoint)>.08)];
+    if(rebuiltPath.length<2)rebuiltPath.push({...destination.access});
+    const lengths=rebuiltPath.slice(1).map((point,index)=>distance(rebuiltPath[index]!,point));
+    const routeLength=lengths.reduce((sum,value)=>sum+value,0);
+    if(routeLength<.15)continue;
+    vehicle.path=rebuiltPath;
+    vehicle.lengths=lengths;
+    vehicle.routeLength=routeLength;
+    vehicle.distance=0;
     vehicle.direction=1;
   }
   updateTrafficCounter();
