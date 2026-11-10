@@ -259,6 +259,20 @@ function animate() {
   const elapsed = clock.getElapsedTime();
   const delta = Math.min(Math.max(elapsed - previousFrameTime, 0), 0.05);
   previousFrameTime = elapsed;
+  for (let jobIndex = constructionJobs.length - 1; jobIndex >= 0; jobIndex--) {
+    const job = constructionJobs[jobIndex]!;
+    job.elapsed += delta;
+    const sectionDuration = 0.48;
+    const revealDuration = 0.42;
+    job.sections.forEach((section, index) => {
+      const progress = THREE.MathUtils.clamp((job.elapsed - index * sectionDuration) / revealDuration, 0, 1);
+      for (const mesh of section) {
+        const material = mesh.material as THREE.MeshLambertMaterial;
+        material.opacity = progress;
+      }
+    });
+    if (job.elapsed >= (job.sections.length - 1) * sectionDuration + revealDuration) constructionJobs.splice(jobIndex, 1);
+  }
   for (const vehicle of movingCars) {
     vehicle.distance += vehicle.speed * delta * vehicle.direction;
     if (vehicle.distance >= trafficRouteLength) { vehicle.distance = trafficRouteLength; vehicle.direction = -1; }
@@ -302,7 +316,7 @@ toolButtons.forEach(button => {
     if (hud) hud.hidden = selectedTool !== 'road';
     const hint = document.querySelector<HTMLElement>('#build-message');
     if (hint) hint.textContent = selectedTool === 'road'
-      ? 'Коснись поля и протяни дорогу. Отпусти, чтобы построить.'
+      ? 'Наметь линию будущей дороги. После проверки проект начнёт строиться.'
       : 'Выбери инструмент «Дороги», чтобы начать строительство.';
   });
 });
@@ -400,7 +414,10 @@ function clearPreview() {
   }
 }
 
-function drawRoadSegments(points: THREE.Vector2[], parent: THREE.Group, preview = false, valid = true) {
+const constructionJobs: { sections: THREE.Mesh[][]; elapsed: number }[] = [];
+
+function drawRoadSegments(points: THREE.Vector2[], parent: THREE.Group, preview = false, valid = true, underConstruction = false) {
+  const constructionSections: THREE.Mesh[][] = [];
   for (let i = 1; i < points.length; i++) {
     const a = points[i - 1]!, b = points[i]!;
     const dx = b.x - a.x, dz = b.y - a.y;
@@ -408,23 +425,37 @@ function drawRoadSegments(points: THREE.Vector2[], parent: THREE.Group, preview 
     const material = preview
       ? new THREE.MeshLambertMaterial({ color: valid ? '#e9c46a' : '#d96c62', transparent: true, opacity: 0.82 })
       : roadMat;
-    const segment = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.055, length + 0.06), material);
+    const sectionMeshes: THREE.Mesh[] = [];
+    const segmentMaterial = underConstruction
+      ? new THREE.MeshLambertMaterial({ color: '#59666a', transparent: true, opacity: 0 })
+      : material;
+    const segment = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.055, length + 0.06), segmentMaterial);
     segment.position.set((a.x + b.x) / 2, 0.025, (a.y + b.y) / 2);
     segment.rotation.y = Math.atan2(dx, dz);
     segment.receiveShadow = true;
     segment.castShadow = !preview;
     parent.add(segment);
+    if (underConstruction) sectionMeshes.push(segment);
     if (!preview) {
-      const joint = new THREE.Mesh(new THREE.CircleGeometry(roadHalfWidth, 20), roadMat);
+      const jointMaterial = underConstruction
+        ? new THREE.MeshLambertMaterial({ color: '#59666a', transparent: true, opacity: 0 })
+        : roadMat;
+      const joint = new THREE.Mesh(new THREE.CircleGeometry(roadHalfWidth, 20), jointMaterial);
       joint.rotation.x = -Math.PI / 2; joint.position.set(b.x, 0.055, b.y); parent.add(joint);
-      const edgeMaterial = roadEdge;
+      if (underConstruction) sectionMeshes.push(joint);
       for (const side of [-1, 1]) {
+        const edgeMaterial = underConstruction
+          ? new THREE.MeshLambertMaterial({ color: '#d9d5bd', transparent: true, opacity: 0 })
+          : roadEdge;
         const edge = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.035, length), edgeMaterial);
         edge.position.set(side * 0.91, 0.09, 0);
         segment.add(edge);
+        if (underConstruction) sectionMeshes.push(edge);
       }
+      if (underConstruction) constructionSections.push(sectionMeshes);
     }
   }
+  if (underConstruction && constructionSections.length) constructionJobs.push({ sections: constructionSections, elapsed: 0 });
 }
 
 function refreshPreview() {
@@ -469,7 +500,7 @@ function startRoad(event: PointerEvent) {
   const point = pointerToGrid(event);
   if (!point) return;
   if (obstacles.some(o => Math.hypot(point.x-o.x,point.y-o.z) < o.r + roadHalfWidth)) {
-    if (buildMessage) buildMessage.textContent = 'Нельзя начинать дорогу внутри здания, дерева или водоёма.';
+    if (buildMessage) buildMessage.textContent = 'Нельзя начинать проект внутри здания, дерева или водоёма.';
     return;
   }
   drawing = true;
@@ -492,17 +523,17 @@ function finishRoad(event: PointerEvent) {
   if (draft.length < 2) {
     clearPreview();
     draft = [];
-    if (buildMessage) buildMessage.textContent = 'Протяни дорогу хотя бы на одну клетку.';
+    if (buildMessage) buildMessage.textContent = 'Наметь линию хотя бы на один участок.';
     return;
   }
   if (!isValidRoadPath(draft)) {
     clearPreview(); draft = [];
-    if (buildMessage) buildMessage.textContent = 'Здесь нельзя проложить дорогу: она должна соединяться с дорожной сетью и обходить здания, деревья и воду.';
+    if (buildMessage) buildMessage.textContent = 'Проект отклонён: линия должна соединяться с дорожной сетью и обходить здания, деревья и воду.';
     return;
   }
   const path = new THREE.Group();
   const routePoints = draft.map(point => point.clone());
-  drawRoadSegments(routePoints, path);
+  drawRoadSegments(routePoints, path, false, true, true);
   path.userData.gridPoints = routePoints;
   scene.add(path);
   const touchesHighway = draft.some(point => Math.abs(point.y + 13) <= 1.65 && Math.abs(point.x) <= 18);
@@ -519,8 +550,8 @@ function finishRoad(event: PointerEvent) {
   if (missionCount) missionCount.textContent = missionDone ? '1 / 1' : '0 / 1';
   if (missionProgress) missionProgress.style.width = missionDone ? '100%' : '8%';
   if (buildMessage) buildMessage.textContent = missionDone
-    ? `Отлично! Деревня соединена с федеральной трассой. Награда +300 монет начислена. Дорога: ${draft.length - 1} сегм.`
-    : `Дорога построена: ${draft.length - 1} участков. Машины продолжают движение по существующему маршруту.`;
+    ? 'Проект принят. Дорога постепенно прокладывается по намеченной линии.'
+    : 'Проект принят. Наблюдай, как дорожное полотно постепенно появляется на местности.';
   clearPreview();
   draft = [];
 }
@@ -544,7 +575,7 @@ document.querySelector<HTMLButtonElement>('#undo-road')?.addEventListener('click
   const missionDone = builtRoads.some(item => item.userData.connectsVillageToHighway === true);
   if (missionCount) missionCount.textContent = missionDone ? '1 / 1' : '0 / 1';
   if (missionProgress) missionProgress.style.width = missionDone ? '100%' : '8%';
-  if (buildMessage) buildMessage.textContent = 'Последняя построенная дорога удалена.';
+  if (buildMessage) buildMessage.textContent = 'Последний построенный участок удалён.';
 });
 
 window.addEventListener('keydown', (event) => {
