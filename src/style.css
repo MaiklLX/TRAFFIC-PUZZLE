@@ -57,3 +57,78 @@ button:focus-visible,select:focus-visible{outline:2px solid #9dbd9f;outline-offs
 @media(max-width:420px){.chapter-line{display:none}.brand-mark{width:31px;height:31px}.map-objective{max-width:calc(100% - 20px)}.map-objective em{max-width:220px}.metric{gap:5px;padding:5px}.metric small{font-size:6px}}
 @media(max-width:800px) and (orientation:landscape){.workspace{display:grid;grid-template-columns:49px minmax(0,1fr) 230px;align-items:stretch}.map-stage{height:calc(100vh - 70px);min-height:240px}.tool-rail{flex-direction:column;order:0}.tool{width:42px;min-height:49px}.rail-divider{width:26px;height:1px;margin:3px 0}.command-panel{order:0;max-height:calc(100vh - 70px);overflow-y:auto}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition-duration:.01ms!important}}
+
+
+/* Mobile-first playfield: the map owns the screen; tools float above it. */
+@media(max-width:800px){
+  html,body,#app{width:100%;height:100%;min-height:0}
+  body{overflow:hidden;overscroll-behavior:none}
+  #app{
+    height:100dvh;min-height:0;overflow:hidden;
+    padding:env(safe-area-inset-top) 6px env(safe-area-inset-bottom);
+  }
+  .topbar{height:48px;flex:0 0 48px;min-height:48px;padding:0 3px;border-bottom:0}
+  .brand{gap:8px}
+  .brand-mark{width:29px;height:29px;border-radius:9px}
+  .view-button{width:42px;height:42px;flex:0 0 42px;border-radius:13px;font-size:23px}
+  .workspace{
+    position:relative;display:block;flex:1;min-height:0;height:auto;
+    padding-top:5px;overflow:hidden
+  }
+  .map-stage{
+    position:absolute;inset:5px 0 0;height:auto;min-height:0;
+    border:0;border-radius:16px;box-shadow:0 3px 16px #637b6412
+  }
+  #world,#world canvas{touch-action:none}
+  .command-panel{display:none}
+  .tool-rail{
+    position:absolute;z-index:8;left:50%;bottom:12px;transform:translateX(-50%);
+    width:max-content;max-width:calc(100% - 20px);min-height:66px;
+    flex-direction:row;justify-content:center;gap:8px;padding:7px 10px;
+    border:1px solid #d4dfd0;border-radius:19px;
+    background:#f8faf0ed;box-shadow:0 7px 24px #52634b26;
+    backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)
+  }
+  .tool{width:68px;min-width:68px;min-height:52px;gap:3px;padding:5px 3px;border-radius:13px}
+  .tool-glyph{font-size:22px;line-height:1.05}
+  .tool b{font-size:9px}
+  .tool.locked,.rail-divider{display:none}
+  .tool.active{background:#e3eddf;border-color:#c5d9c3}
+  .map-topline{top:10px;left:11px;right:11px;font-size:6px}
+  .map-topline span:last-child{display:none}
+  .map-location{top:31px;left:11px}
+  .map-live{top:32px;right:11px}
+  .map-objective{top:72px;left:11px;max-width:calc(100% - 22px)}
+  .map-controls{right:12px;bottom:92px;gap:8px}
+  .map-controls button{width:44px;height:44px;border-radius:14px;font-size:23px;box-shadow:0 4px 12px #566d5420}
+  .map-help{display:none}
+  .build-hud{
+    z-index:6;top:auto;right:10px;bottom:86px;left:10px;width:auto;
+    padding:10px 12px;border-radius:15px;box-shadow:0 6px 20px #5d725a24
+  }
+  .build-head b{font-size:10px}
+  .build-head small{font-size:8px}
+  .build-hud p{margin:6px 0;font-size:9px}
+  .road-direction-control{font-size:8px}
+  .road-direction-control select{min-height:34px;max-width:155px;font-size:10px}
+  .undo-road{min-height:38px;margin-top:6px;font-size:10px}
+}
+@media(max-width:420px){
+  .map-objective{top:70px;padding:8px 9px}
+  .objective-index{width:25px;height:25px;flex-basis:25px}
+  .map-objective b{font-size:9px}
+  .map-objective em{font-size:7px}
+  .tool-rail{gap:5px;padding:6px 8px}
+  .tool{width:64px;min-width:64px}
+}
+@media(max-width:800px) and (orientation:landscape){
+  .workspace{display:block;grid-template-columns:none}
+  .map-stage{height:auto;min-height:0}
+  .tool-rail{
+    left:12px;bottom:12px;transform:none;flex-direction:column;
+    width:66px;max-width:none;min-height:0;padding:7px
+  }
+  .tool{width:50px;min-width:50px;min-height:52px}
+  .map-controls{right:12px;bottom:12px}
+  .build-hud{left:auto;right:12px;bottom:12px;width:min(270px,42vw)}
+}
