@@ -1,47 +1,46 @@
 # TRAFFIC PUZZLE
 
-A cheerful isometric traffic-planning puzzle about turning a small village into a thriving city.
+A mobile-first, strictly top-down 2D traffic-planning puzzle. Connect a growing settlement, design useful road links, and keep traffic moving without creating gridlock.
 
 ## Product direction
 
-- 2.5D isometric world with a freely navigable camera
-- Build and modify roads, junctions, roundabouts and multi-level interchanges
-- Traffic simulation with routes, congestion and incidents
-- A living settlement that grows as objectives are completed
-- New regions with distinct terrain and transport challenges
-- Responsive browser game, installable PWA, Android APK and an iOS-ready path
+- Strict 2D top-down view; camera pan and zoom only — no isometric perspective or 3D rotation.
+- The map is the main play area on every platform.
+- All mobile devices share one interaction model and visual layout; landscape adapts spacing, not the control paradigm.
+- Desktop may use its extra screen area for a dispatcher panel alongside the map.
+- The settlement and travel demand grow automatically. The player shapes roads, junctions, directions and traffic flow rather than managing a city economy.
+- Continuous road geometry with natural bends, connected T/X junctions, clear access points and obstacle-aware construction.
+- Traffic agents use the road graph, respect one-way links, and choose routes based on reachability and congestion.
+- New regions and scenarios should introduce meaningful transport problems, not just larger maps.
 
 ## Technology
 
 - TypeScript + Vite
-- Three.js for the 3D/isometric world
-- CSS for responsive interface
-- PWA support planned; Capacitor packaging follows after the browser build stabilizes
+- Canvas 2D renderer
+- CSS responsive interface
+- Browser-first deployment; PWA and native packaging can follow once the core game is stable.
 
 ## Development principles
 
-- Visual foundation first, then simulation and progression
-- Mobile and desktop are first-class targets
-- Local-first saves; no account or server dependency for the core game
-- Small verified milestones (КТ), with checkpoint notes and commit SHA tracking
-- During the active prototype phase, changes may go directly to `main` for fast browser testing when the user has approved that workflow
-- Keep every change reviewable and report unverified builds honestly
+- Visual clarity and comfortable mobile play come before feature count.
+- The same core game and simulation run across platforms.
+- Road construction is previewed, validated and then built gradually.
+- Only connected, useful roads participate in routing.
+- Keep checkpoints (КТ), verify CI and deployment, and report manual device testing separately.
+- During the active prototype phase, approved changes may go directly to `main` for fast browser testing.
 
-## Roadmap
+## Current milestones
 
-1. КТ-001 — application shell, renderer, camera and input foundation
-2. КТ-002 — first village, terrain and visual language
-3. КТ-003 — road editing tools
-4. КТ-004 — traffic agents, routing and congestion
-5. КТ-005 — objectives, economy and settlement growth
-6. КТ-006 — campaign regions and transport variety
-7. КТ-007 — PWA, mobile packaging and local save system
+- КТ-046 — mobile-first fullscreen playfield.
+- КТ-047 — meaningful road endpoints and connected construction.
+- КТ-048 — destination reachability tied to the road graph.
+- КТ-049 — live traffic demand and congestion feedback.
+- КТ-050 — two-way trips between homes and services.
+- КТ-051 — congestion-aware routing and active-edge filtering (in progress).
 
 ## Run locally
 
 ```bash
 npm install
 npm run dev
-```
-
-The initial playable foundation is being built on a dedicated feature branch after this repository bootstrap.
+``
