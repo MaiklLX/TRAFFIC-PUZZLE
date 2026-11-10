@@ -140,7 +140,7 @@ function tree(x: number, z: number, size = 1) {
   const crown = new THREE.Mesh(new THREE.SphereGeometry(0.92*size, 12, 10), mat(['#5d9c68','#70a96d','#82b779'][Math.floor((x*x+z*z)%3)]));
   crown.scale.set(1, 1.08, 0.95); crown.position.set(x, 1.35*size, z); crown.castShadow = true; crown.receiveShadow = true; scene.add(crown);
 }
-[[-14,-10],[-11,-11],[-16,1],[-12,10],[-4,12],[4,12],[12,9],[15,4],[14,-9],[6,-5],[-9,-1],[0,5]] .forEach(([x,z], i) => tree(x!, z!, i%3===0?1.2:0.9));
+[[-14,-10],[-17,-4],[-16,1],[-12,10],[-4,12],[4,12],[12,9],[15,4],[14,-9],[6,-5],[-9,-1],[17,0]] .forEach(([x,z], i) => tree(x!, z!, i%3===0?1.2:0.9));
 
 // Flower patches and a pond.
 const pond = new THREE.Mesh(new THREE.CircleGeometry(3.2, 32), mat('#79b7bd', 0.35));
@@ -320,7 +320,7 @@ const staticRoads = [
 ] as const;
 const obstacles = [
  {x:-6.5,z:-3.2,r:2.15},{x:7.7,z:1.7,r:1.95},{x:-10.4,z:5.8,r:1.85},{x:2.8,z:8.3,r:1.75},{x:-5,z:-9,r:1.55},{x:11,z:-5,r:2.25},{x:-13,z:-4,r:2.35},
- {x:-14,z:-10,r:1.25},{x:-11,z:-11,r:1.05},{x:-16,z:1,r:1.15},{x:-12,z:10,r:1.1},{x:-4,z:12,r:1.05},{x:4,z:12,r:1.05},{x:12,z:9,r:1.05},{x:15,z:4,r:1.05},{x:14,z:-9,r:1.05},{x:6,z:-5,r:1.05},{x:-9,z:-1,r:1.05},{x:0,z:5,r:1.05},{x:16,z:7,r:4.0}
+ {x:-14,z:-10,r:1.25},{x:-17,z:-4,r:1.05},{x:-16,z:1,r:1.15},{x:-12,z:10,r:1.1},{x:-4,z:12,r:1.05},{x:4,z:12,r:1.05},{x:12,z:9,r:1.05},{x:15,z:4,r:1.05},{x:14,z:-9,r:1.05},{x:6,z:-5,r:1.05},{x:-9,z:-1,r:1.05},{x:17,z:0,r:1.05},{x:16,z:7,r:4.0}
 ];
 const roadRaycaster = new THREE.Raycaster();
 const pointerNdc = new THREE.Vector2();
