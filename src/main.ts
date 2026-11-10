@@ -154,34 +154,78 @@ function strokeRoad(points:Point[],progress=1,color='#68777d',alpha=1,roadWidth=
   }
   ctx!.restore();
 }
-function appendRoadPath(points:Point[],progress=1){
-  if(points.length<2||progress<=0)return;
+function ribbonOffsets(points:Point[],halfWidth:number):{left:Point[];right:Point[]}{
   const sampled=smoothPoints(points);
-  const lengths=sampled.slice(1).map((point,index)=>distance(sampled[index]!,point));
-  const total=lengths.reduce((sum,len)=>sum+len,0),target=total*clamp(progress,0,1);
-  let walked=0;
-  const first=worldToScreen(sampled[0]!);ctx!.moveTo(first.x,first.y);
-  for(let i=1;i<sampled.length;i++){
-    const a=sampled[i-1]!,b=sampled[i]!,len=lengths[i-1]!;
-    if(walked+len<=target){const p=worldToScreen(b);ctx!.lineTo(p.x,p.y);walked+=len;continue;}
-    const t=len>0?(target-walked)/len:0;
-    if(t>0){const p=worldToScreen({x:lerp(a.x,b.x,t),y:lerp(a.y,b.y,t)});ctx!.lineTo(p.x,p.y);}
-    break;
+  if(sampled.length<2)return{left:[],right:[]};
+  const directions=sampled.slice(1).map((point,index)=>{
+    const previous=sampled[index]!,dx=point.x-previous.x,dy=point.y-previous.y,length=Math.hypot(dx,dy)||1;
+    return{x:dx/length,y:dy/length};
+  });
+  const normals=directions.map(direction=>({x:-direction.y,y:direction.x}));
+  const left:Point[]=[],right:Point[]=[];
+  for(let i=0;i<sampled.length;i++){
+    let nx:number,ny:number,miter=halfWidth;
+    if(i===0){nx=normals[0]!.x;ny=normals[0]!.y;}
+    else if(i===sampled.length-1){nx=normals[normals.length-1]!.x;ny=normals[normals.length-1]!.y;}
+    else{
+      const before=normals[i-1]!,after=normals[i]!,mx=before.x+after.x,my=before.y+after.y,length=Math.hypot(mx,my);
+      if(length<.001){nx=after.x;ny=after.y;}
+      else{
+        nx=mx/length;ny=my/length;
+        miter=clamp(halfWidth/Math.max(nx*after.x+ny*after.y,.42),halfWidth,halfWidth*2.25);
+      }
+    }
+    const point=sampled[i]!;
+    left.push({x:point.x+nx*miter,y:point.y+ny*miter});
+    right.push({x:point.x-nx*miter,y:point.y-ny*miter});
   }
+  return{left,right};
 }
-function strokeRoadNetworkGroup(roads:{points:Point[];progress:number;width:number}[],color:string,outerColor:string){
-  if(!roads.length)return;
-  const widthGroups=new Map<number,typeof roads>();
-  for(const road of roads){const key=Math.round(road.width*100)/100;const group=widthGroups.get(key)??[];group.push(road);widthGroups.set(key,group);}
-  ctx!.save();ctx!.lineCap='round';ctx!.lineJoin='round';
-  // Each width class is batched into a shared path; same-material intersections have no doubled seams.
-  for(const [roadWidth,group] of widthGroups){
-    ctx!.beginPath();for(const road of group)appendRoadPath(road.points,road.progress);
-    ctx!.strokeStyle=outerColor;ctx!.lineWidth=roadWidth*.82*camera.zoom;ctx!.stroke();
-    ctx!.beginPath();for(const road of group)appendRoadPath(road.points,road.progress);
-    ctx!.strokeStyle=color;ctx!.lineWidth=roadWidth*.70*camera.zoom;ctx!.stroke();
+function appendRoadRibbon(points:Point[],halfWidth:number){
+  if(points.length<2)return;
+  const ribbon=ribbonOffsets(points,halfWidth);
+  if(ribbon.left.length<2)return;
+  const first=worldToScreen(ribbon.left[0]!);ctx!.moveTo(first.x,first.y);
+  for(let i=1;i<ribbon.left.length;i++){const p=worldToScreen(ribbon.left[i]!);ctx!.lineTo(p.x,p.y);}
+  for(let i=ribbon.right.length-1;i>=0;i--){const p=worldToScreen(ribbon.right[i]!);ctx!.lineTo(p.x,p.y);}
+  ctx!.closePath();
+}
+function convexHullPoints(points:Point[]):Point[]{
+  const sorted=[...points].sort((a,b)=>a.x-b.x||a.y-b.y);
+  if(sorted.length<4)return sorted;
+  const cross=(o:Point,a:Point,b:Point)=>(a.x-o.x)*(b.y-o.y)-(a.y-o.y)*(b.x-o.x);
+  const lower:Point[]=[],upper:Point[]=[];
+  for(const point of sorted){while(lower.length>=2&&cross(lower[lower.length-2]!,lower[lower.length-1]!,point)<=0)lower.pop();lower.push(point);}
+  for(let i=sorted.length-1;i>=0;i--){const point=sorted[i]!;while(upper.length>=2&&cross(upper[upper.length-2]!,upper[upper.length-1]!,point)<=0)upper.pop();upper.push(point);}
+  lower.pop();upper.pop();return lower.concat(upper);
+}
+function appendJunctionSurface(junction:{center:Point;arms:JunctionArm[]},extra:number){
+  const points:Point[]=[];
+  for(const arm of junction.arms){
+    const length=Math.hypot(arm.direction.x,arm.direction.y)||1;
+    const dx=arm.direction.x/length,dy=arm.direction.y/length,nx=-dy,ny=dx;
+    const half=arm.width*.35+extra,reach=Math.max(.2,arm.width*.5+extra*.7);
+    const tip={x:junction.center.x+dx*reach,y:junction.center.y+dy*reach};
+    points.push({x:tip.x+nx*half,y:tip.y+ny*half},{x:tip.x-nx*half,y:tip.y-ny*half});
   }
-  ctx!.restore();
+  const hull=convexHullPoints(points);
+  if(hull.length<3)return;
+  const first=worldToScreen(hull[0]!);ctx!.moveTo(first.x,first.y);
+  for(let i=1;i<hull.length;i++){const p=worldToScreen(hull[i]!);ctx!.lineTo(p.x,p.y);}
+  ctx!.closePath();
+}
+function strokeRoadNetworkGroup(roads:{points:Point[];progress:number;width:number}[],color:string,outerColor:string,junctions:{center:Point;arms:JunctionArm[]}[]=[]){
+  if(!roads.length)return;
+  // Filled offset ribbons replace thick strokes: both edges are calculated from
+  // the same centreline, so width changes and bends no longer look like stickers.
+  ctx!.save();ctx!.fillStyle=outerColor;ctx!.beginPath();
+  for(const road of roads)appendRoadRibbon(road.points,road.width*.41+.12);
+  for(const junction of junctions)appendJunctionSurface(junction,.22);
+  ctx!.fill();
+  ctx!.fillStyle=color;ctx!.beginPath();
+  for(const road of roads)appendRoadRibbon(road.points,road.width*.35);
+  for(const junction of junctions)appendJunctionSurface(junction,.08);
+  ctx!.fill();ctx!.restore();
 }
 function drawRoadCentreLinePath(points:Point[],subtle:boolean,junctions:{center:Point;arms:JunctionArm[]}[],progress=1){
   if(points.length<2||progress<=0)return;
@@ -281,26 +325,15 @@ function collectRoadJunctions():{center:Point;arms:JunctionArm[]}[]{
   }
   return junctions.filter(junction=>junction.arms.length>=3).map(({center,arms})=>({center,arms}));
 }
-function drawTurningBulb(destination:TrafficDestination){
-  const approach=findRoadPath(demoStart,destination.access);
-  if(!approach||approach.length<2)return;
-  const previous=approach[approach.length-2]!,end=approach[approach.length-1]!;
-  if(distance(previous,end)<.001)return;
-  // Use the exact same offset-lane U-turn geometry as the vehicles.
-  // This keeps the asphalt loop and the car trajectory in register: the
-  // inbound lane flows around the head and returns on the opposite lane.
-  const turnaround=offsetRouteToRightSide([previous,end,previous]);
-  strokeRoad(turnaround,1,'#59666a',1,1.9);
-}
 function drawRoadNetwork(){
   const junctions=collectRoadJunctions();
   const base=staticRoads.map(road=>({points:staticRoadPath(road),progress:1,width:road.width}));
   const complete=builtRoads.filter(road=>road.progress>=.999).map(road=>({points:road.points,progress:1,width:road.width}));
   const constructing=builtRoads.filter(road=>road.progress<.999).map(road=>({points:road.points,progress:road.progress,width:road.width}));
-  // Existing streets and finished player roads are composited together, not painted as stacked stickers.
-  strokeRoadNetworkGroup([...base,...complete],'#69777d','#d7dfd0');
+  // All finished streets share one pair of filled surface layers. Junction
+  // patches are calculated from their arms, so the asphalt is one connected shape.
+  strokeRoadNetworkGroup([...base,...complete],'#69777d','#d7dfd0',junctions);
   for(const road of constructing)strokeRoad(road.points,road.progress,'#69777d',1,road.width);
-  for(const destination of trafficDestinations)drawTurningBulb(destination);
   if(staticRoads[0])drawRoadCentreLinePath(staticRoadPath(staticRoads[0]),true,junctions);
 }
 function drawTerrain(){
