@@ -457,22 +457,43 @@ function buildTrafficRoute(destinationId:string):Point[]|null{
 }
 function offsetRouteToRightSide(path:Point[],offset=.36):Point[]{
   if(path.length<2)return path.map(point=>({...point}));
-  const normals=path.slice(1).map((point,index)=>{
+  const directions=path.slice(1).map((point,index)=>{
     const previous=path[index]!,dx=point.x-previous.x,dy=point.y-previous.y,length=Math.hypot(dx,dy)||1;
-    return{x:-dy/length,y:dx/length};
+    return{x:dx/length,y:dy/length};
   });
-  return path.map((point,index)=>{
-    if(index===0||index===path.length-1){
-      const normal=normals[index===0?0:normals.length-1]!;
-      return{x:point.x+normal.x*offset,y:point.y+normal.y*offset};
+  const normals=directions.map(direction=>({x:-direction.y,y:direction.x}));
+  const first=path[0]!,firstNormal=normals[0]!;
+  const result:Point[]=[{x:first.x+firstNormal.x*offset,y:first.y+firstNormal.y*offset}];
+  for(let index=1;index<path.length-1;index++){
+    const point=path[index]!,before=directions[index-1]!,after=directions[index]!;
+    const beforeNormal=normals[index-1]!,afterNormal=normals[index]!;
+    const dot=before.x*after.x+before.y*after.y;
+    // A destination at the end of a dead-end street creates a 180-degree
+    // reversal. Join the two lane centres with a sampled semicircle instead
+    // of a tiny lateral kink that makes the car snap around.
+    if(dot<-.82){
+      const startAngle=Math.atan2(beforeNormal.y,beforeNormal.x);
+      const endAngle=Math.atan2(afterNormal.y,afterNormal.x);
+      let sweep=endAngle-startAngle;
+      while(sweep>Math.PI)sweep-=Math.PI*2;
+      while(sweep< -Math.PI)sweep+=Math.PI*2;
+      const cross=before.x*after.y-before.y*after.x;
+      if(Math.abs(Math.abs(sweep)-Math.PI)<.001)sweep=cross>=0?Math.PI:-Math.PI;
+      for(let sample=1;sample<=12;sample++){
+        const angle=startAngle+sweep*sample/12;
+        result.push({x:point.x+Math.cos(angle)*offset,y:point.y+Math.sin(angle)*offset});
+      }
+      continue;
     }
-    const before=normals[index-1]!,after=normals[index]!;
-    const mx=before.x+after.x,my=before.y+after.y,ml=Math.hypot(mx,my);
-    if(ml<.001)return{x:point.x+after.x*offset,y:point.y+after.y*offset};
-    const nx=mx/ml,ny=my/ml,dot=nx*after.x+ny*after.y;
-    const miter=clamp(offset/Math.max(dot,.35),offset,offset*2.4);
-    return{x:point.x+nx*miter,y:point.y+ny*miter};
-  });
+    const mx=beforeNormal.x+afterNormal.x,my=beforeNormal.y+afterNormal.y,ml=Math.hypot(mx,my);
+    if(ml<.001){result.push({x:point.x+afterNormal.x*offset,y:point.y+afterNormal.y*offset});continue;}
+    const nx=mx/ml,ny=my/ml;
+    const miter=clamp(offset/Math.max(nx*afterNormal.x+ny*afterNormal.y,.35),offset,offset*2.4);
+    result.push({x:point.x+nx*miter,y:point.y+ny*miter});
+  }
+  const last=path[path.length-1]!,lastNormal=normals[normals.length-1]!;
+  result.push({x:last.x+lastNormal.x*offset,y:last.y+lastNormal.y*offset});
+  return result;
 }
 function createVehicle(path:Point[],speed:number,destination:TrafficDestination,offset:number):Vehicle{
   path=offsetRouteToRightSide(path);
@@ -489,7 +510,7 @@ function refreshVehicleRoutes(){
     if(!nextPath){vehicles.splice(i,1);continue;}
     const progress=vehicle.routeLength>0?vehicle.distance/vehicle.routeLength:0;
     vehicle.path=offsetRouteToRightSide(nextPath);
-    vehicle.lengths=nextPath.slice(1).map((point,index)=>distance(nextPath[index]!,point));
+    vehicle.lengths=vehicle.path.slice(1).map((point,index)=>distance(vehicle.path[index]!,point));
     vehicle.routeLength=vehicle.lengths.reduce((sum,value)=>sum+value,0);
     vehicle.distance=clamp(progress*vehicle.routeLength,0,vehicle.routeLength);
     vehicle.direction=1;
