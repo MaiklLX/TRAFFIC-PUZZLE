@@ -91,11 +91,16 @@ function smoothPoints(points:Point[]){
   const out:Point[]=[points[0]!];
   for(let i=1;i<points.length-1;i++){
     const a=points[i-1]!,b=points[i]!,c=points[i+1]!;
-    const len=Math.min(0.52,distance(a,b)*0.28,distance(b,c)*0.28);
-    const from={x:b.x+(a.x-b.x)/distance(a,b)*len,y:b.y+(a.y-b.y)/distance(a,b)*len};
-    const to={x:b.x+(c.x-b.x)/distance(b,c)*len,y:b.y+(c.y-b.y)/distance(b,c)*len};
+    const ab=distance(a,b),bc=distance(b,c);
+    if(ab<.001||bc<.001){out.push(b);continue;}
+    const radius=Math.min(.68,ab*.32,bc*.32);
+    const from={x:b.x+(a.x-b.x)/ab*radius,y:b.y+(a.y-b.y)/ab*radius};
+    const to={x:b.x+(c.x-b.x)/bc*radius,y:b.y+(c.y-b.y)/bc*radius};
     out.push(from);
-    for(let s=1;s<=6;s++){const t=s/6,u=1-t;out.push({x:u*u*from.x+2*u*t*b.x+t*t*to.x,y:u*u*from.y+2*u*t*b.y+t*t*to.y});}
+    for(let sample=1;sample<=8;sample++){
+      const t=sample/8,u=1-t;
+      out.push({x:u*u*from.x+2*u*t*b.x+t*t*to.x,y:u*u*from.y+2*u*t*b.y+t*t*to.y});
+    }
   }
   out.push(points[points.length-1]!);return out;
 }
@@ -476,19 +481,16 @@ function validateRoadPath(points:Point[]):RoadValidation{
 function updateDraftPath(destination:Point){
   const current=draft[draft.length-1];if(!current||distance(current,destination)<.1)return;
   for(let i=draft.length-2;i>=0;i--){if(distance(draft[i]!,destination)<.1){draft.splice(i+1);return;}}
-  let x=current.x,y=current.y;
-  // The first point may be snapped to a road centreline and therefore sit
-  // between grid coordinates. Clamp each step to the remaining delta so we
-  // never overshoot and oscillate forever near the pointer destination.
-  let guard=0;
-  while((Math.abs(destination.x-x)>.1||Math.abs(destination.y-y)>.1)&&guard++<256){
-    const dx=destination.x-x,dy=destination.y-y;
-    if(Math.abs(dx)>=Math.abs(dy)&&Math.abs(dx)>.1)x+=Math.sign(dx)*Math.min(roadGrid,Math.abs(dx));
-    else if(Math.abs(dy)>.1)y+=Math.sign(dy)*Math.min(roadGrid,Math.abs(dy));
-    const next={x:Math.abs(destination.x-x)<=.1?destination.x:x,y:Math.abs(destination.y-y)<=.1?destination.y:y};
-    if(distance(draft[draft.length-1]!,next)>.1)draft.push(next);
+  // Eight-direction planning: diagonal segments are first-class road geometry,
+  // not a staircase of horizontal/vertical cells. Keep samples short enough
+  // for obstacle checks and smooth curve construction.
+  const span=distance(current,destination);
+  const steps=Math.max(1,Math.ceil(span/(roadGrid*.72)));
+  for(let step=1;step<=steps;step++){
+    const t=step/steps;
+    const next={x:lerp(current.x,destination.x,t),y:lerp(current.y,destination.y,t)};
+    if(distance(draft[draft.length-1]!,next)>.08)draft.push(next);
   }
-  if(guard>=256){const last=draft[draft.length-1]!;if(distance(last,destination)>.1)draft.push({...destination});}
 }
 function pointerPosition(event:MouseEvent):Point{
   const rect=canvas.getBoundingClientRect();return{x:event.clientX-rect.left,y:event.clientY-rect.top};
