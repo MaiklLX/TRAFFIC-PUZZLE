@@ -997,9 +997,9 @@ function validateRoadPath(points:Point[]):RoadValidation{
     const a=points[i-1]!,b=points[i]!,len=distance(a,b),steps=Math.max(2,Math.ceil(len/.2));
     for(let step=0;step<=steps;step++){
       const t=step/steps,p={x:lerp(a.x,b.x,t),y:lerp(a.y,b.y,t)};
+      const along=travelled+len*t;
       const atBuildingDriveway=(along<1.05&&isBuildingAccess(points[0]!))||(total-along<1.05&&isBuildingAccess(points[points.length-1]!));
       if(!atBuildingDriveway&&obstacles.some(o=>Math.hypot(p.x-o.x,p.y-o.y)<o.r+roadHalfWidth))return{valid:false,reason:'На пути препятствие: здание, дерево или водоём. Обойди его.'};
-      const along=travelled+len*t;
       const atStart=along<endpointOverlapAllowance,atEnd=total-along<endpointOverlapAllowance;
       const overlapStatic=staticRoads.some(road=>staticRoadPath(road).some((point,index,path)=>index>0&&distanceToSegment(p,path[index-1]!,point)<roadOverlapDistance));
       const overlapBuilt=builtRoads.some(road=>road.points.some((q,index)=>index>0&&distanceToSegment(p,road.points[index-1]!,q)<roadOverlapDistance));
