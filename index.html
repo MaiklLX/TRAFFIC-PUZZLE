@@ -23,7 +23,7 @@
           <div class="world-vignette"></div>
           <div class="location-tag"><span class="pin">⌖</span><span><b>Зелёная долина</b><small>Небольшая деревушка · 124 жителя</small></span></div>
           <div class="world-hint"><span class="hint-icon">✥</span> <span class="desktop-hint">Перетаскивай поле · Колесо — масштаб</span><span class="mobile-hint">Свайп — обзор · Два пальца — масштаб</span></div>
-          <div id="build-hud" class="build-hud" hidden><strong>ПРОЕКТИРОВАНИЕ ДОРОГ</strong><span id="build-message">Наметь линию будущей дороги. После проверки проект начнёт строиться.</span><small id="network-status" class="network-status">Сеть: подготовка узлов…</small><div><button id="undo-road" type="button">Убрать последний участок</button><button id="cancel-road" type="button">Отменить проект</button></div></div>
+          <div id="build-hud" class="build-hud" hidden><strong>ПРОЕКТИРОВАНИЕ ДОРОГ</strong><span id="build-message">Наметь линию будущей дороги. После проверки проект начнёт строиться.</span><small id="network-status" class="network-status">Сеть: подготовка узлов…</small><label class="road-direction-control" for="road-direction">Режим движения <select id="road-direction"><option value="both">Двусторонняя</option><option value="forward">Односторонняя → по линии</option></select></label><div><button id="undo-road" type="button">Убрать последний участок</button><button id="cancel-road" type="button">Отменить проект</button></div></div>
           <div class="world-controls"><button id="zoom-out" aria-label="Отдалить">−</button><button id="zoom-in" aria-label="Приблизить">+</button></div>
         </section>
         <aside class="side-panel">
