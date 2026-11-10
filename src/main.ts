@@ -943,10 +943,35 @@ const endpointOverlapAllowance=roadOverlapDistance+roadGrid*.5;
 function touchesRoadNetwork(p:Point){
   return nearestNetworkDistance(p)<=roadConnectionTolerance;
 }
+// Roads are connectors, not freehand paint: each end must dock to the
+// existing network or to a real building/service entrance.
+const buildingSnapDistance=2.45;
+function nearestBuildingAccess(p:Point):Point|null{
+  let best:Point|null=null,bestDistance=buildingSnapDistance;
+  for(const destination of trafficDestinations){
+    const d=distance(p,destination.access);
+    if(d<bestDistance){bestDistance=d;best=destination.access;}
+  }
+  return best?{...best}:null;
+}
+function snapRoadEndpoint(p:Point):Point|null{
+  const network=nearestNetworkPoint(p);
+  const networkDistance=network?distance(p,network):Infinity;
+  if(network&&networkDistance<=roadConnectionTolerance)return network;
+  const building=nearestBuildingAccess(p);
+  if(building)return building;
+  return null;
+}
+function isMeaningfulRoadEndpoint(p:Point){
+  return touchesRoadNetwork(p)||nearestBuildingAccess(p)!==null;
+}
 type RoadValidation = { valid:boolean; reason:string };
 function validateRoadPath(points:Point[]):RoadValidation{
   if(points.length<2)return{valid:false,reason:'Нужно провести линию хотя бы на один участок.'};
-  if(!touchesRoadNetwork(points[0]!)&&!touchesRoadNetwork(points[points.length-1]!))return{valid:false,reason:'Начни или закончи проект на существующей дороге.'};
+  const start=points[0]!,end=points[points.length-1]!;
+  if(!isMeaningfulRoadEndpoint(start)||!isMeaningfulRoadEndpoint(end))return{valid:false,reason:'Дорога должна соединять существующую сеть с дорогой или въездом в здание. Свободные отрезки не строятся.'};
+  if(!touchesRoadNetwork(start)&&!touchesRoadNetwork(end))return{valid:false,reason:'Нельзя создавать изолированную улицу: хотя бы один конец должен подключаться к дорожной сети.'};
+  if(distance(start,end)<1.1)return{valid:false,reason:'Слишком короткое соединение. Выбери две разные точки сети или въезды.'};
 
   // A deliberate crossing of a road is a valid junction, not an illegal overlap.
   // Keep a small junction clearance around each true centreline intersection;
@@ -1012,10 +1037,10 @@ function updateMission(){
 }
 function startRoad(event:PointerEvent){
   if(selectedTool!=='road'||event.button!==0)return;
-  let p=pointerToGrid(event);
-  const nearbyNetworkPoint=nearestNetworkPoint(p);
-  if(nearbyNetworkPoint&&distance(p,nearbyNetworkPoint)<=roadConnectionTolerance)p=nearbyNetworkPoint;
-  if(obstacles.some(o=>Math.hypot(p.x-o.x,p.y-o.y)<o.r+roadHalfWidth)){if(buildMessage)buildMessage.textContent='Нельзя начинать проект внутри здания, дерева или водоёма.';return;}
+  const raw=pointerToGrid(event);
+  const p=snapRoadEndpoint(raw);
+  if(!p){if(buildMessage)buildMessage.textContent='Начинай дорогу от существующей улицы, перекрёстка или въезда в объект.';return;}
+  if(obstacles.some(o=>Math.hypot(p.x-o.x,p.y-o.y)<o.r+roadHalfWidth)){if(buildMessage)buildMessage.textContent='Точка подключения перекрыта препятствием. Выбери другой подъезд.';return;}
   drawing=true;pointerId=event.pointerId;draft=[p];canvas.setPointerCapture(event.pointerId);event.preventDefault();render();
 }
 function finishRoad(event:PointerEvent){
@@ -1024,10 +1049,10 @@ function finishRoad(event:PointerEvent){
   if(draft.length<2){draft=[];if(buildMessage)buildMessage.textContent='Наметь линию хотя бы на один участок.';render();return;}
   // Snap both ends BEFORE validation: the validator must inspect the exact geometry
   // that will be committed, not the unsnapped pointer approximation.
-  const firstSnap=nearestNetworkPoint(draft[0]!);
-  if(firstSnap&&distance(draft[0]!,firstSnap)<=roadConnectionTolerance)draft[0]={...firstSnap};
-  const lastIndex=draft.length-1,lastSnap=nearestNetworkPoint(draft[lastIndex]!);
-  if(lastSnap&&distance(draft[lastIndex]!,lastSnap)<=roadConnectionTolerance)draft[lastIndex]={...lastSnap};
+  const firstSnap=snapRoadEndpoint(draft[0]!);
+  const lastIndex=draft.length-1,lastSnap=snapRoadEndpoint(draft[lastIndex]!);
+  if(!firstSnap||!lastSnap){draft=[];if(buildMessage)buildMessage.textContent='Не получилось подключить оба конца. Заверши линию на дороге, перекрёстке или въезде в здание.';render();return;}
+  draft[0]={...firstSnap};draft[lastIndex]={...lastSnap};
   const validation=validateRoadPath(draft);
   if(!validation.valid){draft=[];if(buildMessage)buildMessage.textContent='Проект отклонён: '+validation.reason;render();return;}
   const touchesHighway=draft.some(p=>Math.abs(p.y+13)<=1.65&&Math.abs(p.x)<=18);
@@ -1066,7 +1091,7 @@ const toolButtons=[...document.querySelectorAll<HTMLButtonElement>('.tool')];
 toolButtons.forEach(button=>button.addEventListener('click',()=>{
   selectedTool=button.dataset.tool??'inspect';document.querySelector('.tool.active')?.classList.remove('active');button.classList.add('active');
   const hud=document.querySelector<HTMLElement>('#build-hud');if(hud)hud.hidden=selectedTool!=='road';
-  if(buildMessage)buildMessage.textContent=selectedTool==='road'?'Наметь линию будущей дороги. После проверки проект начнёт строиться.':'Выбери инструмент «Дороги», чтобы начать строительство.';
+  if(buildMessage)buildMessage.textContent=selectedTool==='road'?'Соедини дорогу с перекрёстком, улицей или въездом в здание.':'Выбери инструмент «Дороги», чтобы начать строительство.';
   canvas.style.cursor=selectedTool==='road'?'crosshair':'grab';
 }));
 document.querySelector<HTMLButtonElement>('#cancel-road')?.addEventListener('click',()=>{clearDraft();if(buildMessage)buildMessage.textContent='Черновик дороги отменён.';});
