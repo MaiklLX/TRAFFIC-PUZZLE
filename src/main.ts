@@ -113,19 +113,54 @@ function strokeRoad(points:Point[],progress=1,color='#59666a',alpha=1,roadWidth=
   ctx!.strokeStyle=color;ctx!.lineWidth=roadWidth*camera.zoom;ctx!.stroke();
   ctx!.restore();
 }
-function drawRoadCentreLine(a:Point,b:Point,subtle=false){
-  const p=worldToScreen(a),q=worldToScreen(b);
-  ctx!.save();ctx!.setLineDash(subtle?[.42*camera.zoom,.56*camera.zoom]:[1.2*camera.zoom,1.45*camera.zoom]);
+function drawRoadCentreLinePath(points:Point[],subtle:boolean,junctions:{center:Point;arms:JunctionArm[]}[],progress=1){
+  if(points.length<2||progress<=0)return;
+  const sampled=smoothPoints(points);
+  const lengths=sampled.slice(1).map((point,index)=>distance(sampled[index]!,point));
+  const total=lengths.reduce((sum,len)=>sum+len,0),target=total*clamp(progress,0,1);
+  let walked=0;
+  const fragments:{a:Point;b:Point}[]=[];
+  for(let i=0;i<lengths.length;i++){
+    const a=sampled[i]!,b=sampled[i+1]!,len=lengths[i]!;
+    if(len<.001)continue;
+    const allowedEnd=clamp((target-walked)/len,0,1);
+    walked+=len;if(allowedEnd<=0)continue;
+    let intervals:[number,number][]=[[0,allowedEnd]];
+    for(const junction of junctions){
+      if(junction.arms.length<3)continue;
+      const radius=Math.max(...junction.arms.map(arm=>arm.width/2))+.24;
+      const fx=a.x-junction.center.x,fy=a.y-junction.center.y,dx=b.x-a.x,dy=b.y-a.y;
+      const A=dx*dx+dy*dy,B=2*(fx*dx+fy*dy),C=fx*fx+fy*fy-radius*radius;
+      const discriminant=B*B-4*A*C;if(discriminant<0)continue;
+      const root=Math.sqrt(discriminant),insideStart=clamp((-B-root)/(2*A),0,allowedEnd),insideEnd=clamp((-B+root)/(2*A),0,allowedEnd);
+      if(insideEnd<=insideStart)continue;
+      const next:[number,number][]=[];
+      for(const [lo,hi] of intervals){
+        if(insideEnd<=lo||insideStart>=hi){next.push([lo,hi]);continue;}
+        if(insideStart>lo)next.push([lo,insideStart]);
+        if(insideEnd<hi)next.push([insideEnd,hi]);
+      }
+      intervals=next;
+      if(!intervals.length)break;
+    }
+    for(const [lo,hi] of intervals){
+      if(hi-lo<.012)continue;
+      fragments.push({
+        a:{x:lerp(a.x,b.x,lo),y:lerp(a.y,b.y,lo)},
+        b:{x:lerp(a.x,b.x,hi),y:lerp(a.y,b.y,hi)}
+      });
+    }
+  }
+  ctx!.save();
+  ctx!.setLineDash(subtle?[.42*camera.zoom,.56*camera.zoom]:[1.2*camera.zoom,1.45*camera.zoom]);
   ctx!.lineCap='butt';ctx!.strokeStyle=subtle?'#d9d3b5':'#f4e8bd';
-  ctx!.globalAlpha=subtle?.68:.95;ctx!.lineWidth=(subtle?.035:.075)*camera.zoom;
-  ctx!.beginPath();ctx!.moveTo(p.x,p.y);ctx!.lineTo(q.x,q.y);ctx!.stroke();ctx!.restore();
-}
-function drawBuiltRoadCentreLine(road:Road){
-  if(road.progress<=0)return;
-  pathOnCanvas(road.points,road.progress);
-  ctx!.save();ctx!.setLineDash([1.05*camera.zoom,1.35*camera.zoom]);
-  ctx!.lineCap='butt';ctx!.strokeStyle='#f4e8bd';ctx!.globalAlpha=.78;
-  ctx!.lineWidth=.065*camera.zoom;ctx!.stroke();ctx!.restore();
+  ctx!.globalAlpha=subtle?.68:.88;ctx!.lineWidth=(subtle?.035:.065)*camera.zoom;
+  ctx!.beginPath();
+  for(const fragment of fragments){
+    const p=worldToScreen(fragment.a),q=worldToScreen(fragment.b);
+    ctx!.moveTo(p.x,p.y);ctx!.lineTo(q.x,q.y);
+  }
+  ctx!.stroke();ctx!.restore();
 }
 type JunctionArm = { direction:Point; width:number };
 type RoadSegment = { a:Point; b:Point; width:number; source:string };
@@ -216,18 +251,17 @@ function collectRoadJunctions():{center:Point;arms:JunctionArm[]}[]{
   return junctions.filter(junction=>junction.arms.length>=3).map(({center,arms})=>({center,arms}));
 }
 function drawRoadNetwork(){
-  // All road ribbons share one visual language; junction patches are applied last.
+  const junctions=collectRoadJunctions();
+  // Road surfaces first, then clipped markings, then the junction asphalt cap.
   for(const road of staticRoads)strokeRoad([road.a,road.b],1,'#59666a',1,road.width);
   for(const road of builtRoads)strokeRoad(road.points,road.progress,'#59666a',1,road.width);
   for(let i=0;i<staticRoads.length;i++){
     const road=staticRoads[i]!;
-    drawRoadCentreLine(road.a,road.b,i!==0);
+    drawRoadCentreLinePath([road.a,road.b],i!==0,junctions);
   }
-  // Built-road markings reveal with the construction and are covered by
-  // junction asphalt, so they never run across the middle of an intersection.
-  for(const road of builtRoads)drawBuiltRoadCentreLine(road);
-  for(const junction of collectRoadJunctions())drawJunctionPatch(junction.center,junction.arms);
-  // The highway merge marking is retained, but sits outside the junction surface.
+  for(const road of builtRoads)drawRoadCentreLinePath(road.points,false,junctions,road.progress);
+  for(const junction of junctions)drawJunctionPatch(junction.center,junction.arms);
+  // Highway merge marker stays outside the intersection surface.
   const merge=worldToScreen({x:10,y:-14.05});
   ctx!.save();ctx!.strokeStyle='#f1e6c8';ctx!.globalAlpha=.75;ctx!.lineWidth=.055*camera.zoom;
   ctx!.beginPath();ctx!.moveTo(merge.x-.48*camera.zoom,merge.y);ctx!.lineTo(merge.x+.48*camera.zoom,merge.y);ctx!.stroke();ctx!.restore();
