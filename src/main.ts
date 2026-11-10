@@ -280,13 +280,20 @@ function rebuildRoadGraph(){
   }
   if(networkStatus)networkStatus.textContent='Сеть: '+roadGraph.nodes.length+' узлов · '+roadGraph.edges.length+' участков';
 }
-function nearestNetworkDistance(p:Point){
-  let nearest=Infinity;
+function nearestNetworkPoint(p:Point):Point|null{
+  let nearest=Infinity,best:Point|null=null;
   for(const edge of roadGraph.edges){
     const a=roadGraph.nodes[edge.from]!,b=roadGraph.nodes[edge.to]!;
-    nearest=Math.min(nearest,distanceToSegment(p,a,b));
+    const dx=b.x-a.x,dy=b.y-a.y;
+    const t=clamp(((p.x-a.x)*dx+(p.y-a.y)*dy)/Math.max(dx*dx+dy*dy,.0001),0,1);
+    const projected={x:a.x+dx*t,y:a.y+dy*t},d=distance(p,projected);
+    if(d<nearest){nearest=d;best=projected;}
   }
-  return nearest;
+  return best;
+}
+function nearestNetworkDistance(p:Point){
+  const nearest=nearestNetworkPoint(p);
+  return nearest?distance(p,nearest):Infinity;
 }
 function distanceToSegment(p:Point,a:Point,b:Point){
   const dx=b.x-a.x,dy=b.y-a.y,t=clamp(((p.x-a.x)*dx+(p.y-a.y)*dy)/Math.max(dx*dx+dy*dy,.0001),0,1);
@@ -346,6 +353,11 @@ function finishRoad(event:PointerEvent){
   drawing=false;pointerId=null;
   if(draft.length<2){draft=[];if(buildMessage)buildMessage.textContent='Наметь линию хотя бы на один участок.';render();return;}
   if(!isValidRoadPath(draft)){draft=[];if(buildMessage)buildMessage.textContent='Проект отклонён: линия должна соединяться с сетью и обходить здания, деревья и воду.';render();return;}
+  // Snap connected endpoints to the exact centreline so the new edge becomes part of the graph.
+  const firstSnap=nearestNetworkPoint(draft[0]!);
+  if(firstSnap&&distance(draft[0]!,firstSnap)<=roadHalfWidth+.55)draft[0]=firstSnap;
+  const lastIndex=draft.length-1,lastSnap=nearestNetworkPoint(draft[lastIndex]!);
+  if(lastSnap&&distance(draft[lastIndex]!,lastSnap)<=roadHalfWidth+.55)draft[lastIndex]=lastSnap;
   const touchesHighway=draft.some(p=>Math.abs(p.y+13)<=1.65&&Math.abs(p.x)<=18);
   const touchesVillage=draft.some(p=>(Math.abs(p.x+1)<=1.65&&p.y>=-12&&p.y<=11)||(Math.abs(p.x)<=1.65&&p.y>=-12&&p.y<=-2)||(Math.abs(p.y-5)<=1.4&&p.x>=3&&p.x<=11)||(Math.abs(p.y-3)<=1.4&&p.x>=-11&&p.x<=-3));
   const road:Road={points:draft.map(p=>({...p})),progress:0,width:roadHalfWidth*2,connectsVillageToHighway:touchesHighway&&touchesVillage};
