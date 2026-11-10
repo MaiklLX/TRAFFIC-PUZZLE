@@ -154,3 +154,13 @@ button:focus-visible { outline: 3px solid #e4b85e; outline-offset: 2px; }
   .build-hud { top: 78px; right: 10px; width: min(270px, calc(100% - 20px)); padding: 10px; }
   .build-hud button { min-height: 36px; }
 }
+
+
+/* KT-007: true 2D top-down canvas presentation. */
+#world { background: #a7c98f; }
+#world canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+#world canvas:active { cursor: grabbing; }
+.world-hint { max-width: min(420px, calc(100% - 44px)); }
+@media (max-width: 680px) {
+  .world-hint { max-width: calc(100% - 110px); }
+}
