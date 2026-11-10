@@ -110,12 +110,17 @@ function smoothPoints(points:Point[]){
   }
   out.push(points[points.length-1]!);return out;
 }
-function strokeRoad(points:Point[],progress=1,_color='#68777d',alpha=1,roadWidth=1.9){
+function strokeRoad(points:Point[],progress=1,color='#68777d',alpha=1,roadWidth=1.9){
   if(points.length<2||progress<=0)return;
+  const preview=color!=='#69777d'&&color!=='#59666a';
   ctx!.save();ctx!.globalAlpha=alpha;ctx!.lineCap='round';ctx!.lineJoin='round';
-  // One clean road ribbon: a narrow pale verge and a single quiet asphalt surface.
-  pathOnCanvas(points,progress);ctx!.strokeStyle='#d7dfd0';ctx!.lineWidth=roadWidth*.82*camera.zoom;ctx!.stroke();
-  pathOnCanvas(points,progress);ctx!.strokeStyle='#69777d';ctx!.lineWidth=roadWidth*.70*camera.zoom;ctx!.stroke();
+  // Every road is one continuous ribbon. Drafts keep their own amber/red route cue.
+  pathOnCanvas(points,progress);ctx!.strokeStyle=preview?'#fff4d9':'#d7dfd0';ctx!.lineWidth=roadWidth*.82*camera.zoom;ctx!.stroke();
+  pathOnCanvas(points,progress);ctx!.strokeStyle=preview?color:'#69777d';ctx!.lineWidth=roadWidth*.70*camera.zoom;ctx!.stroke();
+  if(preview){
+    pathOnCanvas(points,progress);ctx!.strokeStyle='#fff7e8';ctx!.globalAlpha=alpha*.72;
+    ctx!.lineWidth=Math.max(1,.045*camera.zoom);ctx!.setLineDash([.28*camera.zoom,.2*camera.zoom]);ctx!.stroke();
+  }
   ctx!.restore();
 }
 function drawRoadCentreLinePath(points:Point[],subtle:boolean,junctions:{center:Point;arms:JunctionArm[]}[],progress=1){
@@ -324,6 +329,27 @@ function drawDecor(){
   const gardens=[{x:-6.7,y:-5.35,w:2.1,h:.6},{x:7.7,y:3.15,w:2.2,h:.55},{x:2.8,y:9.65,w:2.3,h:.55}];
   for(const g of gardens){const p=worldToScreen({x:g.x,y:g.y});ctx!.fillStyle='#c7d9b7';roundedRect(ctx!,p.x-g.w*s/2,p.y-g.h*s/2,g.w*s,g.h*s,.12*s);ctx!.fill();}
   for(const [x,y] of [[-3,-9.8],[7,-1.4],[9,5.8],[-7,1.5],[-3,-15],[8,-15]] as const){const p=worldToScreen({x,y});ctx!.fillStyle='#8a9f85';ctx!.beginPath();ctx!.arc(p.x,p.y,.09*s,0,Math.PI*2);ctx!.fill();}
+}
+// Shared route sampler for drawing, following distance, junction priority and congestion.
+function vehiclePose(vehicle:Vehicle):{x:number;y:number;angle:number;heading:Point}{
+  const target=clamp(vehicle.distance,0,vehicle.routeLength);
+  let travelled=0;
+  for(let i=0;i<vehicle.lengths.length;i++){
+    const length=vehicle.lengths[i]!;
+    const a=vehicle.path[i]!,b=vehicle.path[i+1]!;
+    if(length<.0001)continue;
+    if(target<=travelled+length||i===vehicle.lengths.length-1){
+      const t=clamp((target-travelled)/length,0,1);
+      const heading={x:(b.x-a.x)/length,y:(b.y-a.y)/length};
+      return{x:lerp(a.x,b.x,t),y:lerp(a.y,b.y,t),angle:Math.atan2(heading.y,heading.x),heading};
+    }
+    travelled+=length;
+  }
+  const end=vehicle.path[vehicle.path.length-1]??{x:0,y:0};
+  const previous=vehicle.path[vehicle.path.length-2]??end;
+  const length=distance(previous,end)||1;
+  const heading={x:(end.x-previous.x)/length,y:(end.y-previous.y)/length};
+  return{x:end.x,y:end.y,angle:Math.atan2(heading.y,heading.x),heading};
 }
 function drawCar(vehicle:Vehicle){
   const pose=vehiclePose(vehicle),p=worldToScreen({x:pose.x,y:pose.y}),angle=pose.angle,s=camera.zoom;
