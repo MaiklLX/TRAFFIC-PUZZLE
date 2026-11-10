@@ -312,6 +312,7 @@ const builtRoads: THREE.Group[] = [];
 let drawing = false;
 let draft: THREE.Vector2[] = [];
 let budget = 2400;
+let rewardClaimed = false;
 const budgetValue = document.querySelector<HTMLElement>('#budget-value');
 const missionCount = document.querySelector<HTMLElement>('.mission-count');
 const missionProgress = document.querySelector<HTMLElement>('.progress span');
@@ -433,12 +434,13 @@ function finishRoad(event: PointerEvent) {
   path.userData.connectsVillageToHighway = touchesHighway && touchesVillage;
   builtRoads.push(path);
   budget -= cost;
-  if (budgetValue) budgetValue.textContent = budget.toLocaleString('ru-RU');
   const missionDone = builtRoads.some(item => item.userData.connectsVillageToHighway === true);
+  if (missionDone && !rewardClaimed) { budget += 300; rewardClaimed = true; }
+  if (budgetValue) budgetValue.textContent = budget.toLocaleString('ru-RU');
   if (missionCount) missionCount.textContent = missionDone ? '1 / 1' : '0 / 1';
   if (missionProgress) missionProgress.style.width = missionDone ? '100%' : '8%';
   if (buildMessage) buildMessage.textContent = missionDone
-    ? `Отлично! Деревня соединена с федеральной трассой. +300 монет — награда за задание пока отображается как цель прототипа. Дорога: ${draft.length - 1} сегм.`
+    ? `Отлично! Деревня соединена с федеральной трассой. Награда +300 монет начислена. Дорога: ${draft.length - 1} сегм.`
     : `Дорога построена: ${draft.length - 1} сегм. Для задания соедини её с деревенской дорогой и федеральной трассой. Стоимость: ${cost} монет.`;
   clearPreview();
   draft = [];
@@ -460,6 +462,8 @@ document.querySelector<HTMLButtonElement>('#undo-road')?.addEventListener('click
     if (object instanceof THREE.Mesh) object.geometry.dispose();
   });
   const missionDone = builtRoads.some(item => item.userData.connectsVillageToHighway === true);
+  if (!missionDone && rewardClaimed) { budget -= 300; rewardClaimed = false; }
+  if (budgetValue) budgetValue.textContent = budget.toLocaleString('ru-RU');
   if (missionCount) missionCount.textContent = missionDone ? '1 / 1' : '0 / 1';
   if (missionProgress) missionProgress.style.width = missionDone ? '100%' : '8%';
   if (buildMessage) buildMessage.textContent = 'Последняя построенная дорога удалена.';
