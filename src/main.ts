@@ -115,31 +115,87 @@ function drawRoadCentreLine(a:Point,b:Point,subtle=false){
   ctx!.globalAlpha=subtle?.68:.95;ctx!.lineWidth=(subtle?.035:.075)*camera.zoom;
   ctx!.beginPath();ctx!.moveTo(p.x,p.y);ctx!.lineTo(q.x,q.y);ctx!.stroke();ctx!.restore();
 }
-function drawJunction(point:Point,connectedWidths:number[]){
-  if(connectedWidths.length<2)return;
-  const p=worldToScreen(point);
-  const radius=Math.max(...connectedWidths)/2;
-  ctx!.save();
-  // The pale shoulder joins all incoming road edges into one clean junction.
-  ctx!.fillStyle='#d9d2b9';ctx!.beginPath();ctx!.arc(p.x,p.y,(radius+.17)*camera.zoom,0,Math.PI*2);ctx!.fill();
-  ctx!.fillStyle='#59666a';ctx!.beginPath();ctx!.arc(p.x,p.y,radius*camera.zoom,0,Math.PI*2);ctx!.fill();
-  ctx!.restore();
+type JunctionArm = { direction:Point; width:number };
+type RoadSegment = { a:Point; b:Point; width:number };
+function convexHull(points:Point[]):Point[]{
+  const sorted=[...points].sort((a,b)=>a.x-b.x||a.y-b.y);
+  if(sorted.length<=2)return sorted;
+  const cross=(o:Point,a:Point,b:Point)=>(a.x-o.x)*(b.y-o.y)-(a.y-o.y)*(b.x-o.x);
+  const lower:Point[]=[];
+  for(const p of sorted){while(lower.length>=2&&cross(lower[lower.length-2]!,lower[lower.length-1]!,p)<=0)lower.pop();lower.push(p);}
+  const upper:Point[]=[];
+  for(let i=sorted.length-1;i>=0;i--){const p=sorted[i]!;while(upper.length>=2&&cross(upper[upper.length-2]!,upper[upper.length-1]!,p)<=0)upper.pop();upper.push(p);}
+  lower.pop();upper.pop();return lower.concat(upper);
+}
+function drawJunctionPatch(center:Point,arms:JunctionArm[]){
+  if(arms.length<3)return;
+  const drawLayer=(extra:number,color:string)=>{
+    const candidates:Point[]=[];
+    for(const arm of arms){
+      const half=arm.width/2+extra;
+      const reach=half+.08;
+      const normal={x:-arm.direction.y,y:arm.direction.x};
+      candidates.push(
+        {x:center.x+arm.direction.x*reach+normal.x*half,y:center.y+arm.direction.y*reach+normal.y*half},
+        {x:center.x+arm.direction.x*reach-normal.x*half,y:center.y+arm.direction.y*reach-normal.y*half}
+      );
+    }
+    const hull=convexHull(candidates);
+    if(hull.length<3)return;
+    ctx!.beginPath();
+    const first=worldToScreen(hull[0]!);ctx!.moveTo(first.x,first.y);
+    for(let i=1;i<hull.length;i++){const p=worldToScreen(hull[i]!);ctx!.lineTo(p.x,p.y);}
+    ctx!.closePath();ctx!.fillStyle=color;ctx!.fill();
+  };
+  // Two matching polygon layers create a continuous shoulder and asphalt surface.
+  drawLayer(.17,'#d9d2b9');
+  drawLayer(0,'#59666a');
+}
+function collectRoadJunctions():{center:Point;arms:JunctionArm[]}[]{
+  const segments:RoadSegment[]=[
+    ...staticRoads.map(road=>({a:road.a,b:road.b,width:road.width})),
+    ...builtRoads.filter(road=>road.progress>=.999).flatMap(road=>road.points.slice(1).map((point,index)=>({a:road.points[index]!,b:point,width:road.width})))
+  ];
+  const junctions:{center:Point;arms:JunctionArm[]}[]=[];
+  const addArm=(junction:{center:Point;arms:JunctionArm[]},from:Point,to:Point,width:number)=>{
+    const dx=to.x-from.x,dy=to.y-from.y,len=Math.hypot(dx,dy);
+    if(len<.001)return;
+    const direction={x:dx/len,y:dy/len};
+    if(!junction.arms.some(arm=>Math.abs(arm.direction.x-direction.x)<.015&&Math.abs(arm.direction.y-direction.y)<.015))
+      junction.arms.push({direction,width});
+  };
+  const getJunction=(point:Point)=>{
+    let junction=junctions.find(item=>distance(item.center,point)<.06);
+    if(!junction){junction={center:{...point},arms:[]};junctions.push(junction);}
+    return junction;
+  };
+  for(let i=0;i<segments.length;i++){
+    const first=segments[i]!;
+    for(let j=i+1;j<segments.length;j++){
+      const second=segments[j]!;
+      const crossing=segmentIntersection(first.a,first.b,second.a,second.b);
+      const shared=distance(first.a,second.a)<.06||distance(first.a,second.b)<.06||distance(first.b,second.a)<.06||distance(first.b,second.b)<.06;
+      const point=crossing??(shared?[first.a,first.b].find(p=>distance(p,second.a)<.06||distance(p,second.b)<.06):null);
+      if(!point)continue;
+      const junction=getJunction(point);
+      for(const segment of [first,second]){
+        if(distance(segment.a,point)>.06)addArm(junction,point,segment.a,segment.width);
+        if(distance(segment.b,point)>.06)addArm(junction,point,segment.b,segment.width);
+      }
+    }
+  }
+  return junctions.filter(junction=>junction.arms.length>=3);
 }
 function drawRoadNetwork(){
-  // Road ribbons are drawn first; the junction surfaces are layered over their ends.
+  // All road ribbons share one visual language; junction patches are applied last.
   for(const road of staticRoads)strokeRoad([road.a,road.b],1,'#59666a',1,road.width);
-  for(const road of builtRoads)strokeRoad(road.points,road.progress,'#59666a',1,roadHalfWidth*2);
-  // Centre markings stay subtle on village roads and stronger on the federal highway.
+  for(const road of builtRoads)strokeRoad(road.points,road.progress,'#59666a',1,road.width);
   for(let i=0;i<staticRoads.length;i++){
     const road=staticRoads[i]!;
     drawRoadCentreLine(road.a,road.b,i!==0);
   }
-  // Junction radii match the widest road entering each node, avoiding oversized round blobs.
-  drawJunction({x:-1,y:-13},[1.55,1.5]);
-  drawJunction({x:10,y:-13},[1.55,1.5]);
-  drawJunction({x:-1,y:5},[1.5,1.3]);
-  drawJunction({x:-1,y:3},[1.5,1.3]);
-  // A small stop/merge cue on the side-road approach to the highway.
+  for(const junction of collectRoadJunctions())drawJunctionPatch(junction.center,junction.arms);
+  // The highway merge marking is retained, but sits outside the junction surface.
   const merge=worldToScreen({x:10,y:-14.05});
   ctx!.save();ctx!.strokeStyle='#f1e6c8';ctx!.globalAlpha=.75;ctx!.lineWidth=.055*camera.zoom;
   ctx!.beginPath();ctx!.moveTo(merge.x-.48*camera.zoom,merge.y);ctx!.lineTo(merge.x+.48*camera.zoom,merge.y);ctx!.stroke();ctx!.restore();
