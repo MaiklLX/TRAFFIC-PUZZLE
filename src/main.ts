@@ -115,6 +115,13 @@ function drawRoadCentreLine(a:Point,b:Point,subtle=false){
   ctx!.globalAlpha=subtle?.68:.95;ctx!.lineWidth=(subtle?.035:.075)*camera.zoom;
   ctx!.beginPath();ctx!.moveTo(p.x,p.y);ctx!.lineTo(q.x,q.y);ctx!.stroke();ctx!.restore();
 }
+function drawBuiltRoadCentreLine(road:Road){
+  if(road.progress<=0)return;
+  pathOnCanvas(road.points,road.progress);
+  ctx!.save();ctx!.setLineDash([1.05*camera.zoom,1.35*camera.zoom]);
+  ctx!.lineCap='butt';ctx!.strokeStyle='#f4e8bd';ctx!.globalAlpha=.78;
+  ctx!.lineWidth=.065*camera.zoom;ctx!.stroke();ctx!.restore();
+}
 type JunctionArm = { direction:Point; width:number };
 type RoadSegment = { a:Point; b:Point; width:number };
 function convexHull(points:Point[]):Point[]{
@@ -142,9 +149,25 @@ function drawJunctionPatch(center:Point,arms:JunctionArm[]){
     }
     const hull=convexHull(candidates);
     if(hull.length<3)return;
+    // Round every convex corner in world space before projecting to screen.
+    // This keeps the asphalt edge smooth at every zoom level.
+    const rounded=hull.map((point,index)=>{
+      const previous=hull[(index-1+hull.length)%hull.length]!;
+      const next=hull[(index+1)%hull.length]!;
+      const beforeLength=distance(point,previous),afterLength=distance(point,next);
+      const radius=Math.min(extra>0?.28:.22,beforeLength*.32,afterLength*.32);
+      return{
+        before:{x:point.x+(previous.x-point.x)*radius/Math.max(beforeLength,.001),y:point.y+(previous.y-point.y)*radius/Math.max(beforeLength,.001)},
+        corner:point,
+        after:{x:point.x+(next.x-point.x)*radius/Math.max(afterLength,.001),y:point.y+(next.y-point.y)*radius/Math.max(afterLength,.001)}
+      };
+    });
     ctx!.beginPath();
-    const first=worldToScreen(hull[0]!);ctx!.moveTo(first.x,first.y);
-    for(let i=1;i<hull.length;i++){const p=worldToScreen(hull[i]!);ctx!.lineTo(p.x,p.y);}
+    const start=worldToScreen(rounded[0]!.before);ctx!.moveTo(start.x,start.y);
+    for(let i=0;i<rounded.length;i++){
+      const item=rounded[i]!,before=worldToScreen(item.before),corner=worldToScreen(item.corner),after=worldToScreen(item.after);
+      ctx!.lineTo(before.x,before.y);ctx!.quadraticCurveTo(corner.x,corner.y,after.x,after.y);
+    }
     ctx!.closePath();ctx!.fillStyle=color;ctx!.fill();
   };
   // Two matching polygon layers create a continuous shoulder and asphalt surface.
@@ -194,6 +217,9 @@ function drawRoadNetwork(){
     const road=staticRoads[i]!;
     drawRoadCentreLine(road.a,road.b,i!==0);
   }
+  // Built-road markings reveal with the construction and are covered by
+  // junction asphalt, so they never run across the middle of an intersection.
+  for(const road of builtRoads)drawBuiltRoadCentreLine(road);
   for(const junction of collectRoadJunctions())drawJunctionPatch(junction.center,junction.arms);
   // The highway merge marking is retained, but sits outside the junction surface.
   const merge=worldToScreen({x:10,y:-14.05});
