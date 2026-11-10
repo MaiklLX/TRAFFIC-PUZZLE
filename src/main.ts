@@ -434,6 +434,175 @@ const walkers=[
   {path:[{x:7.05,y:3.8},{x:7.7,y:4.15},{x:8.35,y:3.8},{x:7.7,y:3.45}],phase:2.1,color:'#5e8fa0'},
   {path:[{x:10.25,y:-2.9},{x:11.1,y:-2.65},{x:11.85,y:-2.9},{x:11.1,y:-3.2}],phase:4.2,color:'#d5a84f'}
 ];
+function drawTree(x:number,y:number,size=1){
+  const p=worldToScreen({x,y}),s=camera.zoom*size,seed=Math.abs(Math.floor(x*7+y*13));
+  const greens=['#6f9878','#789f80','#83a989','#71977a'];
+  ctx!.save();
+  // Soft contact shadow and a small trunk anchor keep the canopy grounded.
+  ctx!.fillStyle='#718b70';ctx!.globalAlpha=.22;ctx!.beginPath();ctx!.ellipse(p.x+.12*s,p.y+.28*s,.68*s,.43*s,-.18,0,Math.PI*2);ctx!.fill();
+  ctx!.globalAlpha=1;ctx!.fillStyle='#947b5e';ctx!.beginPath();ctx!.arc(p.x,p.y+.05*s,.16*s,0,Math.PI*2);ctx!.fill();
+  const lobes=[[-.22,-.12,.36],[.2,-.2,.35],[-.32,.19,.32],[.18,.2,.39],[0,0,.43],[.02,-.36,.25]];
+  for(let i=0;i<lobes.length;i++){
+    const [dx,dy,r]=lobes[i]!;
+    ctx!.fillStyle=greens[(seed+i)%greens.length]!;
+    ctx!.beginPath();ctx!.arc(p.x+dx*s,p.y+dy*s,r*s,0,Math.PI*2);ctx!.fill();
+  }
+  ctx!.fillStyle='#a9c49b';ctx!.globalAlpha=.72;ctx!.beginPath();ctx!.arc(p.x-.13*s,p.y-.24*s,.18*s,0,Math.PI*2);ctx!.fill();
+  ctx!.globalAlpha=.25;ctx!.fillStyle='#496f58';ctx!.beginPath();ctx!.arc(p.x+.16*s,p.y+.13*s,.27*s,.1,Math.PI*.9);ctx!.fill();
+  ctx!.restore();
+}
+
+function drawHouse(x:number,y:number,scale=1,wall='#f4e7c9',roof='#d98c73'){
+  const p=worldToScreen({x,y}),s=camera.zoom*scale;ctx!.save();ctx!.translate(p.x,p.y);
+  // Garden plot, soft building shadow and a real roof silhouette.
+  ctx!.fillStyle='#d5e2c5';roundedRect(ctx!,-1.58*s,-1.32*s,3.16*s,2.64*s,.34*s);ctx!.fill();
+  ctx!.strokeStyle='#b9cda9';ctx!.lineWidth=Math.max(1,.035*s);ctx!.setLineDash([.12*s,.13*s]);roundedRect(ctx!,-1.48*s,-1.22*s,2.96*s,2.44*s,.28*s);ctx!.stroke();ctx!.setLineDash([]);
+  ctx!.fillStyle='#9ba98d';ctx!.globalAlpha=.2;roundedRect(ctx!,-1.12*s,-.77*s+.17*s,2.24*s,1.78*s,.18*s);ctx!.fill();ctx!.globalAlpha=1;
+  ctx!.fillStyle='#e9dfc7';roundedRect(ctx!,-1.13*s,-.83*s,2.26*s,1.76*s,.18*s);ctx!.fill();
+  ctx!.fillStyle=wall;roundedRect(ctx!,-1.02*s,-.75*s,2.04*s,1.58*s,.13*s);ctx!.fill();
+  ctx!.fillStyle=roof;
+  ctx!.beginPath();ctx!.moveTo(-1.13*s,-.78*s);ctx!.lineTo(-.72*s,-1.02*s);ctx!.lineTo(.73*s,-1.02*s);ctx!.lineTo(1.13*s,-.78*s);ctx!.lineTo(1.13*s,.77*s);ctx!.lineTo(.72*s,1.02*s);ctx!.lineTo(-.73*s,1.02*s);ctx!.lineTo(-1.13*s,.77*s);ctx!.closePath();ctx!.fill();
+  ctx!.strokeStyle='#a85f57';ctx!.lineWidth=Math.max(1,.045*s);ctx!.stroke();
+  // Roof panels, ridge cap and warm reflected light.
+  ctx!.strokeStyle='#ffffff';ctx!.globalAlpha=.19;ctx!.lineWidth=Math.max(1,.07*s);
+  for(const yy of [-.56,-.28,0,.28,.56]){ctx!.beginPath();ctx!.moveTo(-.91*s,yy*s);ctx!.lineTo(.91*s,yy*s);ctx!.stroke();}
+  ctx!.globalAlpha=.42;ctx!.strokeStyle='#784f4a';ctx!.lineWidth=Math.max(1,.07*s);ctx!.beginPath();ctx!.moveTo(0,-.9*s);ctx!.lineTo(0,.9*s);ctx!.stroke();ctx!.globalAlpha=1;
+  ctx!.fillStyle='#f4d8b2';roundedRect(ctx!,-.83*s,-.69*s,.32*s,.27*s,.05*s);ctx!.fill();
+  ctx!.fillStyle='#f4d8b2';roundedRect(ctx!,.51*s,-.69*s,.32*s,.27*s,.05*s);ctx!.fill();
+  ctx!.fillStyle='#b6d8d2';roundedRect(ctx!,-.77*s,-.62*s,.2*s,.17*s,.025*s);ctx!.fill();
+  ctx!.fillStyle='#b6d8d2';roundedRect(ctx!,.57*s,-.62*s,.2*s,.17*s,.025*s);ctx!.fill();
+  // Front porch, steps and a path through the garden.
+  ctx!.fillStyle='#c9b99b';roundedRect(ctx!,-.34*s,.72*s,.68*s,.36*s,.07*s);ctx!.fill();
+  ctx!.fillStyle='#ead9b8';roundedRect(ctx!,-.19*s,.31*s,.38*s,.48*s,.06*s);ctx!.fill();
+  ctx!.fillStyle='#f6e7c9';roundedRect(ctx!,-.25*s,.78*s,.5*s,.11*s,.04*s);ctx!.fill();
+  ctx!.fillStyle='#c7d6b4';ctx!.beginPath();ctx!.moveTo(-.2*s,1.05*s);ctx!.lineTo(.2*s,1.05*s);ctx!.lineTo(.34*s,1.31*s);ctx!.lineTo(-.34*s,1.31*s);ctx!.closePath();ctx!.fill();
+  // Small shrubs and a chimney cap add readable scale at normal zoom.
+  for(const [sx,sy] of [[-1.28,.72],[1.27,-.62],[-1.23,-.82]] as const){ctx!.fillStyle='#77a17e';ctx!.beginPath();ctx!.arc(sx*s,sy*s,.16*s,0,Math.PI*2);ctx!.fill();ctx!.fillStyle='#a8c69a';ctx!.beginPath();ctx!.arc((sx-.04)*s,(sy-.05)*s,.07*s,0,Math.PI*2);ctx!.fill();}
+  ctx!.fillStyle='#a9a18c';roundedRect(ctx!,.61*s,-1.03*s,.23*s,.31*s,.035*s);ctx!.fill();
+  ctx!.restore();
+}
+
+function drawShop(x:number,y:number){
+  const p=worldToScreen({x,y}),s=camera.zoom;ctx!.save();ctx!.translate(p.x,p.y);
+  // A paved forecourt is part of the site, not a separate road tile.
+  ctx!.fillStyle='#d7e2c9';roundedRect(ctx!,-2.35*s,-1.85*s,4.7*s,3.7*s,.3*s);ctx!.fill();
+  ctx!.fillStyle='#c8d1c2';roundedRect(ctx!,-2.18*s,.95*s,4.36*s,.62*s,.12*s);ctx!.fill();
+  ctx!.strokeStyle='#f2ead4';ctx!.lineWidth=Math.max(1,.045*s);
+  for(let i=0;i<3;i++){const x=-1.72+i*1.55;ctx!.beginPath();ctx!.moveTo(x*s,1.02*s);ctx!.lineTo((x+.92)*s,1.02*s);ctx!.stroke();}
+  ctx!.fillStyle='#a3b39a';ctx!.globalAlpha=.2;roundedRect(ctx!,-1.72*s,-1.12*s,3.44*s,2.52*s,.2*s);ctx!.fill();ctx!.globalAlpha=1;
+  ctx!.fillStyle='#e8dfc8';roundedRect(ctx!,-1.78*s,-1.36*s,3.56*s,2.62*s,.18*s);ctx!.fill();
+  ctx!.fillStyle='#648c86';ctx!.beginPath();ctx!.moveTo(-1.62*s,-1.1*s);ctx!.lineTo(-1.22*s,-1.48*s);ctx!.lineTo(1.22*s,-1.48*s);ctx!.lineTo(1.62*s,-1.1*s);ctx!.lineTo(1.62*s,1.08*s);ctx!.lineTo(-1.62*s,1.08*s);ctx!.closePath();ctx!.fill();
+  ctx!.strokeStyle='#416e6c';ctx!.lineWidth=Math.max(1,.05*s);ctx!.stroke();
+  // Roof seams and a bright shop canopy.
+  ctx!.strokeStyle='#a9c7b9';ctx!.globalAlpha=.55;ctx!.lineWidth=Math.max(1,.055*s);
+  for(let i=-2;i<=2;i++){ctx!.beginPath();ctx!.moveTo(i*.48*s,-1.18*s);ctx!.lineTo(i*.48*s,.88*s);ctx!.stroke();}
+  ctx!.globalAlpha=1;
+  ctx!.fillStyle='#f4e8cb';roundedRect(ctx!,-1.42*s,-.62*s,2.84*s,.48*s,.08*s);ctx!.fill();
+  for(let i=0;i<7;i++){ctx!.fillStyle=i%2?'#e4b86f':'#f8e9c7';roundedRect(ctx!,(-1.34+i*.45)*s,-.58*s,.4*s,.4*s,.035*s);ctx!.fill();}
+  ctx!.fillStyle='#d8e9df';roundedRect(ctx!,-.78*s,.03*s,1.56*s,.65*s,.07*s);ctx!.fill();
+  ctx!.strokeStyle='#f7ecd5';ctx!.lineWidth=Math.max(1,.05*s);ctx!.beginPath();ctx!.moveTo(0,.05*s);ctx!.lineTo(0,.65*s);ctx!.stroke();
+  ctx!.fillStyle='#e5d4b4';roundedRect(ctx!,-.2*s,.65*s,.4*s,.36*s,.04*s);ctx!.fill();
+  ctx!.fillStyle='#f2e6ca';roundedRect(ctx!,-.68*s,-1.67*s,1.36*s,.18*s,.06*s);ctx!.fill();
+  ctx!.fillStyle='#648c86';ctx!.font='700 '+Math.max(6,.22*s)+'px Arial';ctx!.textAlign='center';ctx!.textBaseline='middle';ctx!.fillText('MARKET',0,-1.58*s);
+  ctx!.restore();
+}
+
+function drawBarn(x:number,y:number){
+  const p=worldToScreen({x,y}),s=camera.zoom;ctx!.save();ctx!.translate(p.x,p.y);
+  ctx!.fillStyle='#d4e0c2';roundedRect(ctx!,-2.42*s,-1.86*s,4.84*s,3.72*s,.28*s);ctx!.fill();
+  // Loading yard faces the access road on the east side.
+  ctx!.fillStyle='#c8d0bd';roundedRect(ctx!,1.78*s,-.88*s,.52*s,1.76*s,.08*s);ctx!.fill();
+  ctx!.strokeStyle='#eee6d2';ctx!.lineWidth=Math.max(1,.045*s);ctx!.beginPath();ctx!.moveTo(1.9*s,-.65*s);ctx!.lineTo(2.18*s,-.65*s);ctx!.moveTo(1.9*s,.65*s);ctx!.lineTo(2.18*s,.65*s);ctx!.stroke();
+  ctx!.fillStyle='#9d8673';ctx!.globalAlpha=.2;roundedRect(ctx!,-1.92*s,-1.25*s+.16*s,3.82*s,2.5*s,.16*s);ctx!.fill();ctx!.globalAlpha=1;
+  ctx!.fillStyle='#d7a08a';roundedRect(ctx!,-1.96*s,-1.28*s,3.92*s,2.56*s,.14*s);ctx!.fill();
+  ctx!.fillStyle='#bd7567';ctx!.beginPath();ctx!.moveTo(-1.83*s,-1.12*s);ctx!.lineTo(-1.45*s,-1.42*s);ctx!.lineTo(1.45*s,-1.42*s);ctx!.lineTo(1.83*s,-1.12*s);ctx!.lineTo(1.83*s,1.12*s);ctx!.lineTo(-1.83*s,1.12*s);ctx!.closePath();ctx!.fill();
+  ctx!.strokeStyle='#9e5e55';ctx!.lineWidth=Math.max(1,.055*s);ctx!.stroke();
+  ctx!.strokeStyle='#e9b79d';ctx!.globalAlpha=.55;ctx!.lineWidth=Math.max(1,.045*s);
+  for(let i=-3;i<=3;i++){ctx!.beginPath();ctx!.moveTo(i*.43*s,-1.1*s);ctx!.lineTo(i*.43*s,1.1*s);ctx!.stroke();}
+  ctx!.globalAlpha=1;
+  // Broad sliding doors and a clear east-facing service entrance.
+  ctx!.fillStyle='#edc6a5';roundedRect(ctx!,-.72*s,.28*s,1.44*s,.72*s,.08*s);ctx!.fill();
+  ctx!.strokeStyle='#ad685c';ctx!.lineWidth=Math.max(1,.06*s);ctx!.beginPath();ctx!.moveTo(0,.31*s);ctx!.lineTo(0,.97*s);ctx!.stroke();
+  ctx!.fillStyle='#f1d8b8';roundedRect(ctx!,1.62*s,-.34*s,.2*s,.68*s,.04*s);ctx!.fill();
+  ctx!.fillStyle='#e8dfc7';roundedRect(ctx!,-1.62*s,-1.04*s,.42*s,.34*s,.04*s);ctx!.fill();
+  ctx!.fillStyle='#e8dfc7';roundedRect(ctx!,1.2*s,-1.04*s,.42*s,.34*s,.04*s);ctx!.fill();
+  ctx!.fillStyle='#d7b66f';ctx!.beginPath();ctx!.arc(-2.05*s,1.36*s,.23*s,0,Math.PI*2);ctx!.fill();
+  ctx!.restore();
+}
+
+function drawFuelStation(x:number,y:number){
+  const p=worldToScreen({x,y}),s=camera.zoom;ctx!.save();ctx!.translate(p.x,p.y);
+  ctx!.fillStyle='#d7e2c8';roundedRect(ctx!,-2.38*s,-1.78*s,4.76*s,3.56*s,.28*s);ctx!.fill();
+  // Compact service building at the back of the forecourt.
+  ctx!.fillStyle='#9eaa91';ctx!.globalAlpha=.2;roundedRect(ctx!,-.9*s,-1.46*s,1.8*s,.98*s,.12*s);ctx!.fill();ctx!.globalAlpha=1;
+  ctx!.fillStyle='#eee5d0';roundedRect(ctx!,-.94*s,-1.56*s,1.88*s,.94*s,.12*s);ctx!.fill();
+  ctx!.fillStyle='#77a79b';roundedRect(ctx!,-.78*s,-1.42*s,1.56*s,.64*s,.08*s);ctx!.fill();
+  ctx!.fillStyle='#d7e8df';roundedRect(ctx!,-.55*s,-1.28*s,1.1*s,.28*s,.05*s);ctx!.fill();
+  // One broad canopy with a soft cast shadow and four visible supports.
+  ctx!.fillStyle='#91a28f';ctx!.globalAlpha=.22;roundedRect(ctx!,-2.02*s,-.18*s,4.04*s,1.55*s,.18*s);ctx!.fill();ctx!.globalAlpha=1;
+  ctx!.fillStyle='#f3e7ca';roundedRect(ctx!,-2.02*s,-.32*s,4.04*s,1.48*s,.18*s);ctx!.fill();
+  ctx!.fillStyle='#6f9d91';roundedRect(ctx!,-1.9*s,-.25*s,3.8*s,1.32*s,.14*s);ctx!.fill();
+  ctx!.fillStyle='#f5e8c9';roundedRect(ctx!,-1.86*s,-.2*s,3.72*s,.17*s,.06*s);ctx!.fill();
+  ctx!.fillStyle='#f5f0df';
+  for(const dx of [-1.18,0,1.18]){
+    roundedRect(ctx!,(dx-.25)*s,.14*s,.5*s,.76*s,.08*s);ctx!.fill();
+    ctx!.fillStyle='#b9d8d2';roundedRect(ctx!,(dx-.16)*s,.23*s,.32*s,.2*s,.035*s);ctx!.fill();
+    ctx!.fillStyle='#c17d63';ctx!.lineWidth=Math.max(1,.045*s);ctx!.beginPath();ctx!.moveTo((dx+.2)*s,.3*s);ctx!.quadraticCurveTo((dx+.39)*s,.44*s,(dx+.27)*s,.73*s);ctx!.stroke();
+    ctx!.fillStyle='#f5f0df';
+  }
+  for(const [dx,dy] of [[-1.86,-.18],[1.86,-.18],[-1.86,.98],[1.86,.98]] as const){ctx!.fillStyle='#e8e0c8';roundedRect(ctx!,(dx-.045)*s,(dy-.045)*s,.09*s,.09*s,.025*s);ctx!.fill();}
+  ctx!.fillStyle='#d7a65f';roundedRect(ctx!,-.42*s,1.23*s,.84*s,.18*s,.06*s);ctx!.fill();
+  ctx!.fillStyle='#6f9d91';ctx!.font='700 '+Math.max(6,.2*s)+'px Arial';ctx!.textAlign='center';ctx!.textBaseline='middle';ctx!.fillText('FUEL',0,1.32*s);
+  ctx!.restore();
+}
+
+function drawDecor(){
+  const s=camera.zoom;
+  // Hedges and orchard dots use the same quiet palette as the terrain.
+  const fences=[[-8.8,-5.4,4.1,0],[-11.1,7.5,4.4,Math.PI/2],[5.8,3.5,3.5,0],[4.2,9.7,5,0],[-18.4,4.2,3.2,0]];
+  for(const [x,y,len,angle] of fences){const p=worldToScreen({x,y});ctx!.save();ctx!.translate(p.x,p.y);ctx!.rotate(angle);ctx!.strokeStyle='#b6c9a5';ctx!.lineWidth=Math.max(1,.07*s);ctx!.beginPath();ctx!.moveTo(-len*s/2,0);ctx!.lineTo(len*s/2,0);ctx!.stroke();ctx!.restore();}
+  for(let row=0;row<3;row++)for(let col=0;col<4;col++){const p=worldToScreen({x:15.45+col*.9,y:-6.05+row*.95});ctx!.fillStyle='#83a98a';ctx!.beginPath();ctx!.arc(p.x,p.y,.19*s,0,Math.PI*2);ctx!.fill();}
+  const gardens=[{x:-6.7,y:-5.35,w:2.1,h:.6},{x:7.7,y:3.15,w:2.2,h:.55},{x:2.8,y:9.65,w:2.3,h:.55}];
+  for(const g of gardens){const p=worldToScreen({x:g.x,y:g.y});ctx!.fillStyle='#c7d9b7';roundedRect(ctx!,p.x-g.w*s/2,p.y-g.h*s/2,g.w*s,g.h*s,.12*s);ctx!.fill();}
+  for(const [x,y] of [[-3,-9.8],[7,-1.4],[9,5.8],[-7,1.5],[-3,-15],[8,-15]] as const){const p=worldToScreen({x,y});ctx!.fillStyle='#8a9f85';ctx!.beginPath();ctx!.arc(p.x,p.y,.09*s,0,Math.PI*2);ctx!.fill();}
+}
+// Shared route sampler for drawing, following distance, junction priority and congestion.
+function vehiclePose(vehicle:Vehicle):{x:number;y:number;angle:number;heading:Point}{
+  const target=clamp(vehicle.distance,0,vehicle.routeLength);
+  let travelled=0;
+  for(let i=0;i<vehicle.lengths.length;i++){
+    const length=vehicle.lengths[i]!;
+    const a=vehicle.path[i]!,b=vehicle.path[i+1]!;
+    if(length<.0001)continue;
+    if(target<=travelled+length||i===vehicle.lengths.length-1){
+      const t=clamp((target-travelled)/length,0,1);
+      const heading={x:(b.x-a.x)/length,y:(b.y-a.y)/length};
+      return{x:lerp(a.x,b.x,t),y:lerp(a.y,b.y,t),angle:Math.atan2(heading.y,heading.x),heading};
+    }
+    travelled+=length;
+  }
+  const end=vehicle.path[vehicle.path.length-1]??{x:0,y:0};
+  const previous=vehicle.path[vehicle.path.length-2]??end;
+  const length=distance(previous,end)||1;
+  const heading={x:(end.x-previous.x)/length,y:(end.y-previous.y)/length};
+  return{x:end.x,y:end.y,angle:Math.atan2(heading.y,heading.x),heading};
+}
+function drawCar(vehicle:Vehicle){
+  const pose=vehiclePose(vehicle),p=worldToScreen({x:pose.x,y:pose.y}),angle=pose.angle,s=camera.zoom;
+  ctx!.save();ctx!.translate(p.x,p.y);ctx!.rotate(angle);
+  ctx!.fillStyle='#53666a';ctx!.globalAlpha=.18;roundedRect(ctx!,-.7*s,-.31*s,1.4*s,.62*s,.22*s);ctx!.fill();ctx!.globalAlpha=1;
+  roundedRect(ctx!,-.64*s,-.27*s,1.28*s,.54*s,.2*s);ctx!.fillStyle=vehicle.color;ctx!.fill();
+  ctx!.fillStyle='#d8e9e6';roundedRect(ctx!,-.17*s,-.205*s,.48*s,.41*s,.11*s);ctx!.fill();
+  ctx!.fillStyle='#fff0c9';ctx!.fillRect(.52*s,-.16*s,.07*s,.12*s);ctx!.fillRect(.52*s,.04*s,.07*s,.12*s);
+  ctx!.fillStyle='#e8a18b';ctx!.fillRect(-.59*s,-.15*s,.06*s,.11*s);ctx!.fillRect(-.59*s,.04*s,.06*s,.11*s);
+  ctx!.restore();
+}
+let ambientClock=0;
+const walkers=[
+  {path:[{x:-7.15,y:-5.2},{x:-6.5,y:-5.65},{x:-5.85,y:-5.2},{x:-6.5,y:-4.75}],phase:0,color:'#d77c65'},
+  {path:[{x:7.05,y:3.8},{x:7.7,y:4.15},{x:8.35,y:3.8},{x:7.7,y:3.45}],phase:2.1,color:'#5e8fa0'},
+  {path:[{x:10.25,y:-2.9},{x:11.1,y:-2.65},{x:11.85,y:-2.9},{x:11.1,y:-3.2}],phase:4.2,color:'#d5a84f'}
+];
 function drawFarmDetails(){
   const s=camera.zoom,p=worldToScreen({x:-18.1,y:8.4});
   // A soft paddock with a broken timber fence and a clear gate.
