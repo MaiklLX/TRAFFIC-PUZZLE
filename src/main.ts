@@ -457,10 +457,21 @@ function buildTrafficRoute(destinationId:string):Point[]|null{
 }
 function offsetRouteToRightSide(path:Point[],offset=.27):Point[]{
   if(path.length<2)return path.map(point=>({...point}));
+  const normals=path.slice(1).map((point,index)=>{
+    const previous=path[index]!,dx=point.x-previous.x,dy=point.y-previous.y,length=Math.hypot(dx,dy)||1;
+    return{x:-dy/length,y:dx/length};
+  });
   return path.map((point,index)=>{
-    const before=path[Math.max(0,index-1)]!,after=path[Math.min(path.length-1,index+1)]!;
-    const dx=after.x-before.x,dy=after.y-before.y,length=Math.hypot(dx,dy)||1;
-    return{x:point.x-(dy/length)*offset,y:point.y+(dx/length)*offset};
+    if(index===0||index===path.length-1){
+      const normal=normals[index===0?0:normals.length-1]!;
+      return{x:point.x+normal.x*offset,y:point.y+normal.y*offset};
+    }
+    const before=normals[index-1]!,after=normals[index]!;
+    const mx=before.x+after.x,my=before.y+after.y,ml=Math.hypot(mx,my);
+    if(ml<.001)return{x:point.x+after.x*offset,y:point.y+after.y*offset};
+    const nx=mx/ml,ny=my/ml,dot=nx*after.x+ny*after.y;
+    const miter=clamp(offset/Math.max(dot,.35),offset,offset*2.4);
+    return{x:point.x+nx*miter,y:point.y+ny*miter};
   });
 }
 function createVehicle(path:Point[],speed:number,destination:TrafficDestination,offset:number):Vehicle{
@@ -667,6 +678,39 @@ window.addEventListener('keydown',event=>{
   if(event.key==='Escape'&&draft.length)clearDraft();
 });
 let previousTime=0;
+function routeProjectionToPoint(path:Point[],point:Point){
+  let walked=0,bestLateral=Infinity,bestDistance=0;
+  for(let i=1;i<path.length;i++){
+    const a=path[i-1]!,b=path[i]!,dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy);
+    if(len<.001)continue;
+    const t=clamp(((point.x-a.x)*dx+(point.y-a.y)*dy)/(len*len),0,1);
+    const projected={x:a.x+dx*t,y:a.y+dy*t},lateral=distance(point,projected);
+    if(lateral<bestLateral){bestLateral=lateral;bestDistance=walked+len*t;}
+    walked+=len;
+  }
+  return{lateral:bestLateral,distance:bestDistance};
+}
+function junctionYieldSpeeds(poses:{x:number;y:number;heading:Point;angle:number}[]){
+  const limits=vehicles.map(vehicle=>vehicle.cruiseSpeed);
+  const junctions=collectRoadJunctions();
+  for(const junction of junctions){
+    const approaches=vehicles.map((vehicle,index)=>{
+      const projection=routeProjectionToPoint(vehicle.path,junction.center);
+      return{index,remaining:projection.distance-vehicle.distance,lateral:projection.lateral};
+    }).filter(item=>item.lateral<2.65&&item.remaining>=-1.45&&item.remaining<=5.6);
+    if(approaches.length<2)continue;
+    const occupants=approaches.filter(item=>Math.abs(item.remaining)<=1.45);
+    const winner=occupants.length
+      ?occupants.sort((a,b)=>a.index-b.index)[0]!
+      :approaches.filter(item=>item.remaining>0).sort((a,b)=>a.remaining-b.remaining||a.index-b.index)[0]!;
+    for(const item of approaches){
+      if(item.index!==winner.index&&item.remaining>-.9){
+        limits[item.index]=0;
+      }
+    }
+  }
+  return limits;
+}
 function animate(time:number){
   const delta=Math.min((time-previousTime)/1000||0,.05);previousTime=time;
   let networkChanged=false;
@@ -680,9 +724,10 @@ function animate(time:number){
   // Follow the vehicle directly ahead on the same lane. Braking is gradual,
   // and acceleration is slower than braking so gaps recover smoothly.
   const poses=vehicles.map(vehicle=>vehiclePose(vehicle));
+  const junctionLimits=junctionYieldSpeeds(poses);
   for(let i=0;i<vehicles.length;i++){
     const vehicle=vehicles[i]!,pose=poses[i]!;
-    let desiredSpeed=vehicle.cruiseSpeed;
+    let desiredSpeed=junctionLimits[i]??vehicle.cruiseSpeed;
     for(let j=0;j<vehicles.length;j++){
       if(i===j)continue;
       const other=poses[j]!,dx=other.x-pose.x,dy=other.y-pose.y;
