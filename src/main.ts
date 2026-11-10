@@ -249,8 +249,27 @@ function collectRoadJunctions():{center:Point;arms:JunctionArm[]}[]{
   }
   return junctions.filter(junction=>junction.arms.length>=3).map(({center,arms})=>({center,arms}));
 }
+function drawTurningBulb(destination:TrafficDestination){
+  const approach=findRoadPath(demoStart,destination.access);
+  if(!approach||approach.length<2)return;
+  const previous=approach[approach.length-2]!,end=approach[approach.length-1]!;
+  const length=distance(previous,end);if(length<.001)return;
+  const direction={x:(end.x-previous.x)/length,y:(end.y-previous.y)/length};
+  const center={x:end.x+direction.x*.84,y:end.y+direction.y*.84};
+  const p=worldToScreen(center),angle=Math.atan2(direction.y,direction.x);
+  // The turning head is painted underneath the road network. Its elongated
+  // footprint overlaps the approach, so shoulder and asphalt read as one
+  // continuous paved surface rather than a separate circular patch.
+  ctx!.save();ctx!.translate(p.x,p.y);ctx!.rotate(angle);
+  ctx!.fillStyle='#d9d2b9';ctx!.beginPath();ctx!.ellipse(0,0,2.08*camera.zoom,1.43*camera.zoom,0,0,Math.PI*2);ctx!.fill();
+  ctx!.fillStyle='#59666a';ctx!.beginPath();ctx!.ellipse(0,0,1.9*camera.zoom,1.25*camera.zoom,0,0,Math.PI*2);ctx!.fill();
+  ctx!.restore();
+}
 function drawRoadNetwork(){
   const junctions=collectRoadJunctions();
+  // Turning heads are part of the road surface: draw them first so the
+  // incoming road seamlessly covers their neck and markings are layered later.
+  for(const destination of trafficDestinations)drawTurningBulb(destination);
   // Road surfaces first, then clipped markings, then the junction asphalt cap.
   for(const road of staticRoads)strokeRoad([road.a,road.b],1,'#59666a',1,road.width);
   for(const road of builtRoads)strokeRoad(road.points,road.progress,'#59666a',1,road.width);
@@ -260,13 +279,6 @@ function drawRoadNetwork(){
   }
   for(const road of builtRoads)drawRoadCentreLinePath(road.points,false,junctions,road.progress);
   for(const junction of junctions)drawJunctionPatch(junction.center,junction.arms);
-  // Rounded turning heads give cars room to reverse at the end of local streets.
-  for(const destination of trafficDestinations){
-    if(!findRoadPath(demoStart,destination.access))continue;
-    const p=worldToScreen(destination.access),radius=1.42*camera.zoom;
-    ctx!.fillStyle='#d9d2b9';ctx!.beginPath();ctx!.arc(p.x,p.y,radius,0,Math.PI*2);ctx!.fill();
-    ctx!.fillStyle='#59666a';ctx!.beginPath();ctx!.arc(p.x,p.y,radius*.86,0,Math.PI*2);ctx!.fill();
-  }
   // Highway merge marker stays outside the intersection surface.
   const merge=worldToScreen({x:10,y:-14.05});
   ctx!.save();ctx!.strokeStyle='#f1e6c8';ctx!.globalAlpha=.75;ctx!.lineWidth=.055*camera.zoom;
@@ -484,7 +496,9 @@ function offsetRouteToRightSide(path:Point[],offset=.36):Point[]{
       const turnRadius=1.35;
       const handle=turnRadius*1.72;
       const p1={x:p0.x+before.x*handle,y:p0.y+before.y*handle};
-      const p2={x:p3.x+after.x*handle,y:p3.y+after.y*handle};
+      // The final Bezier handle must point backwards from P3 so the
+      // curve arrives with the outbound tangent (P3 - P2 = after).
+      const p2={x:p3.x-after.x*handle,y:p3.y-after.y*handle};
       const samples=24;
       for(let sample=1;sample<=samples;sample++){
         const t=sample/samples,u=1-t;
