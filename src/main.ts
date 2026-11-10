@@ -5,7 +5,7 @@ type Road = { points: Point[]; progress: number; connectsVillageToHighway: boole
 type RoadGraphNode = { id: number; x: number; y: number; edgeIds: string[] };
 type RoadGraphEdge = { id: string; from: number; to: number; width: number; kind: 'highway' | 'local'; source: string };
 type RoadGraph = { nodes: RoadGraphNode[]; edges: RoadGraphEdge[] };
-type Vehicle = { path: Point[]; lengths: number[]; routeLength: number; distance: number; speed: number; direction: number; color: string; destinationId: string };
+type Vehicle = { path: Point[]; lengths: number[]; routeLength: number; distance: number; speed: number; cruiseSpeed: number; direction: number; color: string; destinationId: string };
 
 const mount = document.querySelector<HTMLDivElement>('#world');
 if (!mount) throw new Error('World mount not found');
@@ -328,11 +328,15 @@ function drawDecor(){
   const sign=worldToScreen({x:-13,y:-15.1});ctx!.fillStyle='#786d57';ctx!.fillRect(sign.x-.07*camera.zoom,sign.y,.14*camera.zoom,1.2*camera.zoom);ctx!.fillStyle='#568b70';roundedRect(ctx!,sign.x-1.2*camera.zoom,sign.y-.65*camera.zoom,2.4*camera.zoom,1.05*camera.zoom,.12*camera.zoom);ctx!.fill();
   ctx!.strokeStyle='#f4e7c5';ctx!.lineWidth=.08*camera.zoom;ctx!.strokeRect(sign.x-.95*camera.zoom,sign.y-.43*camera.zoom,1.9*camera.zoom,.08*camera.zoom);
 }
-function drawCar(vehicle:Vehicle){
-  let remaining=vehicle.distance,segment=0;
+function vehiclePose(vehicle:Vehicle){
+  let remaining=clamp(vehicle.distance,0,vehicle.routeLength),segment=0;
   while(segment<vehicle.lengths.length-1&&remaining>vehicle.lengths[segment]!){remaining-=vehicle.lengths[segment]!;segment++;}
   const a=vehicle.path[segment]!,b=vehicle.path[segment+1]!,t=clamp(remaining/(vehicle.lengths[segment]||1),0,1);
-  const x=lerp(a.x,b.x,t),y=lerp(a.y,b.y,t),angle=Math.atan2(b.y-a.y,b.x-a.x)+(vehicle.direction<0?Math.PI:0),p=worldToScreen({x,y}),s=camera.zoom;
+  const dx=b.x-a.x,dy=b.y-a.y,length=Math.hypot(dx,dy)||1;
+  return{x:lerp(a.x,b.x,t),y:lerp(a.y,b.y,t),heading:{x:dx/length*(vehicle.direction<0?-1:1),y:dy/length*(vehicle.direction<0?-1:1)},angle:Math.atan2(dy,dx)+(vehicle.direction<0?Math.PI:0)};
+}
+function drawCar(vehicle:Vehicle){
+  const pose=vehiclePose(vehicle),p=worldToScreen({x:pose.x,y:pose.y}),angle=pose.angle,s=camera.zoom;
   ctx!.save();ctx!.translate(p.x,p.y);ctx!.rotate(angle);
   ctx!.fillStyle='#344b45';roundedRect(ctx!,-.82*s,-.48*s,1.64*s,.96*s,.24*s);ctx!.fill();
   ctx!.fillStyle=vehicle.color;roundedRect(ctx!,-.72*s,-.42*s,1.44*s,.84*s,.22*s);ctx!.fill();
@@ -452,7 +456,7 @@ function buildTrafficRoute(destinationId:string):Point[]|null{
 function createVehicle(path:Point[],speed:number,destination:TrafficDestination,offset:number):Vehicle{
   const lengths=path.slice(1).map((point,index)=>distance(path[index]!,point));
   const routeLength=lengths.reduce((sum,value)=>sum+value,0);
-  return{path,lengths,routeLength,distance:Math.min(offset,routeLength),speed,direction:1,color:destination.color,destinationId:destination.id};
+  return{path,lengths,routeLength,distance:Math.min(offset,routeLength),speed,cruiseSpeed:speed,direction:1,color:destination.color,destinationId:destination.id};
 }
 let reachableDestinations:TrafficDestination[]=[];
 function refreshVehicleRoutes(){
@@ -661,10 +665,28 @@ function animate(time:number){
     if(before<1&&job.progress>=1){constructionJobs.splice(i,1);networkChanged=true;}
   }
   if(networkChanged){rebuildRoadGraph();refreshVehicleRoutes();}
-  for(let i=vehicles.length-1;i>=0;i--){
-    const vehicle=vehicles[i]!;
+  // Follow the vehicle directly ahead on the same lane. Braking is gradual,
+  // and acceleration is slower than braking so gaps recover smoothly.
+  const poses=vehicles.map(vehicle=>vehiclePose(vehicle));
+  for(let i=0;i<vehicles.length;i++){
+    const vehicle=vehicles[i]!,pose=poses[i]!;
+    let desiredSpeed=vehicle.cruiseSpeed;
+    for(let j=0;j<vehicles.length;j++){
+      if(i===j)continue;
+      const other=poses[j]!,dx=other.x-pose.x,dy=other.y-pose.y;
+      const longitudinal=dx*pose.heading.x+dy*pose.heading.y;
+      const lateral=Math.abs(dx*pose.heading.y-dy*pose.heading.x);
+      if(longitudinal>0&&lateral<.82){
+        const gap=longitudinal-1.64;
+        desiredSpeed=Math.min(desiredSpeed,clamp((gap-1.35)*2.2,0,vehicle.cruiseSpeed));
+      }
+    }
+    const rate=desiredSpeed<vehicle.speed?7.5:2.1;
+    vehicle.speed+=clamp(desiredSpeed-vehicle.speed,-rate*delta,rate*delta);
     vehicle.distance+=vehicle.speed*delta;
-    if(vehicle.distance>=vehicle.routeLength){vehicles.splice(i,1);updateTrafficCounter();}
+  }
+  for(let i=vehicles.length-1;i>=0;i--){
+    if(vehicles[i]!.distance>=vehicles[i]!.routeLength){vehicles.splice(i,1);updateTrafficCounter();}
   }
   trafficSpawnTimer-=delta;
   if(trafficSpawnTimer<=0){spawnTrafficVehicle();trafficSpawnTimer=7.5;}
