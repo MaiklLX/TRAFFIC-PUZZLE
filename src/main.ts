@@ -283,6 +283,8 @@ function rebuildRoadGraph(){
   }
   if(networkStatus)networkStatus.textContent='Сеть: '+roadGraph.nodes.length+' узлов · '+roadGraph.edges.length+' участков';
 }
+// KT-010: populate the base network before any road validation can run.
+rebuildRoadGraph();
 function nearestNetworkPoint(p:Point):Point|null{
   let nearest=Infinity,best:Point|null=null;
   for(const edge of roadGraph.edges){
@@ -302,8 +304,11 @@ function distanceToSegment(p:Point,a:Point,b:Point){
   const dx=b.x-a.x,dy=b.y-a.y,t=clamp(((p.x-a.x)*dx+(p.y-a.y)*dy)/Math.max(dx*dx+dy*dy,.0001),0,1);
   return distance(p,{x:a.x+dx*t,y:a.y+dy*t});
 }
+const roadOverlapDistance=roadHalfWidth*1.72;
+const roadConnectionTolerance=roadHalfWidth+roadGrid*.75;
+const endpointOverlapAllowance=roadOverlapDistance+roadGrid*.5;
 function touchesRoadNetwork(p:Point){
-  return nearestNetworkDistance(p)<=roadHalfWidth+.55;
+  return nearestNetworkDistance(p)<=roadConnectionTolerance;
 }
 function isValidRoadPath(points:Point[]){
   if(points.length<2)return false;
@@ -314,9 +319,9 @@ function isValidRoadPath(points:Point[]){
     for(let s=0;s<=steps;s++){
       const t=s/steps,p={x:lerp(a.x,b.x,t),y:lerp(a.y,b.y,t)};
       if(obstacles.some(o=>Math.hypot(p.x-o.x,p.y-o.y)<o.r+roadHalfWidth))return false;
-      const atStart=travelled+len*t<1.25,atEnd=total-(travelled+len*t)<1.25;
-      const overlapStatic=staticRoads.some(r=>distanceToSegment(p,r.a,r.b)<roadHalfWidth*1.72);
-      const overlapBuilt=builtRoads.some(r=>r.points.some((q,j)=>j>0&&distanceToSegment(p,r.points[j-1]!,q)<roadHalfWidth*1.72));
+      const atStart=travelled+len*t<endpointOverlapAllowance,atEnd=total-(travelled+len*t)<endpointOverlapAllowance;
+      const overlapStatic=staticRoads.some(r=>distanceToSegment(p,r.a,r.b)<roadOverlapDistance);
+      const overlapBuilt=builtRoads.some(r=>r.points.some((q,j)=>j>0&&distanceToSegment(p,r.points[j-1]!,q)<roadOverlapDistance));
       if((overlapStatic||overlapBuilt)&&!(atStart||atEnd))return false;
     }travelled+=len;
   }return true;
@@ -347,7 +352,9 @@ function updateMission(){
 }
 function startRoad(event:PointerEvent){
   if(selectedTool!=='road'||event.button!==0)return;
-  const p=pointerToGrid(event);
+  let p=pointerToGrid(event);
+  const nearbyNetworkPoint=nearestNetworkPoint(p);
+  if(nearbyNetworkPoint&&distance(p,nearbyNetworkPoint)<=roadConnectionTolerance)p=nearbyNetworkPoint;
   if(obstacles.some(o=>Math.hypot(p.x-o.x,p.y-o.y)<o.r+roadHalfWidth)){if(buildMessage)buildMessage.textContent='Нельзя начинать проект внутри здания, дерева или водоёма.';return;}
   drawing=true;pointerId=event.pointerId;draft=[p];canvas.setPointerCapture(event.pointerId);event.preventDefault();render();
 }
@@ -358,9 +365,9 @@ function finishRoad(event:PointerEvent){
   if(!isValidRoadPath(draft)){draft=[];if(buildMessage)buildMessage.textContent='Проект отклонён: линия должна соединяться с сетью и обходить здания, деревья и воду.';render();return;}
   // Snap connected endpoints to the exact centreline so the new edge becomes part of the graph.
   const firstSnap=nearestNetworkPoint(draft[0]!);
-  if(firstSnap&&distance(draft[0]!,firstSnap)<=roadHalfWidth+.55)draft[0]=firstSnap;
+  if(firstSnap&&distance(draft[0]!,firstSnap)<=roadConnectionTolerance)draft[0]=firstSnap;
   const lastIndex=draft.length-1,lastSnap=nearestNetworkPoint(draft[lastIndex]!);
-  if(lastSnap&&distance(draft[lastIndex]!,lastSnap)<=roadHalfWidth+.55)draft[lastIndex]=lastSnap;
+  if(lastSnap&&distance(draft[lastIndex]!,lastSnap)<=roadConnectionTolerance)draft[lastIndex]=lastSnap;
   const touchesHighway=draft.some(p=>Math.abs(p.y+13)<=1.65&&Math.abs(p.x)<=18);
   const touchesVillage=draft.some(p=>(Math.abs(p.x+1)<=1.65&&p.y>=-12&&p.y<=11)||(Math.abs(p.x)<=1.65&&p.y>=-12&&p.y<=-2)||(Math.abs(p.y-5)<=1.4&&p.x>=3&&p.x<=11)||(Math.abs(p.y-3)<=1.4&&p.x>=-11&&p.x<=-3));
   const road:Road={points:draft.map(p=>({...p})),progress:0,width:roadHalfWidth*2,connectsVillageToHighway:touchesHighway&&touchesVillage};
