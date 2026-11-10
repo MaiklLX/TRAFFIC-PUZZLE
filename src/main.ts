@@ -924,23 +924,36 @@ function createVehicle(path:Point[],speed:number,origin:TrafficOrigin,destinatio
 }
 let reachableTrips:TrafficTrip[]=[];
 let reachableDestinations:TrafficDestination[]=[];
+function nextVehicleWaypoint(vehicle:Vehicle):Point|null{
+  const target=clamp(vehicle.distance,0,vehicle.routeLength);
+  let travelled=0;
+  for(let i=0;i<vehicle.lengths.length;i++){
+    const length=vehicle.lengths[i]!;
+    if(length<.0001)continue;
+    if(target<=travelled+length||i===vehicle.lengths.length-1)return vehicle.path[i+1]??null;
+    travelled+=length;
+  }
+  return vehicle.path[vehicle.path.length-1]??null;
+}
 function refreshVehicleRoutes(){
   reachableTrips=getReachableTrips();
   reachableDestinations=tripDestinations.filter(destination=>reachableTrips.some(trip=>trip.destination.id===destination.id));
-  for(let i=vehicles.length-1;i>=0;i--){
-    const vehicle=vehicles[i]!;
+  for(const vehicle of vehicles){
     const destination=tripDestinations.find(item=>item.id===vehicle.destinationId);
-    if(!destination)continue;
-    // Re-route from the car's actual position, not from its original home.
-    // This prevents a newly completed road from teleporting vehicles back
-    // to the start of a freshly calculated route.
+    const nextWaypoint=nextVehicleWaypoint(vehicle);
+    if(!destination||!nextWaypoint)continue;
+    // Keep the current road segment intact, then make the route decision
+    // at the next graph node. This preserves one-way direction and avoids
+    // snapping a moving car backwards to the nearest node.
     const currentPose=vehiclePose(vehicle);
     const currentPoint={x:currentPose.x,y:currentPose.y};
-    const nextPath=findRoadPath(currentPoint,destination.access);
+    const nextPath=findRoadPath(nextWaypoint,destination.access);
     if(!nextPath)continue;
-    const lanePath=offsetRouteToRightSide(nextPath);
-    const rebuiltPath=[currentPoint,...lanePath.filter((point,index)=>index>0||distance(point,currentPoint)>.08)];
-    if(rebuiltPath.length<2)rebuiltPath.push({...destination.access});
+    const laneTail=offsetRouteToRightSide(nextPath);
+    const rebuiltPath=[currentPoint];
+    if(distance(currentPoint,nextWaypoint)>.08)rebuiltPath.push({...nextWaypoint});
+    for(const point of laneTail.slice(1))rebuiltPath.push({...point});
+    if(rebuiltPath.length<2)continue;
     const lengths=rebuiltPath.slice(1).map((point,index)=>distance(rebuiltPath[index]!,point));
     const routeLength=lengths.reduce((sum,value)=>sum+value,0);
     if(routeLength<.15)continue;
