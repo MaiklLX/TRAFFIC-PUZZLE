@@ -371,68 +371,126 @@ function drawTerrain(){
 }
 function drawTree(x:number,y:number,size=1){
   const p=worldToScreen({x,y}),s=camera.zoom*size,seed=Math.abs(Math.floor(x*7+y*13));
-  const palette=['#6f9b7d','#7fa98a','#8db394','#759f82'];
-  ctx!.save();ctx!.fillStyle='#9cad91';ctx!.globalAlpha=.34;ctx!.beginPath();ctx!.ellipse(p.x+.08*s,p.y+.19*s,.56*s,.38*s,-.12,0,Math.PI*2);ctx!.fill();
-  ctx!.globalAlpha=1;ctx!.fillStyle=palette[seed%palette.length]!;ctx!.beginPath();ctx!.arc(p.x,p.y,.46*s,0,Math.PI*2);ctx!.fill();
-  ctx!.fillStyle=palette[(seed+1)%palette.length]!;ctx!.beginPath();ctx!.arc(p.x-.19*s,p.y-.12*s,.29*s,0,Math.PI*2);ctx!.fill();
-  ctx!.fillStyle='#a8c5a0';ctx!.globalAlpha=.7;ctx!.beginPath();ctx!.arc(p.x+.16*s,p.y-.17*s,.19*s,0,Math.PI*2);ctx!.fill();
-  ctx!.globalAlpha=.22;ctx!.strokeStyle='#426f58';ctx!.lineWidth=Math.max(.7,.035*s);ctx!.beginPath();ctx!.arc(p.x,p.y,.44*s,0,Math.PI*2);ctx!.stroke();ctx!.restore();
+  const greens=['#6f9878','#789f80','#83a989','#71977a'];
+  ctx!.save();
+  // Soft contact shadow and a small trunk anchor keep the canopy grounded.
+  ctx!.fillStyle='#718b70';ctx!.globalAlpha=.22;ctx!.beginPath();ctx!.ellipse(p.x+.12*s,p.y+.28*s,.68*s,.43*s,-.18,0,Math.PI*2);ctx!.fill();
+  ctx!.globalAlpha=1;ctx!.fillStyle='#947b5e';ctx!.beginPath();ctx!.arc(p.x,p.y+.05*s,.16*s,0,Math.PI*2);ctx!.fill();
+  const lobes=[[-.22,-.12,.36],[.2,-.2,.35],[-.32,.19,.32],[.18,.2,.39],[0,0,.43],[.02,-.36,.25]];
+  for(let i=0;i<lobes.length;i++){
+    const [dx,dy,r]=lobes[i]!;
+    ctx!.fillStyle=greens[(seed+i)%greens.length]!;
+    ctx!.beginPath();ctx!.arc(p.x+dx*s,p.y+dy*s,r*s,0,Math.PI*2);ctx!.fill();
+  }
+  ctx!.fillStyle='#a9c49b';ctx!.globalAlpha=.72;ctx!.beginPath();ctx!.arc(p.x-.13*s,p.y-.24*s,.18*s,0,Math.PI*2);ctx!.fill();
+  ctx!.globalAlpha=.25;ctx!.fillStyle='#496f58';ctx!.beginPath();ctx!.arc(p.x+.16*s,p.y+.13*s,.27*s,.1,Math.PI*.9);ctx!.fill();
+  ctx!.restore();
 }
+
 function drawHouse(x:number,y:number,scale=1,wall='#f4e7c9',roof='#d98c73'){
-  const p=worldToScreen({x,y}),s=camera.zoom*scale;ctx!.save();
-  ctx!.fillStyle='#cbd9bd';roundedRect(ctx!,p.x-1.48*s,p.y-1.2*s,2.96*s,2.4*s,.22*s);ctx!.fill();
-  ctx!.fillStyle='#e8e4cf';roundedRect(ctx!,p.x-1.22*s,p.y-.98*s,2.44*s,1.96*s,.16*s);ctx!.fill();
-  ctx!.fillStyle='#b6c7a8';roundedRect(ctx!,p.x-1.03*s,p.y-.82*s,2.06*s,1.64*s,.12*s);ctx!.fill();
-  ctx!.fillStyle=wall;roundedRect(ctx!,p.x-.96*s,p.y-.76*s,1.92*s,1.52*s,.1*s);ctx!.fill();
-  ctx!.fillStyle='#b96f61';roundedRect(ctx!,p.x-1.02*s,p.y-.86*s,2.04*s,1.72*s,.12*s);ctx!.fill();
-  ctx!.fillStyle=roof;roundedRect(ctx!,p.x-.94*s,p.y-.8*s,1.88*s,1.58*s,.09*s);ctx!.fill();
-  ctx!.fillStyle='#e9ad91';roundedRect(ctx!,p.x-.78*s,p.y-.66*s,1.56*s,.18*s,.05*s);ctx!.fill();
-  ctx!.strokeStyle='#b96f61';ctx!.lineWidth=Math.max(.8,.055*s);ctx!.beginPath();ctx!.moveTo(p.x,p.y-.62*s);ctx!.lineTo(p.x,p.y+.68*s);ctx!.stroke();
-  for(const dx of [-.68,.3]){ctx!.fillStyle='#b9d8d3';roundedRect(ctx!,p.x+dx*s,p.y-.37*s,.38*s,.32*s,.045*s);ctx!.fill();}
-  ctx!.strokeStyle='#f3e7ce';ctx!.lineWidth=Math.max(1,.045*s);ctx!.beginPath();ctx!.moveTo(p.x-.49*s,p.y-.37*s);ctx!.lineTo(p.x-.49*s,p.y-.05*s);ctx!.moveTo(p.x-.68*s,p.y-.21*s);ctx!.lineTo(p.x-.3*s,p.y-.21*s);ctx!.moveTo(p.x+.49*s,p.y-.37*s);ctx!.lineTo(p.x+.49*s,p.y-.05*s);ctx!.stroke();
-  ctx!.fillStyle='#f2dfbc';roundedRect(ctx!,p.x-.17*s,p.y+.27*s,.34*s,.48*s,.05*s);ctx!.fill();
-  ctx!.fillStyle='#8d9a7c';roundedRect(ctx!,p.x+.62*s,p.y-.98*s,.23*s,.34*s,.04*s);ctx!.fill();
-  ctx!.fillStyle='#d9c7a9';roundedRect(ctx!,p.x-.16*s,p.y+.76*s,.32*s,.55*s,.08*s);ctx!.fill();
-  ctx!.fillStyle='#88a982';roundedRect(ctx!,p.x-1.31*s,p.y+.56*s,.22*s,.42*s,.06*s);ctx!.fill();
-  ctx!.fillStyle='#88a982';roundedRect(ctx!,p.x+1.09*s,p.y-.72*s,.22*s,.42*s,.06*s);ctx!.fill();ctx!.restore();
+  const p=worldToScreen({x,y}),s=camera.zoom*scale;ctx!.save();ctx!.translate(p.x,p.y);
+  // Garden plot, soft building shadow and a real roof silhouette.
+  ctx!.fillStyle='#d5e2c5';roundedRect(ctx!,-1.58*s,-1.32*s,3.16*s,2.64*s,.34*s);ctx!.fill();
+  ctx!.strokeStyle='#b9cda9';ctx!.lineWidth=Math.max(1,.035*s);ctx!.setLineDash([.12*s,.13*s]);roundedRect(ctx!,-1.48*s,-1.22*s,2.96*s,2.44*s,.28*s);ctx!.stroke();ctx!.setLineDash([]);
+  ctx!.fillStyle='#9ba98d';ctx!.globalAlpha=.2;roundedRect(ctx!,-1.12*s,-.77*s+.17*s,2.24*s,1.78*s,.18*s);ctx!.fill();ctx!.globalAlpha=1;
+  ctx!.fillStyle='#e9dfc7';roundedRect(ctx!,-1.13*s,-.83*s,2.26*s,1.76*s,.18*s);ctx!.fill();
+  ctx!.fillStyle=wall;roundedRect(ctx!,-1.02*s,-.75*s,2.04*s,1.58*s,.13*s);ctx!.fill();
+  ctx!.fillStyle=roof;
+  ctx!.beginPath();ctx!.moveTo(-1.13*s,-.78*s);ctx!.lineTo(-.72*s,-1.02*s);ctx!.lineTo(.73*s,-1.02*s);ctx!.lineTo(1.13*s,-.78*s);ctx!.lineTo(1.13*s,.77*s);ctx!.lineTo(.72*s,1.02*s);ctx!.lineTo(-.73*s,1.02*s);ctx!.lineTo(-1.13*s,.77*s);ctx!.closePath();ctx!.fill();
+  ctx!.strokeStyle='#a85f57';ctx!.lineWidth=Math.max(1,.045*s);ctx!.stroke();
+  // Roof panels, ridge cap and warm reflected light.
+  ctx!.strokeStyle='#ffffff';ctx!.globalAlpha=.19;ctx!.lineWidth=Math.max(1,.07*s);
+  for(const yy of [-.56,-.28,0,.28,.56]){ctx!.beginPath();ctx!.moveTo(-.91*s,yy*s);ctx!.lineTo(.91*s,yy*s);ctx!.stroke();}
+  ctx!.globalAlpha=.42;ctx!.strokeStyle='#784f4a';ctx!.lineWidth=Math.max(1,.07*s);ctx!.beginPath();ctx!.moveTo(0,-.9*s);ctx!.lineTo(0,.9*s);ctx!.stroke();ctx!.globalAlpha=1;
+  ctx!.fillStyle='#f4d8b2';roundedRect(ctx!,-.83*s,-.69*s,.32*s,.27*s,.05*s);ctx!.fill();
+  ctx!.fillStyle='#f4d8b2';roundedRect(ctx!,.51*s,-.69*s,.32*s,.27*s,.05*s);ctx!.fill();
+  ctx!.fillStyle='#b6d8d2';roundedRect(ctx!,-.77*s,-.62*s,.2*s,.17*s,.025*s);ctx!.fill();
+  ctx!.fillStyle='#b6d8d2';roundedRect(ctx!,.57*s,-.62*s,.2*s,.17*s,.025*s);ctx!.fill();
+  // Front porch, steps and a path through the garden.
+  ctx!.fillStyle='#c9b99b';roundedRect(ctx!,-.34*s,.72*s,.68*s,.36*s,.07*s);ctx!.fill();
+  ctx!.fillStyle='#ead9b8';roundedRect(ctx!,-.19*s,.31*s,.38*s,.48*s,.06*s);ctx!.fill();
+  ctx!.fillStyle='#f6e7c9';roundedRect(ctx!,-.25*s,.78*s,.5*s,.11*s,.04*s);ctx!.fill();
+  ctx!.fillStyle='#c7d6b4';ctx!.beginPath();ctx!.moveTo(-.2*s,1.05*s);ctx!.lineTo(.2*s,1.05*s);ctx!.lineTo(.34*s,1.31*s);ctx!.lineTo(-.34*s,1.31*s);ctx!.closePath();ctx!.fill();
+  // Small shrubs and a chimney cap add readable scale at normal zoom.
+  for(const [sx,sy] of [[-1.28,.72],[1.27,-.62],[-1.23,-.82]] as const){ctx!.fillStyle='#77a17e';ctx!.beginPath();ctx!.arc(sx*s,sy*s,.16*s,0,Math.PI*2);ctx!.fill();ctx!.fillStyle='#a8c69a';ctx!.beginPath();ctx!.arc((sx-.04)*s,(sy-.05)*s,.07*s,0,Math.PI*2);ctx!.fill();}
+  ctx!.fillStyle='#a9a18c';roundedRect(ctx!,.61*s,-1.03*s,.23*s,.31*s,.035*s);ctx!.fill();
+  ctx!.restore();
 }
+
 function drawShop(x:number,y:number){
-  const p=worldToScreen({x,y}),s=camera.zoom;ctx!.save();
-  ctx!.fillStyle='#cbd9bd';roundedRect(ctx!,p.x-2.25*s,p.y-1.72*s,4.5*s,3.44*s,.24*s);ctx!.fill();
-  ctx!.fillStyle='#e6e1cb';roundedRect(ctx!,p.x-1.72*s,p.y-1.3*s,3.44*s,2.62*s,.16*s);ctx!.fill();
-  ctx!.fillStyle='#668d87';roundedRect(ctx!,p.x-1.52*s,p.y-.98*s,3.04*s,1.95*s,.1*s);ctx!.fill();
-  ctx!.fillStyle='#e9e3cf';roundedRect(ctx!,p.x-1.36*s,p.y-.83*s,2.72*s,.32*s,.06*s);ctx!.fill();
-  for(let i=0;i<6;i++){ctx!.fillStyle=i%2?'#e6b66f':'#f5e5c5';ctx!.fillRect(p.x+(-1.34+i*.46)*s,p.y-.82*s,.23*s,.3*s);}
-  ctx!.fillStyle='#d3e7e1';roundedRect(ctx!,p.x-.94*s,p.y-.36*s,1.88*s,.78*s,.06*s);ctx!.fill();
-  ctx!.strokeStyle='#f5ead4';ctx!.lineWidth=Math.max(1,.05*s);ctx!.beginPath();ctx!.moveTo(p.x,p.y-.35*s);ctx!.lineTo(p.x,p.y+.42*s);ctx!.stroke();
-  ctx!.fillStyle='#e8d8b7';roundedRect(ctx!,p.x-.24*s,p.y+.52*s,.48*s,.42*s,.05*s);ctx!.fill();
-  ctx!.fillStyle='#b8c9a9';roundedRect(ctx!,p.x-1.8*s,p.y+1.25*s,3.6*s,.28*s,.08*s);ctx!.fill();ctx!.restore();
+  const p=worldToScreen({x,y}),s=camera.zoom;ctx!.save();ctx!.translate(p.x,p.y);
+  // A paved forecourt is part of the site, not a separate road tile.
+  ctx!.fillStyle='#d7e2c9';roundedRect(ctx!,-2.35*s,-1.85*s,4.7*s,3.7*s,.3*s);ctx!.fill();
+  ctx!.fillStyle='#c8d1c2';roundedRect(ctx!,-2.18*s,.95*s,4.36*s,.62*s,.12*s);ctx!.fill();
+  ctx!.strokeStyle='#f2ead4';ctx!.lineWidth=Math.max(1,.045*s);
+  for(let i=0;i<3;i++){const x=-1.72+i*1.55;ctx!.beginPath();ctx!.moveTo(x*s,1.02*s);ctx!.lineTo((x+.92)*s,1.02*s);ctx!.stroke();}
+  ctx!.fillStyle='#a3b39a';ctx!.globalAlpha=.2;roundedRect(ctx!,-1.72*s,-1.12*s,3.44*s,2.52*s,.2*s);ctx!.fill();ctx!.globalAlpha=1;
+  ctx!.fillStyle='#e8dfc8';roundedRect(ctx!,-1.78*s,-1.36*s,3.56*s,2.62*s,.18*s);ctx!.fill();
+  ctx!.fillStyle='#648c86';ctx!.beginPath();ctx!.moveTo(-1.62*s,-1.1*s);ctx!.lineTo(-1.22*s,-1.48*s);ctx!.lineTo(1.22*s,-1.48*s);ctx!.lineTo(1.62*s,-1.1*s);ctx!.lineTo(1.62*s,1.08*s);ctx!.lineTo(-1.62*s,1.08*s);ctx!.closePath();ctx!.fill();
+  ctx!.strokeStyle='#416e6c';ctx!.lineWidth=Math.max(1,.05*s);ctx!.stroke();
+  // Roof seams and a bright shop canopy.
+  ctx!.strokeStyle='#a9c7b9';ctx!.globalAlpha=.55;ctx!.lineWidth=Math.max(1,.055*s);
+  for(let i=-2;i<=2;i++){ctx!.beginPath();ctx!.moveTo(i*.48*s,-1.18*s);ctx!.lineTo(i*.48*s,.88*s);ctx!.stroke();}
+  ctx!.globalAlpha=1;
+  ctx!.fillStyle='#f4e8cb';roundedRect(ctx!,-1.42*s,-.62*s,2.84*s,.48*s,.08*s);ctx!.fill();
+  for(let i=0;i<7;i++){ctx!.fillStyle=i%2?'#e4b86f':'#f8e9c7';roundedRect(ctx!,(-1.34+i*.45)*s,-.58*s,.4*s,.4*s,.035*s);ctx!.fill();}
+  ctx!.fillStyle='#d8e9df';roundedRect(ctx!,-.78*s,.03*s,1.56*s,.65*s,.07*s);ctx!.fill();
+  ctx!.strokeStyle='#f7ecd5';ctx!.lineWidth=Math.max(1,.05*s);ctx!.beginPath();ctx!.moveTo(0,.05*s);ctx!.lineTo(0,.65*s);ctx!.stroke();
+  ctx!.fillStyle='#e5d4b4';roundedRect(ctx!,-.2*s,.65*s,.4*s,.36*s,.04*s);ctx!.fill();
+  ctx!.fillStyle='#f2e6ca';roundedRect(ctx!,-.68*s,-1.67*s,1.36*s,.18*s,.06*s);ctx!.fill();
+  ctx!.fillStyle='#648c86';ctx!.font='700 '+Math.max(6,.22*s)+'px Arial';ctx!.textAlign='center';ctx!.textBaseline='middle';ctx!.fillText('MARKET',0,-1.58*s);
+  ctx!.restore();
 }
+
 function drawBarn(x:number,y:number){
-  const p=worldToScreen({x,y}),s=camera.zoom;ctx!.save();
-  ctx!.fillStyle='#cbd9bd';roundedRect(ctx!,p.x-2.22*s,p.y-1.62*s,4.44*s,3.24*s,.22*s);ctx!.fill();
-  ctx!.fillStyle='#d8a08a';roundedRect(ctx!,p.x-1.82*s,p.y-1.28*s,3.64*s,2.56*s,.1*s);ctx!.fill();
-  ctx!.fillStyle='#bd7567';roundedRect(ctx!,p.x-1.62*s,p.y-1.1*s,3.24*s,2.2*s,.08*s);ctx!.fill();
-  ctx!.fillStyle='#e6b79b';roundedRect(ctx!,p.x-.72*s,p.y+.05*s,1.44*s,1.05*s,.07*s);ctx!.fill();
-  ctx!.strokeStyle='#b86e62';ctx!.lineWidth=Math.max(1,.06*s);ctx!.beginPath();ctx!.moveTo(p.x,p.y+.08*s);ctx!.lineTo(p.x,p.y+1.08*s);ctx!.moveTo(p.x-.69*s,p.y+.18*s);ctx!.lineTo(p.x,p.y+.55*s);ctx!.lineTo(p.x+.69*s,p.y+.18*s);ctx!.stroke();
-  ctx!.fillStyle='#f0d6b8';roundedRect(ctx!,p.x-1.42*s,p.y-.94*s,.46*s,.38*s,.04*s);ctx!.fill();
-  ctx!.fillStyle='#f0d6b8';roundedRect(ctx!,p.x+.96*s,p.y-.94*s,.46*s,.38*s,.04*s);ctx!.fill();
-  ctx!.fillStyle='#e8e0c8';roundedRect(ctx!,p.x+1.52*s,p.y-1.15*s,.42*s,.78*s,.08*s);ctx!.fill();ctx!.restore();
+  const p=worldToScreen({x,y}),s=camera.zoom;ctx!.save();ctx!.translate(p.x,p.y);
+  ctx!.fillStyle='#d4e0c2';roundedRect(ctx!,-2.42*s,-1.86*s,4.84*s,3.72*s,.28*s);ctx!.fill();
+  // Loading yard faces the access road on the east side.
+  ctx!.fillStyle='#c8d0bd';roundedRect(ctx!,1.78*s,-.88*s,.52*s,1.76*s,.08*s);ctx!.fill();
+  ctx!.strokeStyle='#eee6d2';ctx!.lineWidth=Math.max(1,.045*s);ctx!.beginPath();ctx!.moveTo(1.9*s,-.65*s);ctx!.lineTo(2.18*s,-.65*s);ctx!.moveTo(1.9*s,.65*s);ctx!.lineTo(2.18*s,.65*s);ctx!.stroke();
+  ctx!.fillStyle='#9d8673';ctx!.globalAlpha=.2;roundedRect(ctx!,-1.92*s,-1.25*s+.16*s,3.82*s,2.5*s,.16*s);ctx!.fill();ctx!.globalAlpha=1;
+  ctx!.fillStyle='#d7a08a';roundedRect(ctx!,-1.96*s,-1.28*s,3.92*s,2.56*s,.14*s);ctx!.fill();
+  ctx!.fillStyle='#bd7567';ctx!.beginPath();ctx!.moveTo(-1.83*s,-1.12*s);ctx!.lineTo(-1.45*s,-1.42*s);ctx!.lineTo(1.45*s,-1.42*s);ctx!.lineTo(1.83*s,-1.12*s);ctx!.lineTo(1.83*s,1.12*s);ctx!.lineTo(-1.83*s,1.12*s);ctx!.closePath();ctx!.fill();
+  ctx!.strokeStyle='#9e5e55';ctx!.lineWidth=Math.max(1,.055*s);ctx!.stroke();
+  ctx!.strokeStyle='#e9b79d';ctx!.globalAlpha=.55;ctx!.lineWidth=Math.max(1,.045*s);
+  for(let i=-3;i<=3;i++){ctx!.beginPath();ctx!.moveTo(i*.43*s,-1.1*s);ctx!.lineTo(i*.43*s,1.1*s);ctx!.stroke();}
+  ctx!.globalAlpha=1;
+  // Broad sliding doors and a clear east-facing service entrance.
+  ctx!.fillStyle='#edc6a5';roundedRect(ctx!,-.72*s,.28*s,1.44*s,.72*s,.08*s);ctx!.fill();
+  ctx!.strokeStyle='#ad685c';ctx!.lineWidth=Math.max(1,.06*s);ctx!.beginPath();ctx!.moveTo(0,.31*s);ctx!.lineTo(0,.97*s);ctx!.stroke();
+  ctx!.fillStyle='#f1d8b8';roundedRect(ctx!,1.62*s,-.34*s,.2*s,.68*s,.04*s);ctx!.fill();
+  ctx!.fillStyle='#e8dfc7';roundedRect(ctx!,-1.62*s,-1.04*s,.42*s,.34*s,.04*s);ctx!.fill();
+  ctx!.fillStyle='#e8dfc7';roundedRect(ctx!,1.2*s,-1.04*s,.42*s,.34*s,.04*s);ctx!.fill();
+  ctx!.fillStyle='#d7b66f';ctx!.beginPath();ctx!.arc(-2.05*s,1.36*s,.23*s,0,Math.PI*2);ctx!.fill();
+  ctx!.restore();
 }
+
 function drawFuelStation(x:number,y:number){
-  const p=worldToScreen({x,y}),s=camera.zoom;ctx!.save();
-  ctx!.fillStyle='#cbd9bd';roundedRect(ctx!,p.x-2.28*s,p.y-1.62*s,4.56*s,3.24*s,.22*s);ctx!.fill();
-  ctx!.fillStyle='#e7e3d0';roundedRect(ctx!,p.x-.86*s,p.y-1.35*s,1.72*s,.88*s,.1*s);ctx!.fill();
-  ctx!.fillStyle='#77a79b';roundedRect(ctx!,p.x-.7*s,p.y-1.2*s,1.4*s,.56*s,.07*s);ctx!.fill();
-  ctx!.fillStyle='#f5e8c9';roundedRect(ctx!,p.x-1.92*s,p.y-.22*s,3.84*s,1.42*s,.16*s);ctx!.fill();
-  ctx!.fillStyle='#6d9c91';roundedRect(ctx!,p.x-1.78*s,p.y-.12*s,3.56*s,1.22*s,.12*s);ctx!.fill();
-  ctx!.fillStyle='#f4e5c6';roundedRect(ctx!,p.x-1.65*s,p.y-.04*s,3.3*s,.16*s,.05*s);ctx!.fill();
-  for(const dx of [-1.12,0,1.12]){
-    ctx!.fillStyle='#f5f0df';roundedRect(ctx!,p.x+(dx-.22)*s,p.y+.22*s,.44*s,.68*s,.07*s);ctx!.fill();
-    ctx!.fillStyle='#d9e9df';roundedRect(ctx!,p.x+(dx-.14)*s,p.y+.29*s,.28*s,.2*s,.035*s);ctx!.fill();
-    ctx!.strokeStyle='#c17d63';ctx!.lineWidth=Math.max(1,.045*s);ctx!.beginPath();ctx!.moveTo(p.x+(dx+.19)*s,p.y+.34*s);ctx!.quadraticCurveTo(p.x+(dx+.38)*s,p.y+.45*s,p.x+(dx+.27)*s,p.y+.68*s);ctx!.stroke();
-  }ctx!.restore();
+  const p=worldToScreen({x,y}),s=camera.zoom;ctx!.save();ctx!.translate(p.x,p.y);
+  ctx!.fillStyle='#d7e2c8';roundedRect(ctx!,-2.38*s,-1.78*s,4.76*s,3.56*s,.28*s);ctx!.fill();
+  // Compact service building at the back of the forecourt.
+  ctx!.fillStyle='#9eaa91';ctx!.globalAlpha=.2;roundedRect(ctx!,-.9*s,-1.46*s,1.8*s,.98*s,.12*s);ctx!.fill();ctx!.globalAlpha=1;
+  ctx!.fillStyle='#eee5d0';roundedRect(ctx!,-.94*s,-1.56*s,1.88*s,.94*s,.12*s);ctx!.fill();
+  ctx!.fillStyle='#77a79b';roundedRect(ctx!,-.78*s,-1.42*s,1.56*s,.64*s,.08*s);ctx!.fill();
+  ctx!.fillStyle='#d7e8df';roundedRect(ctx!,-.55*s,-1.28*s,1.1*s,.28*s,.05*s);ctx!.fill();
+  // One broad canopy with a soft cast shadow and four visible supports.
+  ctx!.fillStyle='#91a28f';ctx!.globalAlpha=.22;roundedRect(ctx!,-2.02*s,-.18*s,4.04*s,1.55*s,.18*s);ctx!.fill();ctx!.globalAlpha=1;
+  ctx!.fillStyle='#f3e7ca';roundedRect(ctx!,-2.02*s,-.32*s,4.04*s,1.48*s,.18*s);ctx!.fill();
+  ctx!.fillStyle='#6f9d91';roundedRect(ctx!,-1.9*s,-.25*s,3.8*s,1.32*s,.14*s);ctx!.fill();
+  ctx!.fillStyle='#f5e8c9';roundedRect(ctx!,-1.86*s,-.2*s,3.72*s,.17*s,.06*s);ctx!.fill();
+  ctx!.fillStyle='#f5f0df';
+  for(const dx of [-1.18,0,1.18]){
+    roundedRect(ctx!,(dx-.25)*s,.14*s,.5*s,.76*s,.08*s);ctx!.fill();
+    ctx!.fillStyle='#b9d8d2';roundedRect(ctx!,(dx-.16)*s,.23*s,.32*s,.2*s,.035*s);ctx!.fill();
+    ctx!.fillStyle='#c17d63';ctx!.lineWidth=Math.max(1,.045*s);ctx!.beginPath();ctx!.moveTo((dx+.2)*s,.3*s);ctx!.quadraticCurveTo((dx+.39)*s,.44*s,(dx+.27)*s,.73*s);ctx!.stroke();
+    ctx!.fillStyle='#f5f0df';
+  }
+  for(const [dx,dy] of [[-1.86,-.18],[1.86,-.18],[-1.86,.98],[1.86,.98]] as const){ctx!.fillStyle='#e8e0c8';roundedRect(ctx!,(dx-.045)*s,(dy-.045)*s,.09*s,.09*s,.025*s);ctx!.fill();}
+  ctx!.fillStyle='#d7a65f';roundedRect(ctx!,-.42*s,1.23*s,.84*s,.18*s,.06*s);ctx!.fill();
+  ctx!.fillStyle='#6f9d91';ctx!.font='700 '+Math.max(6,.2*s)+'px Arial';ctx!.textAlign='center';ctx!.textBaseline='middle';ctx!.fillText('FUEL',0,1.32*s);
+  ctx!.restore();
 }
+
 function drawDecor(){
   const s=camera.zoom;
   // Hedges and orchard dots use the same quiet palette as the terrain.
