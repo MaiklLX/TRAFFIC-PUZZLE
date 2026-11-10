@@ -241,7 +241,7 @@ function updateDraftPath(destination:Point){
     const next={x,y};if(distance(draft[draft.length-1]!,next)>.1)draft.push(next);
   }
 }
-function pointerPosition(event:PointerEvent):Point{
+function pointerPosition(event:MouseEvent):Point{
   const rect=canvas.getBoundingClientRect();return{x:event.clientX-rect.left,y:event.clientY-rect.top};
 }
 function pointerToGrid(event:PointerEvent):Point{
