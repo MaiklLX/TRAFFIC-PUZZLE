@@ -815,20 +815,27 @@ const trafficDestinations:TrafficDestination[]=[
   {id:'north-home',name:'Северный дом',access:{x:2.8,y:9.65},color:'#c28eae',weight:1},
   {id:'market',name:'Магазин у трассы',access:{x:11,y:-7.25},color:'#d7a45f',weight:2}
 ];
-const trafficOrigins:TrafficOrigin[]=trafficDestinations
-  .filter(item=>item.id.endsWith('-home'))
-  .map(item=>({id:item.id,name:item.name,access:item.access,color:item.color,weight:item.weight}));
-const tripDestinations=trafficDestinations.filter(item=>item.id==='farm'||item.id==='market');
+const homeLocations=trafficDestinations.filter(item=>item.id.endsWith('-home'));
+const serviceLocations=trafficDestinations.filter(item=>item.id==='farm'||item.id==='market');
+const trafficOrigins:TrafficOrigin[]=trafficDestinations.map(item=>({
+  id:item.id,name:item.name,access:item.access,color:item.color,weight:item.weight
+}));
+const tripDestinations=trafficDestinations;
+function isHomeLocation(id:string){return id.endsWith('-home');}
+function isValidTripPair(originId:string,destinationId:string){
+  return isHomeLocation(originId)!==isHomeLocation(destinationId);
+}
 function buildTrafficRoute(originId:string,destinationId:string):Point[]|null{
   const origin=trafficOrigins.find(item=>item.id===originId);
   const destination=tripDestinations.find(item=>item.id===destinationId);
-  if(!origin||!destination)return null;
+  if(!origin||!destination||!isValidTripPair(originId,destinationId))return null;
   return findRoadPath(origin.access,destination.access);
 }
 function getReachableTrips():TrafficTrip[]{
   const trips:TrafficTrip[]=[];
   for(const origin of trafficOrigins){
     for(const destination of tripDestinations){
+      if(!isValidTripPair(origin.id,destination.id))continue;
       if(buildTrafficRoute(origin.id,destination.id)){
         trips.push({id:origin.id+'-'+destination.id,origin,destination,weight:origin.weight*destination.weight});
       }
@@ -839,7 +846,7 @@ function getReachableTrips():TrafficTrip[]{
 function updateDestinationBoard(){
   const board=document.querySelector<HTMLElement>('#destination-board');
   if(!board)return;
-  const rows=trafficOrigins.flatMap(origin=>tripDestinations.map(destination=>{
+  const rows=trafficOrigins.flatMap(origin=>tripDestinations.filter(destination=>isValidTripPair(origin.id,destination.id)).map(destination=>{
     const id=origin.id+'-'+destination.id;
     const ready=reachableTrips.some(trip=>trip.id===id);
     const active=vehicles.filter(vehicle=>vehicle.originId===origin.id&&vehicle.destinationId===destination.id).length;
@@ -851,7 +858,7 @@ function updateDestinationBoard(){
   }));
   board.innerHTML=rows.join('');
   const summary=document.querySelector<HTMLElement>('#destination-summary');
-  if(summary)summary.textContent=reachableTrips.length+' из '+(trafficOrigins.length*tripDestinations.length)+' маршрутов доступны · спрос меняется';
+  if(summary)summary.textContent=reachableTrips.length+' из '+(homeLocations.length*serviceLocations.length*2)+' маршрутов доступны · оба направления';
 }
 
 function offsetRouteToRightSide(path:Point[],offset=.36):Point[]{
