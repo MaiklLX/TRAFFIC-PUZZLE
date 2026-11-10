@@ -366,7 +366,7 @@ function rebuildRoadGraph(){
   roadGraph.nodes.length=0;roadGraph.edges.length=0;
   const sources:{id:string;points:Point[];width:number;kind:'highway'|'local'}[]=[
     ...staticRoads.map((r,i)=>({id:'base-'+i,points:[r.a,r.b],width:r.width,kind:r.width>1.45?'highway' as const:'local' as const})),
-    ...builtRoads.map((r,i)=>({id:'built-'+i,points:r.points,width:r.width,kind:r.width>1.45?'highway' as const:'local' as const}))
+    ...builtRoads.filter(r=>r.progress>=.999).map((r,i)=>({id:'built-'+i,points:r.points,width:r.width,kind:r.width>1.45?'highway' as const:'local' as const}))
   ];
   const getNode=(p:Point)=>{
     let node=roadGraph.nodes.find(n=>Math.hypot(n.x-p.x,n.y-p.y)<.08);
@@ -409,17 +409,23 @@ function nearestGraphNode(point:Point):RoadGraphNode|null{
 function findRoadPath(start:Point,end:Point):Point[]|null{
   const source=nearestGraphNode(start),target=nearestGraphNode(end);
   if(!source||!target)return null;
-  const queue:number[]=[source.id],previous=new Map<number,number|null>([[source.id,null]]);
-  for(let head=0;head<queue.length;head++){
-    const current=queue[head]!;
+  const costs=new Map<number,number>([[source.id,0]]);
+  const previous=new Map<number,number|null>([[source.id,null]]);
+  const remaining=new Set(roadGraph.nodes.map(node=>node.id));
+  while(remaining.size){
+    let current:number|null=null,best=Infinity;
+    for(const id of remaining){const cost=costs.get(id)??Infinity;if(cost<best){best=cost;current=id;}}
+    if(current===null||!Number.isFinite(best))break;
+    remaining.delete(current);
     if(current===target.id)break;
     const node=roadGraph.nodes[current]!;
     for(const edgeId of node.edgeIds){
-      const edge=roadGraph.edges.find(item=>item.id===edgeId);
-      if(!edge)continue;
+      const edge=roadGraph.edges.find(item=>item.id===edgeId);if(!edge)continue;
       const next=edge.from===current?edge.to:edge.from;
-      if(previous.has(next))continue;
-      previous.set(next,current);queue.push(next);
+      if(!remaining.has(next))continue;
+      const nextNode=roadGraph.nodes[next]!;
+      const candidate=best+distance(node,nextNode);
+      if(candidate<(costs.get(next)??Infinity)){costs.set(next,candidate);previous.set(next,current);}
     }
   }
   if(!previous.has(target.id))return null;
@@ -428,27 +434,49 @@ function findRoadPath(start:Point,end:Point):Point[]|null{
   ids.reverse();
   return ids.map(id=>({x:roadGraph.nodes[id]!.x,y:roadGraph.nodes[id]!.y}));
 }
-const demoStart={x:-18,y:-13},demoDestination={x:11,y:5};
+const demoStart={x:-18,y:-13},demoDestination={x:11,y:5},demoExit={x:18,y:-13};
+function buildTrafficRoute():Point[]|null{
+  const inbound=findRoadPath(demoStart,demoDestination);
+  const outbound=findRoadPath(demoDestination,demoExit);
+  if(!inbound||!outbound)return null;
+  return inbound.concat(outbound.slice(1));
+}
 function createVehicle(path:Point[],speed:number,color:string,offset:number):Vehicle{
   const lengths=path.slice(1).map((point,index)=>distance(path[index]!,point));
   const routeLength=lengths.reduce((sum,value)=>sum+value,0);
   return{path,lengths,routeLength,distance:Math.min(offset,routeLength),speed,direction:1,color};
 }
 function refreshVehicleRoutes(){
-  const nextPath=findRoadPath(demoStart,demoDestination)??fallbackRoute;
+  const nextPath=buildTrafficRoute();
+  if(!nextPath)return;
   for(const vehicle of vehicles){
     const progress=vehicle.routeLength>0?vehicle.distance/vehicle.routeLength:0;
     vehicle.path=nextPath.map(point=>({...point}));
     vehicle.lengths=nextPath.slice(1).map((point,index)=>distance(nextPath[index]!,point));
     vehicle.routeLength=vehicle.lengths.reduce((sum,value)=>sum+value,0);
     vehicle.distance=clamp(progress*vehicle.routeLength,0,vehicle.routeLength);
+    vehicle.direction=1;
   }
 }
-// KT-010: populate the base network before any road validation can run.
+// Build only on completed roads; traffic must never route across unfinished construction.
 rebuildRoadGraph();
-const demoPath=findRoadPath(demoStart,demoDestination)??fallbackRoute;
-vehicles.push(createVehicle(demoPath,2.25,'#e9c46a',2),createVehicle(demoPath,1.85,'#78a9b6',8.5));
-if(trafficCount)trafficCount.textContent=String(vehicles.length);
+const initialTrafficPath=buildTrafficRoute();
+let trafficSpawnTimer=5.5;
+function updateTrafficCounter(){if(trafficCount)trafficCount.textContent=String(vehicles.length);}
+function spawnTrafficVehicle(){
+  const path=buildTrafficRoute();if(!path)return false;
+  // Keep a safe entry gap so a new car cannot appear directly behind another.
+  const entryOccupied=vehicles.some(vehicle=>vehicle.distance<9);
+  if(entryOccupied)return false;
+  const colors=['#e9c46a','#78a9b6','#d98c78','#9aa9d0'];
+  const color=colors[Math.floor(Math.random()*colors.length)]!;
+  vehicles.push(createVehicle(path,2.05+Math.random()*.35,color,0));
+  updateTrafficCounter();return true;
+}
+if(initialTrafficPath){
+  vehicles.push(createVehicle(initialTrafficPath,2.25,'#e9c46a',2),createVehicle(initialTrafficPath,1.85,'#78a9b6',8.5));
+}
+updateTrafficCounter();
 
 function nearestNetworkPoint(p:Point):Point|null{
   let nearest=Infinity,best:Point|null=null;
@@ -610,8 +638,21 @@ window.addEventListener('keydown',event=>{
 let previousTime=0;
 function animate(time:number){
   const delta=Math.min((time-previousTime)/1000||0,.05);previousTime=time;
-  for(const job of constructionJobs)job.progress=clamp(job.progress+delta/Math.max(1.2,job.points.length*.32),0,1);
-  for(const vehicle of vehicles){vehicle.distance+=vehicle.speed*delta*vehicle.direction;if(vehicle.distance>=vehicle.routeLength){vehicle.distance=vehicle.routeLength;vehicle.direction=-1;}if(vehicle.distance<=0){vehicle.distance=0;vehicle.direction=1;}}
+  let networkChanged=false;
+  for(let i=constructionJobs.length-1;i>=0;i--){
+    const job=constructionJobs[i]!;
+    const before=job.progress;
+    job.progress=clamp(job.progress+delta/Math.max(1.2,job.points.length*.32),0,1);
+    if(before<1&&job.progress>=1){constructionJobs.splice(i,1);networkChanged=true;}
+  }
+  if(networkChanged){rebuildRoadGraph();refreshVehicleRoutes();}
+  for(let i=vehicles.length-1;i>=0;i--){
+    const vehicle=vehicles[i]!;
+    vehicle.distance+=vehicle.speed*delta;
+    if(vehicle.distance>=vehicle.routeLength){vehicles.splice(i,1);updateTrafficCounter();}
+  }
+  trafficSpawnTimer-=delta;
+  if(trafficSpawnTimer<=0){spawnTrafficVehicle();trafficSpawnTimer=7.5;}
   render();requestAnimationFrame(animate);
 }
 canvas.style.cursor='grab';
