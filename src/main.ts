@@ -919,7 +919,6 @@ function updateTrafficCounter(){
   if(trafficCount)trafficCount.textContent=String(vehicles.length);
   if(jamCount)jamCount.textContent=String(vehicles.filter(vehicle=>vehicle.speed<.32).length);
   if(fuelCount){const average=vehicles.length?vehicles.reduce((sum,vehicle)=>sum+vehicle.fuel/vehicle.fuelCapacity,0)/vehicles.length:1;fuelCount.textContent=vehicles.length?Math.round(average*100)+'%':'—';}
-  updateDestinationBoard();
 }
 function chooseTrafficDestination(){
   if(!reachableDestinations.length)return null;
@@ -948,7 +947,7 @@ function spawnTrafficVehicle(){
   const path=buildTrafficRoute(destination.id);if(!path)return false;
   lastSpawnedDestinationId=destination.id;
   vehicles.push(createVehicle(path,2.05+Math.random()*.35,destination,0));
-  updateTrafficCounter();return true;
+  updateTrafficCounter();updateDestinationBoard();return true;
 }
 for(let i=0;i<Math.min(2,reachableDestinations.length);i++){
   const destination=reachableDestinations[i]!;
@@ -1220,7 +1219,7 @@ function animate(time:number){
     }
   }
   for(let i=vehicles.length-1;i>=0;i--){
-    if(vehicles[i]!.distance>=vehicles[i]!.routeLength){vehicles.splice(i,1);updateTrafficCounter();}
+    if(vehicles[i]!.distance>=vehicles[i]!.routeLength){vehicles.splice(i,1);updateTrafficCounter();updateDestinationBoard();}
   }
   updateTrafficCounter();
   trafficSpawnTimer-=delta;
