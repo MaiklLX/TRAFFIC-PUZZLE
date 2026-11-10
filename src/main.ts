@@ -356,11 +356,21 @@ function pointerToGrid(event: PointerEvent): THREE.Vector2 | null {
   return new THREE.Vector2(x, z);
 }
 
-function appendGridPath(target: THREE.Vector2[], destination: THREE.Vector2) {
-  let current = target[target.length - 1];
+function updateDraftPath(target: THREE.Vector2[], destination: THREE.Vector2) {
+  const current = target[target.length - 1];
   if (!current || current.distanceTo(destination) < 0.1) return;
+
+  // Retracing the draft is an eraser gesture: snap to the earlier grid point
+  // and discard everything after it. Committed roads are never touched here.
+  for (let index = target.length - 2; index >= 0; index--) {
+    if (target[index]!.distanceTo(destination) < 0.1) {
+      target.splice(index + 1);
+      return;
+    }
+  }
+
+  // Otherwise extend the draft, filling skipped cells when the pointer moves quickly.
   let x = current.x, z = current.y;
-  // Fill skipped cells when the pointer moves quickly; prefer the dominant axis.
   while (Math.abs(destination.x - x) > 0.1 || Math.abs(destination.y - z) > 0.1) {
     const dx = destination.x - x, dz = destination.y - z;
     if (Math.abs(dx) >= Math.abs(dz) && Math.abs(dx) > 0.1) x += Math.sign(dx) * roadGrid;
@@ -542,7 +552,7 @@ function moveRoad(event: PointerEvent) {
   if (!drawing) return;
   const point = pointerToGrid(event);
   if (!point) return;
-  appendGridPath(draft, point);
+  updateDraftPath(draft, point);
   refreshPreview();
 }
 function finishRoad(event: PointerEvent) {
