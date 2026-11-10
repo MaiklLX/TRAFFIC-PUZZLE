@@ -5,7 +5,7 @@ type Road = { points: Point[]; progress: number; connectsVillageToHighway: boole
 type RoadGraphNode = { id: number; x: number; y: number; edgeIds: string[] };
 type RoadGraphEdge = { id: string; from: number; to: number; width: number; kind: 'highway' | 'local'; source: string; forward: boolean; reverse: boolean; active: boolean };
 type RoadGraph = { nodes: RoadGraphNode[]; edges: RoadGraphEdge[] };
-type Vehicle = { path: Point[]; lengths: number[]; routeLength: number; distance: number; speed: number; cruiseSpeed: number; direction: number; color: string; destinationId: string; fuel: number; fuelCapacity: number; stalled: boolean };
+type Vehicle = { path: Point[]; lengths: number[]; routeLength: number; distance: number; speed: number; cruiseSpeed: number; direction: number; color: string; originId: string; destinationId: string; fuel: number; fuelCapacity: number; stalled: boolean };
 
 const mount = document.querySelector<HTMLDivElement>('#world');
 if (!mount) throw new Error('World mount not found');
@@ -803,6 +803,8 @@ function findRoadPath(start:Point,end:Point):Point[]|null{
 }
 const demoStart={x:-18,y:-13},demoExit={x:18,y:-13};
 type TrafficDestination={id:string;name:string;access:Point;color:string;weight:number};
+type TrafficOrigin={id:string;name:string;access:Point;color:string;weight:number};
+type TrafficTrip={id:string;origin:TrafficOrigin;destination:TrafficDestination;weight:number};
 const fuelStations=[{id:'highway',name:'Заправка на трассе',access:{x:-8,y:-14.65}}];
 const trafficDestinations:TrafficDestination[]=[
   {id:'farm',name:'Ферма',access:{x:-10.55,y:-4},color:'#e9c46a',weight:2},
@@ -813,6 +815,27 @@ const trafficDestinations:TrafficDestination[]=[
   {id:'north-home',name:'Северный дом',access:{x:2.8,y:9.65},color:'#c28eae',weight:1},
   {id:'market',name:'Магазин у трассы',access:{x:11,y:-7.25},color:'#d7a45f',weight:2}
 ];
+const trafficOrigins:TrafficOrigin[]=trafficDestinations
+  .filter(item=>item.id.endsWith('-home'))
+  .map(item=>({id:item.id,name:item.name,access:item.access,color:item.color,weight:item.weight}));
+const tripDestinations=trafficDestinations.filter(item=>item.id==='farm'||item.id==='market');
+function buildTrafficRoute(originId:string,destinationId:string):Point[]|null{
+  const origin=trafficOrigins.find(item=>item.id===originId);
+  const destination=tripDestinations.find(item=>item.id===destinationId);
+  if(!origin||!destination)return null;
+  return findRoadPath(origin.access,destination.access);
+}
+function getReachableTrips():TrafficTrip[]{
+  const trips:TrafficTrip[]=[];
+  for(const origin of trafficOrigins){
+    for(const destination of tripDestinations){
+      if(buildTrafficRoute(origin.id,destination.id)){
+        trips.push({id:origin.id+'-'+destination.id,origin,destination,weight:origin.weight*destination.weight});
+      }
+    }
+  }
+  return trips;
+}
 function updateDestinationBoard(){
   const board=document.querySelector<HTMLElement>('#destination-board');
   if(!board)return;
@@ -831,17 +854,6 @@ function updateDestinationBoard(){
   if(summary)summary.textContent=connected.size+' из '+trafficDestinations.length+' доступны · спрос меняется';
 }
 
-function buildTrafficRoute(destinationId:string):Point[]|null{
-  const destination=trafficDestinations.find(item=>item.id===destinationId);
-  if(!destination)return null;
-  const station=fuelStations[0];
-  const toStation=station?findRoadPath(demoStart,station.access):null;
-  const fromStation=station?findRoadPath(station.access,destination.access):null;
-  const inbound=toStation&&fromStation?toStation.concat(fromStation.slice(1)):findRoadPath(demoStart,destination.access);
-  const outbound=findRoadPath(destination.access,demoExit);
-  if(!inbound||!outbound)return null;
-  return inbound.concat(outbound.slice(1));
-}
 function offsetRouteToRightSide(path:Point[],offset=.36):Point[]{
   if(path.length<2)return path.map(point=>({...point}));
   const directions=path.slice(1).map((point,index)=>{
@@ -887,18 +899,20 @@ function offsetRouteToRightSide(path:Point[],offset=.36):Point[]{
   result.push({x:last.x+lastNormal.x*offset,y:last.y+lastNormal.y*offset});
   return result;
 }
-function createVehicle(path:Point[],speed:number,destination:TrafficDestination,offset:number):Vehicle{
+function createVehicle(path:Point[],speed:number,origin:TrafficOrigin,destination:TrafficDestination,offset:number):Vehicle{
   path=offsetRouteToRightSide(path);
   const lengths=path.slice(1).map((point,index)=>distance(path[index]!,point));
   const routeLength=lengths.reduce((sum,value)=>sum+value,0);
-  return{path,lengths,routeLength,distance:Math.min(offset,routeLength),speed,cruiseSpeed:speed,direction:1,color:destination.color,destinationId:destination.id,fuel:72,fuelCapacity:72,stalled:false};
+  return{path,lengths,routeLength,distance:Math.min(offset,routeLength),speed,cruiseSpeed:speed,direction:1,color:destination.color,originId:origin.id,destinationId:destination.id,fuel:72,fuelCapacity:72,stalled:false};
 }
+let reachableTrips:TrafficTrip[]=[];
 let reachableDestinations:TrafficDestination[]=[];
 function refreshVehicleRoutes(){
-  reachableDestinations=trafficDestinations.filter(destination=>buildTrafficRoute(destination.id)!==null);
+  reachableTrips=getReachableTrips();
+  reachableDestinations=tripDestinations.filter(destination=>reachableTrips.some(trip=>trip.destination.id===destination.id));
   for(let i=vehicles.length-1;i>=0;i--){
     const vehicle=vehicles[i]!;
-    const nextPath=buildTrafficRoute(vehicle.destinationId);
+    const nextPath=buildTrafficRoute(vehicle.originId,vehicle.destinationId);
     if(!nextPath){vehicles.splice(i,1);continue;}
     const progress=vehicle.routeLength>0?vehicle.distance/vehicle.routeLength:0;
     vehicle.path=offsetRouteToRightSide(nextPath);
@@ -912,7 +926,8 @@ function refreshVehicleRoutes(){
 }
 // Only completed roads participate in traffic routing.
 rebuildRoadGraph();
-reachableDestinations=trafficDestinations.filter(destination=>buildTrafficRoute(destination.id)!==null);
+reachableTrips=getReachableTrips();
+reachableDestinations=tripDestinations.filter(destination=>reachableTrips.some(trip=>trip.destination.id===destination.id));
 updateDestinationBoard();
 let trafficSpawnTimer=5.5;
 function updateTrafficCounter(){
@@ -920,39 +935,37 @@ function updateTrafficCounter(){
   if(jamCount)jamCount.textContent=String(vehicles.filter(vehicle=>vehicle.speed<.32).length);
   if(fuelCount){const average=vehicles.length?vehicles.reduce((sum,vehicle)=>sum+vehicle.fuel/vehicle.fuelCapacity,0)/vehicles.length:1;fuelCount.textContent=vehicles.length?Math.round(average*100)+'%':'—';}
 }
-function chooseTrafficDestination(){
-  if(!reachableDestinations.length)return null;
-  const candidates=reachableDestinations.filter(item=>reachableDestinations.length===1||item.id!==lastSpawnedDestinationId);
-  const pool=candidates.length?candidates:reachableDestinations;
-  const weighted=pool.map(item=>{
-    const active=vehicles.filter(vehicle=>vehicle.destinationId===item.id).length;
-    return{item,score:item.weight/(1+active*1.65)};
+function chooseTrafficTrip(){
+  if(!reachableTrips.length)return null;
+  const candidates=reachableTrips.filter(item=>reachableTrips.length===1||item.id!==lastSpawnedTripId);
+  const pool=candidates.length?candidates:reachableTrips;
+  const weighted=pool.map(trip=>{
+    const active=vehicles.filter(vehicle=>vehicle.originId===trip.origin.id&&vehicle.destinationId===trip.destination.id).length;
+    return{trip,score:trip.weight/(1+active*1.8)};
   });
   const total=weighted.reduce((sum,entry)=>sum+entry.score,0);
   let roll=Math.random()*total;
-  for(const entry of weighted){roll-=entry.score;if(roll<=0)return entry.item;}
-  return weighted[weighted.length-1]?.item??null;
+  for(const entry of weighted){roll-=entry.score;if(roll<=0)return entry.trip;}
+  return weighted[weighted.length-1]?.trip??null;
 }
-let lastSpawnedDestinationId:string|null=null;
+let lastSpawnedTripId:string|null=null;
 function getTrafficSpawnInterval(){
   // More connected destinations create a busier, gradually accelerating town.
   return Math.max(4.8,9.5-reachableDestinations.length*.62);
 }
 function spawnTrafficVehicle(){
-  if(!reachableDestinations.length)return false;
-  // All routes share the same highway entry: keep a safe gap there.
-  if(vehicles.some(vehicle=>vehicle.distance<9))return false;
-  const destination=chooseTrafficDestination();
-  if(!destination)return false;
-  const path=buildTrafficRoute(destination.id);if(!path)return false;
-  lastSpawnedDestinationId=destination.id;
-  vehicles.push(createVehicle(path,2.05+Math.random()*.35,destination,0));
+  if(!reachableTrips.length)return false;
+  const trip=chooseTrafficTrip();
+  if(!trip)return false;
+  const path=buildTrafficRoute(trip.origin.id,trip.destination.id);if(!path)return false;
+  lastSpawnedTripId=trip.id;
+  vehicles.push(createVehicle(path,2.05+Math.random()*.35,trip.origin,trip.destination,0));
   updateTrafficCounter();updateDestinationBoard();return true;
 }
-for(let i=0;i<Math.min(2,reachableDestinations.length);i++){
-  const destination=reachableDestinations[i]!;
-  const path=buildTrafficRoute(destination.id);
-  if(path)vehicles.push(createVehicle(path,i===0?2.25:1.85,destination,i===0?2:8.5));
+for(let i=0;i<Math.min(2,reachableTrips.length);i++){
+  const trip=reachableTrips[i]!;
+  const path=buildTrafficRoute(trip.origin.id,trip.destination.id);
+  if(path)vehicles.push(createVehicle(path,i===0?2.25:1.85,trip.origin,trip.destination,i===0?2:8.5));
 }
 updateTrafficCounter();
 
