@@ -3,91 +3,69 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#10191c" />
-  <meta name="description" content="TRAFFIC PUZZLE — стратегическая головоломка о дорогах, маршрутах, топливе и развитии поселения." />
-  <title>TRAFFIC PUZZLE — Routecraft</title>
+  <meta name="theme-color" content="#eef1e7" />
+  <meta name="description" content="TRAFFIC PUZZLE — спокойная, умная головоломка о проектировании транспортных потоков." />
+  <title>TRAFFIC PUZZLE — Долина</title>
 </head>
 <body>
 <div id="app">
   <header class="topbar">
-    <a class="brand" href="#" aria-label="TRAFFIC PUZZLE">
-      <span class="brand-symbol"><i></i><i></i><i></i></span>
-      <span class="brand-name"><b>TRAFFIC<span>PUZZLE</span></b><small>ROUTECRAFT / REGION SIMULATION</small></span>
-    </a>
-    <div class="chapter-line"><span class="chapter-dot"></span><span>СЦЕНАРИЙ 01</span><b>ДОЛИНА ПЕРВЫХ ДОРОГ</b></div>
-    <div class="top-right"><span class="season-label">ГЛАВА I <i></i> РАННЯЯ ОСЕНЬ</span><button id="reset-camera" class="view-button" title="Показать всю карту" aria-label="Показать всю карту">⌗</button></div>
+    <a class="brand" href="#" aria-label="TRAFFIC PUZZLE"><span class="brand-mark"><i></i><i></i><i></i></span><span><b>TRAFFIC PUZZLE</b><small>ДОЛИНА ПЕРВЫХ ДОРОГ</small></span></a>
+    <div class="chapter-line"><span class="chapter-dot"></span> СЦЕНАРИЙ 01 <b>ПЕРВОЕ СОЕДИНЕНИЕ</b></div>
+    <button id="reset-camera" class="view-button" title="Показать всю карту" aria-label="Показать всю карту">⌗</button>
   </header>
-
   <main class="workspace">
     <nav class="tool-rail" aria-label="Инструменты">
-      <div class="rail-caption">РЕЖИМ</div>
       <button class="tool active" data-tool="inspect" type="button" title="Обзор"><span class="tool-glyph">⌖</span><b>Обзор</b></button>
       <button class="tool" data-tool="road" type="button" title="Построить дорогу"><span class="tool-glyph">╱</span><b>Дорога</b></button>
       <div class="rail-divider"></div>
-      <button class="tool locked" type="button" disabled title="Будет доступно позже"><span class="tool-glyph">⤢</span><b>Узлы</b><small>ПОЗЖЕ</small></button>
-      <button class="tool locked" type="button" disabled title="Будет доступно позже"><span class="tool-glyph">⇥</span><b>Знаки</b><small>ПОЗЖЕ</small></button>
-      <div class="rail-spacer"></div>
-      <div class="rail-note"><span>i</span><small>СЕТЬ<br/>ПРЕЖДЕ<br/>СКОРОСТИ</small></div>
+      <button class="tool locked" type="button" disabled title="Будет доступно позже"><span class="tool-glyph">⤢</span><b>Узлы</b></button>
+      <button class="tool locked" type="button" disabled title="Будет доступно позже"><span class="tool-glyph">⇥</span><b>Знаки</b></button>
     </nav>
-
     <section class="map-stage" aria-label="Игровая карта">
-      <div class="map-topline"><span><i></i> КАРТА РЕГИОНА / 01-A</span><span>ВИД СВЕРХУ <b>·</b> МАСШТАБ СВОБОДНЫЙ</span></div>
-      <div id="world" role="img" aria-label="Карта долины с федеральной трассой, поселением, фермой и транспортной сетью"></div>
-      <div class="map-shade"></div>
-      <div class="map-location"><span class="location-symbol">⌖</span><span><b>ДОЛИНА ПЕРВЫХ ДОРОГ</b><small>СЕВЕРНЫЙ РЕГИОН · 01</small></span></div>
-      <div class="map-live"><i></i> ТРАНСПОРТНЫЙ ПОТОК</div>
-      <div class="map-objective"><span class="objective-index">01</span><span><small>ТЕКУЩАЯ ЗАДАЧА</small><b>Связать поселение с трассой</b><em>Не строй лишнего. Каждая дорога должна работать.</em></span></div>
-      <div class="map-controls">
-        <button id="zoom-in" aria-label="Приблизить">+</button><button id="zoom-out" aria-label="Отдалить">−</button>
-      </div>
-      <div class="map-help"><span>DRAG</span> Перемещение карты <i></i> <span>WHEEL</span> Масштаб</div>
-
+      <div id="world" role="img" aria-label="Карта долины с трассой, деревней, фермой и транспортом"></div>
+      <div class="map-topline"><span><i></i> ДОЛИНА / РЕГИОН 01</span><span>ВИД СВЕРХУ · СВОБОДНАЯ КАМЕРА</span></div>
+      <div class="map-location"><span>⌖</span><b>СЕВЕРНАЯ ДОЛИНА</b></div>
+      <div class="map-live"><i></i> ДВИЖЕНИЕ</div>
+      <div class="map-objective"><span class="objective-index">01</span><span><small>ТВОЯ ЗАДАЧА</small><b>Соедини поселение с трассой</b><em>Спланируй короткий и безопасный путь</em></span></div>
+      <div class="map-controls"><button id="zoom-in" aria-label="Приблизить">+</button><button id="zoom-out" aria-label="Отдалить">−</button></div>
+      <div class="map-help"><span>DRAG</span> двигать карту <i></i><span>WHEEL</span> масштаб</div>
       <div id="build-hud" class="build-hud" hidden>
-        <div class="build-head"><span class="build-icon">╱</span><span><b>ПРОЕКТ ДОРОГИ</b><small>Сначала маршрут — затем строительство</small></span><button id="cancel-road" aria-label="Сбросить проект">×</button></div>
-        <p id="build-message">Наметь линию будущей дороги и проверь её соединения.</p>
-        <label class="road-direction-control" for="road-direction">РЕЖИМ ДВИЖЕНИЯ<select id="road-direction"><option value="both">Двустороннее</option><option value="forward">Одностороннее →</option></select></label>
+        <div class="build-head"><span class="build-icon">╱</span><span><b>НОВАЯ ДОРОГА</b><small>Наметь маршрут на карте</small></span><button id="cancel-road" aria-label="Сбросить проект">×</button></div>
+        <p id="build-message">Проведи линию будущей дороги и проверь её соединения.</p>
+        <label class="road-direction-control" for="road-direction">ДВИЖЕНИЕ<select id="road-direction"><option value="both">Двустороннее</option><option value="forward">Одностороннее →</option></select></label>
         <button id="undo-road" class="undo-road" type="button">↶ Отменить последний участок</button>
       </div>
     </section>
-
     <aside class="command-panel">
-      <section class="panel-intro">
-        <div class="panel-kicker">ДИСПЕТЧЕРСКАЯ / 01</div>
-        <h1>Построй<br/><span>умный маршрут.</span></h1>
-        <p>Долина развивается сама. Ты отвечаешь за то, чтобы каждый объект был доступен, а машины добирались без заторов и пустых поездок.</p>
-      </section>
-
+      <section class="panel-intro"><div class="panel-kicker">ДИСПЕТЧЕРСКАЯ</div><h1>Дороги меняют<br/><span>жизнь долины.</span></h1><p>Поселение растёт само. Твоя задача — соединять места и направлять поток так, чтобы машины не теряли время и топливо.</p></section>
       <section class="mission-card">
-        <div class="card-top"><span>АКТИВНЫЙ СЦЕНАРИЙ</span><b class="mission-count">В РАБОТЕ</b></div>
+        <div class="card-top"><span>ТЕКУЩИЙ СЦЕНАРИЙ</span><b class="mission-count">В РАБОТЕ</b></div>
         <div class="mission-title"><span>01</span><h2>Первое соединение</h2></div>
         <p id="mission-state">Соедини федеральную трассу с дорожной сетью поселения.</p>
-        <div class="mission-progress"><span class="progress"><span></span></span><small>ЦЕЛЬ СЦЕНАРИЯ</small></div>
-        <div class="mission-reward"><span>ПОСЛЕ ВЫПОЛНЕНИЯ</span><b>ОТКРОЕТСЯ СЛЕДУЮЩАЯ ЗАДАЧА</b></div>
+        <div class="mission-progress"><span class="progress"><span></span></span><small>ПРОГРЕСС</small></div>
+        <div class="mission-reward"><span>ДАЛЬШЕ</span><b>НОВЫЕ МАРШРУТЫ И ЗАДАЧИ</b></div>
       </section>
-
       <section class="network-card">
-        <div class="section-head"><span>СОСТОЯНИЕ СЕТИ</span><small>В РЕАЛЬНОМ ВРЕМЕНИ</small></div>
+        <div class="section-head"><span>ПОТОК СЕЙЧАС</span><small>LIVE</small></div>
         <div class="metrics">
           <div class="metric"><span class="metric-icon cars">↗</span><span><small>Машины</small><b id="traffic-count">0</b></span></div>
           <div class="metric"><span class="metric-icon jams">⌁</span><span><small>Заторы</small><b id="jam-count">0</b></span></div>
-          <div class="metric"><span class="metric-icon fuel">◉</span><span><small>Средний запас топлива</small><b id="fuel-count">—</b></span></div>
-          <div class="metric"><span class="metric-icon roads">⌘</span><span><small>Рабочие участки</small><b id="active-road-count">—</b></span></div>
+          <div class="metric"><span class="metric-icon fuel">◉</span><span><small>Топливо</small><b id="fuel-count">—</b></span></div>
+          <div class="metric"><span class="metric-icon roads">⌘</span><span><small>Рабочие дороги</small><b id="active-road-count">—</b></span></div>
         </div>
         <div id="network-status" class="network-status">Проверка связности сети…</div>
       </section>
-
-      <section class="destinations-card">
-        <div class="section-head"><span>ОБЪЕКТЫ ДОЛИНЫ</span><small>ТОЧКИ СПРОСА</small></div>
+      <section class="destinations-card"><div class="section-head"><span>ТОЧКИ НАЗНАЧЕНИЯ</span><small>ДОЛИНА</small></div>
         <div class="destination-list">
-          <div class="destination-row"><i class="farm-dot"></i><span><b>Фермерское хозяйство</b><small>Поставки и обслуживание</small></span><em>FARM</em></div>
-          <div class="destination-row"><i class="home-dot"></i><span><b>Жилые кварталы</b><small>Поездки жителей</small></span><em>HOME</em></div>
-          <div class="destination-row"><i class="shop-dot"></i><span><b>Торговый центр</b><small>Покупатели и доставка</small></span><em>SHOP</em></div>
-          <div class="destination-row"><i class="fuel-dot"></i><span><b>Заправочная станция</b><small>Пополнение топлива</small></span><em>FUEL</em></div>
+          <div class="destination-row"><i class="farm-dot"></i><span><b>Ферма</b><small>Поставки и обслуживание</small></span></div>
+          <div class="destination-row"><i class="home-dot"></i><span><b>Жилой квартал</b><small>Поездки жителей</small></span></div>
+          <div class="destination-row"><i class="shop-dot"></i><span><b>Магазин</b><small>Покупатели и доставка</small></span></div>
+          <div class="destination-row"><i class="fuel-dot"></i><span><b>Заправка</b><small>Пополнение топлива</small></span></div>
         </div>
       </section>
-
-      <section class="strategy-note"><span>!</span><p><b>Правило хорошей сети</b> Дорога полезна, когда связывает объекты или даёт более выгодный сквозной путь. Изолированные тупики не должны забирать поток.</p></section>
-      <footer class="panel-footer"><span>TRAFFIC PUZZLE</span><span>PRE-ALPHA <i></i> BUILD 036</span></footer>
+      <section class="strategy-note"><span>i</span><p><b>Думай о потоке.</b> Полезная дорога соединяет объекты или открывает более короткий сквозной маршрут.</p></section>
+      <footer class="panel-footer"><span>TRAFFIC PUZZLE</span><span>PRE-ALPHA · BUILD 038</span></footer>
     </aside>
   </main>
 </div>
