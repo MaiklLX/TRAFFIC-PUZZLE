@@ -819,14 +819,16 @@ function updateDestinationBoard(){
   const connected=new Set(reachableDestinations.map(item=>item.id));
   board.innerHTML=trafficDestinations.map(destination=>{
     const ready=connected.has(destination.id);
-    const demand=destination.weight>1?'Высокий поток':'Обычный поток';
-    return '<div class="destination-row '+(ready?'is-connected':'is-disconnected')+'">'+
+    const active=vehicles.filter(vehicle=>vehicle.destinationId===destination.id).length;
+    const demand=destination.weight>1?'Повышенный спрос':'Обычный спрос';
+    const state=!ready?'НЕТ МАРШРУТА':active>=3?'ПЕРЕГРУЗКА':active>0?'В ПУТИ':'ГОТОВ К ПОЕЗДКАМ';
+    return '<div class="destination-row '+(ready?'is-connected':'is-disconnected')+(active>=3?' is-busy':'')+'">'+
       '<i style="--destination-color:'+destination.color+'"></i>'+
-      '<span><b>'+destination.name+'</b><small>'+demand+'</small></span>'+
-      '<em>'+(ready?'СВЯЗАНО':'НЕТ МАРШРУТА')+'</em></div>';
+      '<span><b>'+destination.name+'</b><small>'+demand+' · '+active+' '+(active===1?'машина':active>=2&&active<=4?'машины':'машин')+'</small></span>'+
+      '<em>'+(ready?state:'НЕТ МАРШРУТА')+'</em></div>';
   }).join('');
   const summary=document.querySelector<HTMLElement>('#destination-summary');
-  if(summary)summary.textContent=connected.size+' из '+trafficDestinations.length+' доступны';
+  if(summary)summary.textContent=connected.size+' из '+trafficDestinations.length+' доступны · спрос меняется';
 }
 
 function buildTrafficRoute(destinationId:string):Point[]|null{
@@ -912,20 +914,39 @@ function refreshVehicleRoutes(){
 rebuildRoadGraph();
 reachableDestinations=trafficDestinations.filter(destination=>buildTrafficRoute(destination.id)!==null);
 updateDestinationBoard();
-let trafficSpawnTimer=5.5,trafficSpawnIndex=0;
+let trafficSpawnTimer=5.5;
 function updateTrafficCounter(){
   if(trafficCount)trafficCount.textContent=String(vehicles.length);
   if(jamCount)jamCount.textContent=String(vehicles.filter(vehicle=>vehicle.speed<.32).length);
   if(fuelCount){const average=vehicles.length?vehicles.reduce((sum,vehicle)=>sum+vehicle.fuel/vehicle.fuelCapacity,0)/vehicles.length:1;fuelCount.textContent=vehicles.length?Math.round(average*100)+'%':'—';}
+  updateDestinationBoard();
+}
+function chooseTrafficDestination(){
+  if(!reachableDestinations.length)return null;
+  const candidates=reachableDestinations.filter(item=>reachableDestinations.length===1||item.id!==lastSpawnedDestinationId);
+  const pool=candidates.length?candidates:reachableDestinations;
+  const weighted=pool.map(item=>{
+    const active=vehicles.filter(vehicle=>vehicle.destinationId===item.id).length;
+    return{item,score:item.weight/(1+active*1.65)};
+  });
+  const total=weighted.reduce((sum,entry)=>sum+entry.score,0);
+  let roll=Math.random()*total;
+  for(const entry of weighted){roll-=entry.score;if(roll<=0)return entry.item;}
+  return weighted[weighted.length-1]?.item??null;
+}
+let lastSpawnedDestinationId:string|null=null;
+function getTrafficSpawnInterval(){
+  // More connected destinations create a busier, gradually accelerating town.
+  return Math.max(4.8,9.5-reachableDestinations.length*.62);
 }
 function spawnTrafficVehicle(){
   if(!reachableDestinations.length)return false;
   // All routes share the same highway entry: keep a safe gap there.
   if(vehicles.some(vehicle=>vehicle.distance<9))return false;
-  const demandQueue=reachableDestinations.flatMap(item=>Array.from({length:item.weight},()=>item));
-  const destination=demandQueue[trafficSpawnIndex%demandQueue.length]!;
-  trafficSpawnIndex++;
+  const destination=chooseTrafficDestination();
+  if(!destination)return false;
   const path=buildTrafficRoute(destination.id);if(!path)return false;
+  lastSpawnedDestinationId=destination.id;
   vehicles.push(createVehicle(path,2.05+Math.random()*.35,destination,0));
   updateTrafficCounter();return true;
 }
@@ -1203,7 +1224,7 @@ function animate(time:number){
   }
   updateTrafficCounter();
   trafficSpawnTimer-=delta;
-  if(trafficSpawnTimer<=0){spawnTrafficVehicle();trafficSpawnTimer=7.5;}
+  if(trafficSpawnTimer<=0){spawnTrafficVehicle();trafficSpawnTimer=getTrafficSpawnInterval();}
   render();requestAnimationFrame(animate);
 }
 canvas.style.cursor='grab';
