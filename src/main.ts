@@ -33,10 +33,10 @@ let pinchStart: { distance: number; zoom: number; center: Point } | null = null;
 const staticRoads: { a: Point; b: Point; points?: Point[]; width: number; direction?: 'both'|'forward' }[] = [
   // A single village spine branches from the federal highway and serves every building.
   {a:{x:-18,y:-13},b:{x:18,y:-13},width:1.55},
-  {a:{x:-1,y:-13},b:{x:-1,y:11},points:[
+  {a:{x:-1,y:-13},b:{x:.55,y:7.2},points:[
     {x:-1,y:-13},{x:-.55,y:-11.2},{x:-.2,y:-9.2},{x:-.7,y:-7.1},
     {x:-.35,y:-5.2},{x:.45,y:-3.1},{x:.9,y:-1},{x:.45,y:1.2},
-    {x:-.1,y:3.2},{x:.1,y:5.2},{x:.55,y:7.2},{x:.15,y:9.1},{x:-1,y:11}
+    {x:-.1,y:3.2},{x:.1,y:5.2},{x:.55,y:7.2}
   ],width:1.48},
   // West branch: farm and two residential plots.
   {a:{x:-.1,y:3.2},b:{x:-10.4,y:7.45},points:[
@@ -171,12 +171,16 @@ function appendRoadPath(points:Point[],progress=1){
 }
 function strokeRoadNetworkGroup(roads:{points:Point[];progress:number;width:number}[],color:string,outerColor:string){
   if(!roads.length)return;
+  const widthGroups=new Map<number,typeof roads>();
+  for(const road of roads){const key=Math.round(road.width*100)/100;const group=widthGroups.get(key)??[];group.push(road);widthGroups.set(key,group);}
   ctx!.save();ctx!.lineCap='round';ctx!.lineJoin='round';
-  // One shared canvas path per material: intersections become one continuous asphalt mass.
-  ctx!.beginPath();for(const road of roads)appendRoadPath(road.points,road.progress);
-  ctx!.strokeStyle=outerColor;ctx!.lineWidth=Math.max(...roads.map(r=>r.width))*.82*camera.zoom;ctx!.stroke();
-  ctx!.beginPath();for(const road of roads)appendRoadPath(road.points,road.progress);
-  ctx!.strokeStyle=color;ctx!.lineWidth=Math.max(...roads.map(r=>r.width))*.70*camera.zoom;ctx!.stroke();
+  // Each width class is batched into a shared path; same-material intersections have no doubled seams.
+  for(const [roadWidth,group] of widthGroups){
+    ctx!.beginPath();for(const road of group)appendRoadPath(road.points,road.progress);
+    ctx!.strokeStyle=outerColor;ctx!.lineWidth=roadWidth*.82*camera.zoom;ctx!.stroke();
+    ctx!.beginPath();for(const road of group)appendRoadPath(road.points,road.progress);
+    ctx!.strokeStyle=color;ctx!.lineWidth=roadWidth*.70*camera.zoom;ctx!.stroke();
+  }
   ctx!.restore();
 }
 function drawRoadCentreLinePath(points:Point[],subtle:boolean,junctions:{center:Point;arms:JunctionArm[]}[],progress=1){
@@ -636,10 +640,13 @@ const demoStart={x:-18,y:-13},demoExit={x:18,y:-13};
 type TrafficDestination={id:string;name:string;access:Point;color:string;weight:number};
 const fuelStations=[{id:'highway',name:'Заправка на трассе',access:{x:-8,y:-14.65}}];
 const trafficDestinations:TrafficDestination[]=[
-  {id:'west',name:'Ферма и западный квартал',access:{x:-10.55,y:-4},color:'#e9c46a',weight:2},
-  {id:'north',name:'Северный квартал',access:{x:-1,y:11},color:'#78a9b6',weight:1},
-  {id:'centre',name:'Восточный жилой квартал',access:{x:7.7,y:3.15},color:'#d98c78',weight:3},
-  {id:'market',name:'Магазин у трассы',access:{x:11,y:-7.25},color:'#9aa9d0',weight:2}
+  {id:'farm',name:'Ферма',access:{x:-10.55,y:-4},color:'#e9c46a',weight:2},
+  {id:'west-home',name:'Западный дом',access:{x:-10.4,y:7.45},color:'#78a9b6',weight:1},
+  {id:'village-home',name:'Дом у центральной улицы',access:{x:-6.5,y:-1.65},color:'#d98c78',weight:2},
+  {id:'south-home',name:'Южный дом',access:{x:-5,y:-7.35},color:'#9aa9d0',weight:1},
+  {id:'east-home',name:'Восточный дом',access:{x:7.7,y:3.15},color:'#83a98b',weight:2},
+  {id:'north-home',name:'Северный дом',access:{x:2.8,y:9.65},color:'#c28eae',weight:1},
+  {id:'market',name:'Магазин у трассы',access:{x:11,y:-7.25},color:'#d7a45f',weight:2}
 ];
 function buildTrafficRoute(destinationId:string):Point[]|null{
   const destination=trafficDestinations.find(item=>item.id===destinationId);
