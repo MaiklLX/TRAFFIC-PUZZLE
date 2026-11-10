@@ -556,53 +556,7 @@ function drawFuelStation(x:number,y:number){
   ctx!.restore();
 }
 
-function drawDecor(){
-  const s=camera.zoom;
-  // Hedges and orchard dots use the same quiet palette as the terrain.
-  const fences=[[-8.8,-5.4,4.1,0],[-11.1,7.5,4.4,Math.PI/2],[5.8,3.5,3.5,0],[4.2,9.7,5,0],[-18.4,4.2,3.2,0]];
-  for(const [x,y,len,angle] of fences){const p=worldToScreen({x,y});ctx!.save();ctx!.translate(p.x,p.y);ctx!.rotate(angle);ctx!.strokeStyle='#b6c9a5';ctx!.lineWidth=Math.max(1,.07*s);ctx!.beginPath();ctx!.moveTo(-len*s/2,0);ctx!.lineTo(len*s/2,0);ctx!.stroke();ctx!.restore();}
-  for(let row=0;row<3;row++)for(let col=0;col<4;col++){const p=worldToScreen({x:15.45+col*.9,y:-6.05+row*.95});ctx!.fillStyle='#83a98a';ctx!.beginPath();ctx!.arc(p.x,p.y,.19*s,0,Math.PI*2);ctx!.fill();}
-  const gardens=[{x:-6.7,y:-5.35,w:2.1,h:.6},{x:7.7,y:3.15,w:2.2,h:.55},{x:2.8,y:9.65,w:2.3,h:.55}];
-  for(const g of gardens){const p=worldToScreen({x:g.x,y:g.y});ctx!.fillStyle='#c7d9b7';roundedRect(ctx!,p.x-g.w*s/2,p.y-g.h*s/2,g.w*s,g.h*s,.12*s);ctx!.fill();}
-  for(const [x,y] of [[-3,-9.8],[7,-1.4],[9,5.8],[-7,1.5],[-3,-15],[8,-15]] as const){const p=worldToScreen({x,y});ctx!.fillStyle='#8a9f85';ctx!.beginPath();ctx!.arc(p.x,p.y,.09*s,0,Math.PI*2);ctx!.fill();}
-}
-// Shared route sampler for drawing, following distance, junction priority and congestion.
-function vehiclePose(vehicle:Vehicle):{x:number;y:number;angle:number;heading:Point}{
-  const target=clamp(vehicle.distance,0,vehicle.routeLength);
-  let travelled=0;
-  for(let i=0;i<vehicle.lengths.length;i++){
-    const length=vehicle.lengths[i]!;
-    const a=vehicle.path[i]!,b=vehicle.path[i+1]!;
-    if(length<.0001)continue;
-    if(target<=travelled+length||i===vehicle.lengths.length-1){
-      const t=clamp((target-travelled)/length,0,1);
-      const heading={x:(b.x-a.x)/length,y:(b.y-a.y)/length};
-      return{x:lerp(a.x,b.x,t),y:lerp(a.y,b.y,t),angle:Math.atan2(heading.y,heading.x),heading};
-    }
-    travelled+=length;
-  }
-  const end=vehicle.path[vehicle.path.length-1]??{x:0,y:0};
-  const previous=vehicle.path[vehicle.path.length-2]??end;
-  const length=distance(previous,end)||1;
-  const heading={x:(end.x-previous.x)/length,y:(end.y-previous.y)/length};
-  return{x:end.x,y:end.y,angle:Math.atan2(heading.y,heading.x),heading};
-}
-function drawCar(vehicle:Vehicle){
-  const pose=vehiclePose(vehicle),p=worldToScreen({x:pose.x,y:pose.y}),angle=pose.angle,s=camera.zoom;
-  ctx!.save();ctx!.translate(p.x,p.y);ctx!.rotate(angle);
-  ctx!.fillStyle='#53666a';ctx!.globalAlpha=.18;roundedRect(ctx!,-.7*s,-.31*s,1.4*s,.62*s,.22*s);ctx!.fill();ctx!.globalAlpha=1;
-  roundedRect(ctx!,-.64*s,-.27*s,1.28*s,.54*s,.2*s);ctx!.fillStyle=vehicle.color;ctx!.fill();
-  ctx!.fillStyle='#d8e9e6';roundedRect(ctx!,-.17*s,-.205*s,.48*s,.41*s,.11*s);ctx!.fill();
-  ctx!.fillStyle='#fff0c9';ctx!.fillRect(.52*s,-.16*s,.07*s,.12*s);ctx!.fillRect(.52*s,.04*s,.07*s,.12*s);
-  ctx!.fillStyle='#e8a18b';ctx!.fillRect(-.59*s,-.15*s,.06*s,.11*s);ctx!.fillRect(-.59*s,.04*s,.06*s,.11*s);
-  ctx!.restore();
-}
-let ambientClock=0;
-const walkers=[
-  {path:[{x:-7.15,y:-5.2},{x:-6.5,y:-5.65},{x:-5.85,y:-5.2},{x:-6.5,y:-4.75}],phase:0,color:'#d77c65'},
-  {path:[{x:7.05,y:3.8},{x:7.7,y:4.15},{x:8.35,y:3.8},{x:7.7,y:3.45}],phase:2.1,color:'#5e8fa0'},
-  {path:[{x:10.25,y:-2.9},{x:11.1,y:-2.65},{x:11.85,y:-2.9},{x:11.1,y:-3.2}],phase:4.2,color:'#d5a84f'}
-];
+
 function drawFarmDetails(){
   const s=camera.zoom,p=worldToScreen({x:-18.1,y:8.4});
   // A soft paddock with a broken timber fence and a clear gate.
