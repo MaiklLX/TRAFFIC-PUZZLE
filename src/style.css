@@ -56,6 +56,7 @@ h1 { margin: 9px 0 0; font: 900 24px/1.12 'Nunito'; letter-spacing: -.6px; color
 .people { background: #e5efe0; color: #6e9672; }
 .cars { background: #e2eef0; }
 .coin { background: #fbefd4; color: #d7a944; }
+.fuel { background: #e5eee1; color: #668c6a; }
 .stat small, .stat b { display: block; }
 .stat small { color: #9aa59b; font-size: 9px; }
 .stat b { margin-top: 1px; font: 900 15px 'Nunito'; }
@@ -102,7 +103,7 @@ h2 { margin: 10px 0 5px; font: 900 15px 'Nunito'; color: #435748; }
   .side-panel { min-height: 0; overflow: visible; border-radius: 18px; padding: 18px; }
   .panel-heading h1 br { display: none; }
   .panel-heading h1 { max-width: 260px; }
-  .stats { grid-template-columns: repeat(3,1fr); gap: 5px; }
+  .stats { grid-template-columns: repeat(2,1fr); gap: 5px; }
   .stat { flex-wrap: wrap; gap: 5px; padding: 7px; }
   .stat em { display: none; }
   .stat-icon { width: 26px; height: 26px; }
