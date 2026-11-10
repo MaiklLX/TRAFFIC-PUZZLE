@@ -306,13 +306,25 @@ function findRoadPath(start:Point,end:Point):Point[]|null{
   ids.reverse();
   return ids.map(id=>({x:roadGraph.nodes[id]!.x,y:roadGraph.nodes[id]!.y}));
 }
+const demoStart={x:-18,y:-13},demoDestination={x:11,y:5};
 function createVehicle(path:Point[],speed:number,color:string,offset:number):Vehicle{
   const lengths=path.slice(1).map((point,index)=>distance(path[index]!,point));
-  return{path,lengths,routeLength:lengths.reduce((sum,value)=>sum+value,0),distance:offset,speed,direction:1,color};
+  const routeLength=lengths.reduce((sum,value)=>sum+value,0);
+  return{path,lengths,routeLength,distance:Math.min(offset,routeLength),speed,direction:1,color};
+}
+function refreshVehicleRoutes(){
+  const nextPath=findRoadPath(demoStart,demoDestination)??fallbackRoute;
+  for(const vehicle of vehicles){
+    const progress=vehicle.routeLength>0?vehicle.distance/vehicle.routeLength:0;
+    vehicle.path=nextPath.map(point=>({...point}));
+    vehicle.lengths=nextPath.slice(1).map((point,index)=>distance(nextPath[index]!,point));
+    vehicle.routeLength=vehicle.lengths.reduce((sum,value)=>sum+value,0);
+    vehicle.distance=clamp(progress*vehicle.routeLength,0,vehicle.routeLength);
+  }
 }
 // KT-010: populate the base network before any road validation can run.
 rebuildRoadGraph();
-const demoPath=findRoadPath({x:-18,y:-13},{x:11,y:5})??fallbackRoute;
+const demoPath=findRoadPath(demoStart,demoDestination)??fallbackRoute;
 vehicles.push(createVehicle(demoPath,2.25,'#e9c46a',2),createVehicle(demoPath,1.85,'#78a9b6',8.5));
 if(trafficCount)trafficCount.textContent=String(vehicles.length);
 
@@ -399,16 +411,17 @@ function finishRoad(event:PointerEvent){
   if(!drawing||pointerId!==event.pointerId)return;
   drawing=false;pointerId=null;
   if(draft.length<2){draft=[];if(buildMessage)buildMessage.textContent='Наметь линию хотя бы на один участок.';render();return;}
-  if(!isValidRoadPath(draft)){draft=[];if(buildMessage)buildMessage.textContent='Проект отклонён: линия должна соединяться с сетью и обходить здания, деревья и воду.';render();return;}
-  // Snap connected endpoints to the exact centreline so the new edge becomes part of the graph.
+  // Snap both ends BEFORE validation: the validator must inspect the exact geometry
+  // that will be committed, not the unsnapped pointer approximation.
   const firstSnap=nearestNetworkPoint(draft[0]!);
-  if(firstSnap&&distance(draft[0]!,firstSnap)<=roadConnectionTolerance)draft[0]=firstSnap;
+  if(firstSnap&&distance(draft[0]!,firstSnap)<=roadConnectionTolerance)draft[0]={...firstSnap};
   const lastIndex=draft.length-1,lastSnap=nearestNetworkPoint(draft[lastIndex]!);
-  if(lastSnap&&distance(draft[lastIndex]!,lastSnap)<=roadConnectionTolerance)draft[lastIndex]=lastSnap;
+  if(lastSnap&&distance(draft[lastIndex]!,lastSnap)<=roadConnectionTolerance)draft[lastIndex]={...lastSnap};
+  if(!isValidRoadPath(draft)){draft=[];if(buildMessage)buildMessage.textContent='Проект отклонён: проверь соединение с сетью и свободный коридор без зданий, деревьев и воды.';render();return;}
   const touchesHighway=draft.some(p=>Math.abs(p.y+13)<=1.65&&Math.abs(p.x)<=18);
   const touchesVillage=draft.some(p=>(Math.abs(p.x+1)<=1.65&&p.y>=-12&&p.y<=11)||(Math.abs(p.x)<=1.65&&p.y>=-12&&p.y<=-2)||(Math.abs(p.y-5)<=1.4&&p.x>=3&&p.x<=11)||(Math.abs(p.y-3)<=1.4&&p.x>=-11&&p.x<=-3));
   const road:Road={points:draft.map(p=>({...p})),progress:0,width:roadHalfWidth*2,connectsVillageToHighway:touchesHighway&&touchesVillage};
-  builtRoads.push(road);constructionJobs.push(road);rebuildRoadGraph();draft=[];updateMission();
+  builtRoads.push(road);constructionJobs.push(road);rebuildRoadGraph();refreshVehicleRoutes();draft=[];updateMission();
   if(buildMessage)buildMessage.textContent='Проект принят. Дорога постепенно прокладывается по намеченной линии.';
   render();
 }
@@ -445,7 +458,7 @@ toolButtons.forEach(button=>button.addEventListener('click',()=>{
 }));
 document.querySelector<HTMLButtonElement>('#cancel-road')?.addEventListener('click',()=>{clearDraft();if(buildMessage)buildMessage.textContent='Черновик дороги отменён.';});
 document.querySelector<HTMLButtonElement>('#undo-road')?.addEventListener('click',()=>{
-  const road=builtRoads.pop();if(!road)return;const index=constructionJobs.indexOf(road);if(index>=0)constructionJobs.splice(index,1);rebuildRoadGraph();updateMission();if(buildMessage)buildMessage.textContent='Последний построенный участок удалён.';render();
+  const road=builtRoads.pop();if(!road)return;const index=constructionJobs.indexOf(road);if(index>=0)constructionJobs.splice(index,1);rebuildRoadGraph();refreshVehicleRoutes();updateMission();if(buildMessage)buildMessage.textContent='Последний построенный участок удалён.';render();
 });
 window.addEventListener('keydown',event=>{
   if(event.key==='+'||event.key==='=')setZoom(1.12);if(event.key==='-')setZoom(.89);
