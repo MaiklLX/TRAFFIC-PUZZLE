@@ -122,15 +122,13 @@ button:focus-visible,select:focus-visible{outline:2px solid #9dbd9f;outline-offs
   .tool{width:64px;min-width:64px}
 }
 @media(max-width:800px) and (orientation:landscape){
-  .workspace{display:block;grid-template-columns:none}
-  .map-stage{height:auto;min-height:0}
-  .tool-rail{
-    left:12px;bottom:12px;transform:none;flex-direction:column;
-    width:66px;max-width:none;min-height:0;padding:7px
-  }
-  .tool{width:50px;min-width:50px;min-height:52px}
-  .map-controls{right:12px;bottom:12px}
-  .build-hud{left:auto;right:12px;bottom:12px;width:min(270px,42vw)}
+  /* Landscape phones keep the same mobile interaction pattern: full-screen
+     map and a horizontal floating tool dock, just slightly more compact. */
+  .tool-rail{left:50%;right:auto;bottom:7px;transform:translateX(-50%);flex-direction:row;width:max-content;min-height:56px;padding:5px 8px;gap:5px}
+  .tool{width:58px;min-width:58px;min-height:44px}
+  .map-controls{right:10px;bottom:74px}
+  .map-objective{top:62px}
+  .build-hud{left:10px;right:10px;bottom:70px;width:auto}
 }
 
 
