@@ -102,24 +102,51 @@ function smoothPoints(points:Point[]){
   }
   out.push(points[points.length-1]!);return out;
 }
-function strokeRoad(points:Point[],progress=1,color='#59666a',alpha=1){
+function strokeRoad(points:Point[],progress=1,color='#59666a',alpha=1,roadWidth=1.9){
   if(points.length<2||progress<=0)return;
-  pathOnCanvas(points,progress);ctx!.save();ctx!.globalAlpha=alpha;ctx!.lineCap='round';ctx!.lineJoin='round';
-  ctx!.strokeStyle='#d8d1b9';ctx!.lineWidth=2.34*camera.zoom;ctx!.stroke();
-  pathOnCanvas(points,progress);ctx!.strokeStyle=color;ctx!.lineWidth=1.9*camera.zoom;ctx!.stroke();
+  pathOnCanvas(points,progress);
+  ctx!.save();ctx!.globalAlpha=alpha;ctx!.lineCap='round';ctx!.lineJoin='round';
+  ctx!.strokeStyle='#d9d2b9';ctx!.lineWidth=(roadWidth+.34)*camera.zoom;ctx!.stroke();
+  pathOnCanvas(points,progress);
+  ctx!.strokeStyle=color;ctx!.lineWidth=roadWidth*camera.zoom;ctx!.stroke();
+  ctx!.restore();
+}
+function drawRoadCentreLine(a:Point,b:Point,subtle=false){
+  const p=worldToScreen(a),q=worldToScreen(b);
+  ctx!.save();ctx!.setLineDash(subtle?[.42*camera.zoom,.56*camera.zoom]:[1.2*camera.zoom,1.45*camera.zoom]);
+  ctx!.lineCap='butt';ctx!.strokeStyle=subtle?'#d9d3b5':'#f4e8bd';
+  ctx!.globalAlpha=subtle?.68:.95;ctx!.lineWidth=(subtle?.035:.075)*camera.zoom;
+  ctx!.beginPath();ctx!.moveTo(p.x,p.y);ctx!.lineTo(q.x,q.y);ctx!.stroke();ctx!.restore();
+}
+function drawJunction(point:Point,connectedWidths:number[]){
+  if(connectedWidths.length<2)return;
+  const p=worldToScreen(point);
+  const radius=Math.max(...connectedWidths)/2;
+  ctx!.save();
+  // The pale shoulder joins all incoming road edges into one clean junction.
+  ctx!.fillStyle='#d9d2b9';ctx!.beginPath();ctx!.arc(p.x,p.y,(radius+.17)*camera.zoom,0,Math.PI*2);ctx!.fill();
+  ctx!.fillStyle='#59666a';ctx!.beginPath();ctx!.arc(p.x,p.y,radius*camera.zoom,0,Math.PI*2);ctx!.fill();
   ctx!.restore();
 }
 function drawRoadNetwork(){
-  for(const road of staticRoads)strokeRoad([road.a,road.b],1,'#59666a');
-  for(const road of builtRoads)strokeRoad(road.points,road.progress);
-  // Federal highway centre dashes.
-  ctx!.save();ctx!.setLineDash([1.2*camera.zoom,1.45*camera.zoom]);ctx!.lineCap='butt';
-  ctx!.strokeStyle='#f4e8bd';ctx!.lineWidth=0.075*camera.zoom;
-  const a=worldToScreen({x:-17,y:-13}),b=worldToScreen({x:17,y:-13});
-  ctx!.beginPath();ctx!.moveTo(a.x,a.y);ctx!.lineTo(b.x,b.y);ctx!.stroke();ctx!.restore();
-  // Junction caps blend connected road ribbons into a single readable surface.
-  const junctions=[{x:-1,y:-13},{x:-1,y:5},{x:0,y:-13},{x:10,y:-13},{x:-2,y:3}];
-  for(const p of junctions){const s=worldToScreen(p);ctx!.fillStyle='#59666a';ctx!.beginPath();ctx!.arc(s.x,s.y,0.98*camera.zoom,0,Math.PI*2);ctx!.fill();}
+  // Road ribbons are drawn first; the junction surfaces are layered over their ends.
+  for(const road of staticRoads)strokeRoad([road.a,road.b],1,'#59666a',1,road.width);
+  for(const road of builtRoads)strokeRoad(road.points,road.progress,'#59666a',1,roadHalfWidth*2);
+  // Centre markings stay subtle on village roads and stronger on the federal highway.
+  for(let i=0;i<staticRoads.length;i++){
+    const road=staticRoads[i]!;
+    drawRoadCentreLine(road.a,road.b,i!==0);
+  }
+  // Junction radii match the widest road entering each node, avoiding oversized round blobs.
+  drawJunction({x:-1,y:-13},[1.55,1.5]);
+  drawJunction({x:0,y:-13},[1.55,1.5]);
+  drawJunction({x:10,y:-13},[1.55,1.5]);
+  drawJunction({x:-1,y:5},[1.5,1.3]);
+  drawJunction({x:-2,y:3},[1.3,1.3]);
+  // A small stop/merge cue on the side-road approach to the highway.
+  const merge=worldToScreen({x:10,y:-14.05});
+  ctx!.save();ctx!.strokeStyle='#f1e6c8';ctx!.globalAlpha=.75;ctx!.lineWidth=.055*camera.zoom;
+  ctx!.beginPath();ctx!.moveTo(merge.x-.48*camera.zoom,merge.y);ctx!.lineTo(merge.x+.48*camera.zoom,merge.y);ctx!.stroke();ctx!.restore();
 }
 function drawTerrain(){
   ctx!.fillStyle='#a7c98f';ctx!.fillRect(0,0,width,height);
