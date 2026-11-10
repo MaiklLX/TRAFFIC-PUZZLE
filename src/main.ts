@@ -31,49 +31,41 @@ const activePointers = new Map<number, Point>();
 let pinchStart: { distance: number; zoom: number; center: Point } | null = null;
 
 const staticRoads: { a: Point; b: Point; points?: Point[]; width: number; direction?: 'both'|'forward' }[] = [
-  // The federal highway remains broad and straight; village streets branch from it organically.
-  { a:{x:-18,y:-13}, b:{x:18,y:-13}, width:1.55 },
-  { a:{x:-1,y:-13}, b:{x:-1,y:11}, points:[
-    {x:-1,y:-13},{x:-.25,y:-10.5},{x:-.55,y:-7.8},{x:-.2,y:-5},
-    {x:.35,y:-2.2},{x:.2,y:.5},{x:-1,y:3.1},{x:-.05,y:5.3},
-    {x:.35,y:8.2},{x:-1,y:11}
-  ], width:1.5 },
-  { a:{x:-.05,y:5.3}, b:{x:11,y:5}, points:[
-    {x:-.05,y:5.3},{x:2.2,y:4.75},{x:4.8,y:5.2},{x:7.2,y:4.85},{x:9.3,y:5.35},{x:11,y:5}
-  ], width:1.3 },
-  { a:{x:-12,y:3}, b:{x:-1,y:3.1}, points:[
-    {x:-12,y:3},{x:-9.3,y:3.45},{x:-6.7,y:2.75},{x:-4.1,y:3.35},{x:-1,y:3.1}
-  ], width:1.3 },
-  // Access spur from the highway to the market district.
-  { a:{x:10,y:-15.6}, b:{x:10.2,y:-10.1}, points:[
-    {x:10,y:-15.6},{x:10.45,y:-13.8},{x:9.9,y:-12.1},{x:10.2,y:-10.1}
-  ], width:1.5 },
-  // The service-station driveway stops at its forecourt instead of crossing the building.
-  { a:{x:-8,y:-13}, b:{x:-8.2,y:-14.55}, points:[
-    {x:-8,y:-13},{x:-8.65,y:-13.65},{x:-8.2,y:-14.55}
-  ], width:1.12 },
-  // Short, curved access roads make the settlement's buildings part of the road network.
-  { a:{x:.31,y:-1.5}, b:{x:-6.5,y:-2.15}, points:[
-    {x:.31,y:-1.5},{x:-1.5,y:-.9},{x:-3,y:-1.1},{x:-4.7,y:-1.8},{x:-6.5,y:-2.15}
-  ], width:1.02 },
-  { a:{x:6.2,y:5}, b:{x:7.7,y:2.7}, points:[
-    {x:6.2,y:5},{x:6.75,y:4.15},{x:7.45,y:3.25},{x:7.7,y:2.7}
-  ], width:1.02 },
-  { a:{x:-7.9,y:3.073}, b:{x:-10.4,y:7.45}, points:[
-    {x:-7.9,y:3.073},{x:-7.6,y:4.2},{x:-8.25,y:5.7},{x:-9.2,y:6.9},{x:-10.4,y:7.45}
-  ], width:.98 },
-  { a:{x:.35,y:8.2}, b:{x:2.8,y:9.1}, points:[
-    {x:.35,y:8.2},{x:1.05,y:8.65},{x:1.9,y:9.05},{x:2.8,y:9.1}
-  ], width:.98 },
-  { a:{x:-.55,y:-7.8}, b:{x:-5,y:-8.15}, points:[
-    {x:-.55,y:-7.8},{x:-1.8,y:-7.15},{x:-3.1,y:-7.55},{x:-4.2,y:-8.05},{x:-5,y:-8.15}
-  ], width:.98 },
-  { a:{x:10.2,y:-10.1}, b:{x:11,y:-3}, points:[
-    {x:10.2,y:-10.1},{x:11.5,y:-8.8},{x:13.1,y:-7.1},{x:13.5,y:-5.1},{x:12.6,y:-3.5},{x:11,y:-3}
-  ], width:1.02 },
-  { a:{x:-10.2,y:3.3}, b:{x:-13,y:-2.65}, points:[
-    {x:-10.2,y:3.3},{x:-11.5,y:2.4},{x:-12.7,y:1},{x:-13,y:-.8},{x:-13,y:-2.65}
-  ], width:1.02 }
+  // A single village spine branches from the federal highway and serves every building.
+  {a:{x:-18,y:-13},b:{x:18,y:-13},width:1.55},
+  {a:{x:-1,y:-13},b:{x:-1,y:11},points:[
+    {x:-1,y:-13},{x:-.55,y:-11.2},{x:-.2,y:-9.2},{x:-.7,y:-7.1},
+    {x:-.35,y:-5.2},{x:.45,y:-3.1},{x:.9,y:-1},{x:.45,y:1.2},
+    {x:-.1,y:3.2},{x:.1,y:5.2},{x:.55,y:7.2},{x:.15,y:9.1},{x:-1,y:11}
+  ],width:1.48},
+  // West branch: farm and two residential plots.
+  {a:{x:-.1,y:3.2},b:{x:-10.4,y:7.45},points:[
+    {x:-.1,y:3.2},{x:-2.1,y:3.65},{x:-4.3,y:4.15},{x:-6.2,y:4.9},
+    {x:-8.2,y:6.2},{x:-10.4,y:7.45}
+  ],width:1.18},
+  {a:{x:-4.3,y:4.15},b:{x:-10.55,y:-4},points:[
+    {x:-4.3,y:4.15},{x:-6.1,y:2.7},{x:-7.7,y:.7},{x:-9.1,y:-1.5},{x:-10.55,y:-4}
+  ],width:1.12},
+  {a:{x:-.35,y:-5.2},b:{x:-6.5,y:-1.65},points:[
+    {x:-.35,y:-5.2},{x:-2.1,y:-4.35},{x:-3.8,y:-3.15},{x:-5.1,y:-2.15},{x:-6.5,y:-1.65}
+  ],width:1.02},
+  {a:{x:-.7,y:-7.1},b:{x:-5,y:-7.35},points:[
+    {x:-.7,y:-7.1},{x:-2.1,y:-6.65},{x:-3.5,y:-6.85},{x:-5,y:-7.35}
+  ],width:.98},
+  // East branch: village home and market access.
+  {a:{x:.1,y:5.2},b:{x:7.7,y:3.15},points:[
+    {x:.1,y:5.2},{x:2.1,y:5.35},{x:4.1,y:4.95},{x:5.8,y:4.1},{x:7.7,y:3.15}
+  ],width:1.12},
+  {a:{x:.55,y:7.2},b:{x:2.8,y:9.65},points:[
+    {x:.55,y:7.2},{x:1.15,y:8.1},{x:1.95,y:8.95},{x:2.8,y:9.65}
+  ],width:.98},
+  {a:{x:18,y:-13},b:{x:11,y:-7.25},points:[
+    {x:18,y:-13},{x:15.8,y:-12.4},{x:13.8,y:-11.1},{x:12.2,y:-9.25},{x:11,y:-7.25}
+  ],width:1.16},
+  // The fuel station is connected directly to the highway via its forecourt.
+  {a:{x:-8,y:-13},b:{x:-8,y:-14.65},points:[
+    {x:-8,y:-13},{x:-8.35,y:-13.55},{x:-8.25,y:-14.1},{x:-8,y:-14.65}
+  ],width:1.05}
 ];
 function staticRoadPath(road:{a:Point;b:Point;points?:Point[]}):Point[]{return road.points??[road.a,road.b];}
 const obstacles = [
@@ -136,13 +128,14 @@ function smoothPoints(points:Point[]){
   for(let i=1;i<points.length-1;i++){
     const a=points[i-1]!,b=points[i]!,c=points[i+1]!;
     const ab=distance(a,b),bc=distance(b,c);
-    if(ab<.001||bc<.001){out.push(b);continue;}
-    const radius=Math.min(.68,ab*.32,bc*.32);
+    if(ab<.001||bc<.001)continue;
+    // Long tangent transitions suppress sharp corners while respecting short links.
+    const radius=Math.min(1.55,ab*.44,bc*.44);
     const from={x:b.x+(a.x-b.x)/ab*radius,y:b.y+(a.y-b.y)/ab*radius};
     const to={x:b.x+(c.x-b.x)/bc*radius,y:b.y+(c.y-b.y)/bc*radius};
     out.push(from);
-    for(let sample=1;sample<=8;sample++){
-      const t=sample/8,u=1-t;
+    for(let sample=1;sample<=14;sample++){
+      const t=sample/14,u=1-t;
       out.push({x:u*u*from.x+2*u*t*b.x+t*t*to.x,y:u*u*from.y+2*u*t*b.y+t*t*to.y});
     }
   }
@@ -159,6 +152,31 @@ function strokeRoad(points:Point[],progress=1,color='#68777d',alpha=1,roadWidth=
     pathOnCanvas(points,progress);ctx!.strokeStyle='#fff7e8';ctx!.globalAlpha=alpha*.72;
     ctx!.lineWidth=Math.max(1,.045*camera.zoom);ctx!.setLineDash([.28*camera.zoom,.2*camera.zoom]);ctx!.stroke();
   }
+  ctx!.restore();
+}
+function appendRoadPath(points:Point[],progress=1){
+  if(points.length<2||progress<=0)return;
+  const sampled=smoothPoints(points);
+  const lengths=sampled.slice(1).map((point,index)=>distance(sampled[index]!,point));
+  const total=lengths.reduce((sum,len)=>sum+len,0),target=total*clamp(progress,0,1);
+  let walked=0;
+  const first=worldToScreen(sampled[0]!);ctx!.moveTo(first.x,first.y);
+  for(let i=1;i<sampled.length;i++){
+    const a=sampled[i-1]!,b=sampled[i]!,len=lengths[i-1]!;
+    if(walked+len<=target){const p=worldToScreen(b);ctx!.lineTo(p.x,p.y);walked+=len;continue;}
+    const t=len>0?(target-walked)/len:0;
+    if(t>0){const p=worldToScreen({x:lerp(a.x,b.x,t),y:lerp(a.y,b.y,t)});ctx!.lineTo(p.x,p.y);}
+    break;
+  }
+}
+function strokeRoadNetworkGroup(roads:{points:Point[];progress:number;width:number}[],color:string,outerColor:string){
+  if(!roads.length)return;
+  ctx!.save();ctx!.lineCap='round';ctx!.lineJoin='round';
+  // One shared canvas path per material: intersections become one continuous asphalt mass.
+  ctx!.beginPath();for(const road of roads)appendRoadPath(road.points,road.progress);
+  ctx!.strokeStyle=outerColor;ctx!.lineWidth=Math.max(...roads.map(r=>r.width))*.82*camera.zoom;ctx!.stroke();
+  ctx!.beginPath();for(const road of roads)appendRoadPath(road.points,road.progress);
+  ctx!.strokeStyle=color;ctx!.lineWidth=Math.max(...roads.map(r=>r.width))*.70*camera.zoom;ctx!.stroke();
   ctx!.restore();
 }
 function drawRoadCentreLinePath(points:Point[],subtle:boolean,junctions:{center:Point;arms:JunctionArm[]}[],progress=1){
@@ -272,13 +290,13 @@ function drawTurningBulb(destination:TrafficDestination){
 }
 function drawRoadNetwork(){
   const junctions=collectRoadJunctions();
+  const base=staticRoads.map(road=>({points:staticRoadPath(road),progress:1,width:road.width}));
+  const complete=builtRoads.filter(road=>road.progress>=.999).map(road=>({points:road.points,progress:1,width:road.width}));
+  const constructing=builtRoads.filter(road=>road.progress<.999).map(road=>({points:road.points,progress:road.progress,width:road.width}));
+  // Existing streets and finished player roads are composited together, not painted as stacked stickers.
+  strokeRoadNetworkGroup([...base,...complete],'#69777d','#d7dfd0');
+  for(const road of constructing)strokeRoad(road.points,road.progress,'#69777d',1,road.width);
   for(const destination of trafficDestinations)drawTurningBulb(destination);
-  const surfaces=[
-    ...staticRoads.map(road=>({points:staticRoadPath(road),progress:1,width:road.width})),
-    ...builtRoads.map(road=>({points:road.points,progress:road.progress,width:road.width}))
-  ].sort((a,b)=>b.width-a.width);
-  for(const surface of surfaces)strokeRoad(surface.points,surface.progress,'#69777d',1,surface.width);
-  // Only the federal highway gets a centre dash; village streets stay visually quiet.
   if(staticRoads[0])drawRoadCentreLinePath(staticRoadPath(staticRoads[0]),true,junctions);
 }
 function drawTerrain(){
@@ -616,12 +634,12 @@ function findRoadPath(start:Point,end:Point):Point[]|null{
 }
 const demoStart={x:-18,y:-13},demoExit={x:18,y:-13};
 type TrafficDestination={id:string;name:string;access:Point;color:string;weight:number};
-const fuelStations=[{id:'highway',name:'Заправка на трассе',access:{x:-8,y:-16.1}}];
+const fuelStations=[{id:'highway',name:'Заправка на трассе',access:{x:-8,y:-14.65}}];
 const trafficDestinations:TrafficDestination[]=[
-  {id:'west',name:'Западный квартал',access:{x:-12,y:3},color:'#e9c46a',weight:2},
+  {id:'west',name:'Ферма и западный квартал',access:{x:-10.55,y:-4},color:'#e9c46a',weight:2},
   {id:'north',name:'Северный квартал',access:{x:-1,y:11},color:'#78a9b6',weight:1},
-  {id:'centre',name:'Центральный квартал',access:{x:11,y:5},color:'#d98c78',weight:3},
-  {id:'market',name:'Магазин у трассы',access:{x:10,y:-10.4},color:'#9aa9d0',weight:2}
+  {id:'centre',name:'Восточный жилой квартал',access:{x:7.7,y:3.15},color:'#d98c78',weight:3},
+  {id:'market',name:'Магазин у трассы',access:{x:11,y:-7.25},color:'#9aa9d0',weight:2}
 ];
 function buildTrafficRoute(destinationId:string):Point[]|null{
   const destination=trafficDestinations.find(item=>item.id===destinationId);
