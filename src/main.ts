@@ -13,7 +13,7 @@ const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 150);
 camera.position.set(17, 19, 17);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, window.innerWidth < 700 ? 1.5 : 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -41,7 +41,7 @@ scene.add(new THREE.HemisphereLight('#f4fff0', '#788d65', 2.1));
 const sun = new THREE.DirectionalLight('#fff2d2', 3.1);
 sun.position.set(-12, 22, 12);
 sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.mapSize.set(window.innerWidth < 700 ? 1024 : 2048, window.innerWidth < 700 ? 1024 : 2048);
 sun.shadow.camera.left = -30; sun.shadow.camera.right = 30;
 sun.shadow.camera.top = 30; sun.shadow.camera.bottom = -30;
 scene.add(sun);
@@ -178,12 +178,77 @@ box(sign,0.16,2.6,0.16,mat('#786d57'),0,1.25,0);
 box(sign,2.4,1.15,0.18,mat('#568b70'),0,2.6,0);
 box(sign,1.9,0.08,0.2,mat('#f4e7c5'),0,2.6,0.12);
 
+
+// Extra village details: fences, lamps, paths and garden beds.
+const wood = mat('#a47b55');
+const fencePaint = mat('#ead9b8');
+function fence(x: number, z: number, length: number, rotation = 0) {
+  const group = new THREE.Group(); group.position.set(x, 0, z); group.rotation.y = rotation; scene.add(group);
+  const count = Math.max(2, Math.floor(length / 0.8));
+  for (let i = 0; i <= count; i++) {
+    const px = -length / 2 + (length * i / count);
+    box(group, 0.13, 0.72, 0.13, wood, px, 0.36, 0);
+  }
+  box(group, length, 0.11, 0.12, fencePaint, 0, 0.48, 0);
+  box(group, length, 0.11, 0.12, fencePaint, 0, 0.23, 0);
+}
+fence(-8.9, -5.4, 4.2);
+fence(-11.2, 7.5, 4.4, Math.PI / 2);
+fence(5.8, 3.5, 3.5);
+fence(4.2, 9.7, 5.0);
+
+const lampMetal = mat('#65756a', 0.55);
+const lampGlow = new THREE.MeshStandardMaterial({ color: '#ffe6a1', emissive: '#f6c96c', emissiveIntensity: 0.65 });
+function streetLamp(x: number, z: number) {
+  const g = new THREE.Group(); g.position.set(x, 0, z); scene.add(g);
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.075, 2.35, 8), lampMetal);
+  pole.position.y = 1.17; pole.castShadow = true; g.add(pole);
+  const arm = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.07, 0.07), lampMetal);
+  arm.position.set(0.25, 2.25, 0); g.add(arm);
+  const shade = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 8), lampGlow);
+  shade.position.set(0.52, 2.17, 0); g.add(shade);
+}
+[[-3,-9.8],[7,-1.4],[9,5.8],[-7,1.5],[0,-13.2],[13,-13.2]].forEach(([x,z]) => streetLamp(x!, z!));
+
+const pathMat = mat('#d5c59b');
+function gardenPath(x: number, z: number, w: number, d: number, rotation = 0) {
+  const path = new THREE.Mesh(new THREE.BoxGeometry(w, 0.035, d), pathMat);
+  path.position.set(x, -0.025, z); path.rotation.y = rotation; scene.add(path);
+}
+gardenPath(-6.5, -5.1, 1.15, 2.7);
+gardenPath(7.7, 3.9, 1.0, 2.5);
+gardenPath(11, -2.9, 1.2, 2.4);
+
+const cropColors = [mat('#78a66c'), mat('#a6bb68'), mat('#c6a75f')];
+for (let row = 0; row < 4; row++) {
+  for (let col = 0; col < 5; col++) {
+    const crop = new THREE.Mesh(new THREE.SphereGeometry(0.18, 7, 6), cropColors[(row + col) % cropColors.length]);
+    crop.scale.set(1.1, 0.7, 1.1);
+    crop.position.set(-16 + col * 0.55, 0.12, 5 + row * 0.58);
+    scene.add(crop);
+  }
+}
+
+// A small stone crossing and stepping stones make the landscape feel lived in.
+const stone = mat('#b8b8a0');
+for (let i = 0; i < 7; i++) {
+  const step = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.38, 0.12, 7), stone);
+  step.position.set(13.2 + i * 0.62, -0.03, 8.4 + Math.sin(i * 0.65) * 0.18);
+  step.rotation.y = i * 0.24; scene.add(step);
+}
+
+// Two cars follow simple village routes so the prototype already feels alive.
+const movingCars = [
+  { mesh: car(-8, -13, yellow), from: -8, to: 8, z: -13, speed: 1.65, offset: 0 },
+  { mesh: car(1, 4.85, blue), from: 1, to: 9, z: 4.85, speed: 1.15, offset: 2.4 }
+];
+
 const clock = new THREE.Clock();
 function resize() {
   const w = mount!.clientWidth, h = mount!.clientHeight;
   if (!w || !h) return;
   camera.aspect = w / h; camera.updateProjectionMatrix();
-  renderer.setSize(w, h, false);
+  camera.fov = w < 680 ? 39 : 34;\n  camera.updateProjectionMatrix();\n  renderer.setPixelRatio(Math.min(window.devicePixelRatio, w < 680 ? 1.5 : 2));\n  renderer.setSize(w, h, false);
 }
 const observer = new ResizeObserver(resize);
 observer.observe(mount);
@@ -191,6 +256,14 @@ resize();
 
 function animate() {
   requestAnimationFrame(animate);
+  const elapsed = clock.getElapsedTime();
+  for (const vehicle of movingCars) {
+    const span = vehicle.to - vehicle.from;
+    const progress = ((elapsed * vehicle.speed + vehicle.offset) % (span * 2)) / span;
+    const x = progress <= 1 ? vehicle.from + progress * span : vehicle.to - (progress - 1) * span;
+    vehicle.mesh.position.set(x, 0.18, vehicle.z);
+    vehicle.mesh.rotation.y = progress <= 1 ? 0 : Math.PI;
+  }
   controls.update();
   renderer.render(scene, camera);
 }
