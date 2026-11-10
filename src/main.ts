@@ -342,6 +342,48 @@ function drawRoadNetwork(){
   for(const road of constructing)strokeRoad(road.points,road.progress,'#69777d',1,road.width);
   if(staticRoads[0])drawRoadCentreLinePath(staticRoadPath(staticRoads[0]),true,junctions);
 }
+function drawRoadDetails(){
+  const highway=staticRoads[0];
+  if(!highway)return;
+  const points=smoothPoints(staticRoadPath(highway));
+  const edges=ribbonOffsets(points,highway.width*.315);
+  // Fine shoulder lines give the main road a readable engineered edge
+  // while local village streets remain quiet and unmarked.
+  ctx!.save();
+  ctx!.lineCap='round';ctx!.lineJoin='round';
+  for(const edge of [edges.left,edges.right]){
+    if(edge.length<2)continue;
+    ctx!.beginPath();
+    const first=worldToScreen(edge[0]!);ctx!.moveTo(first.x,first.y);
+    for(let i=1;i<edge.length;i++){const p=worldToScreen(edge[i]!);ctx!.lineTo(p.x,p.y);}
+    ctx!.strokeStyle='rgba(248,241,216,.42)';
+    ctx!.lineWidth=Math.max(.8,.035*camera.zoom);
+    ctx!.stroke();
+  }
+  // Broken centre markings are deliberately restrained: visible at play zoom,
+  // but never brighter than the traffic and junction geometry.
+  pathOnCanvas(points);
+  ctx!.strokeStyle='#f0e2b8';ctx!.globalAlpha=.84;
+  ctx!.lineWidth=Math.max(1,.052*camera.zoom);
+  ctx!.setLineDash([.82*camera.zoom,.72*camera.zoom]);
+  ctx!.stroke();
+  ctx!.restore();
+
+  // Small reflective verge posts make the highway legible against the meadow.
+  for(let x=-17;x<=17;x+=3.4){
+    if(Math.abs(x+8)<1.8||Math.abs(x-18)<2.2)continue;
+    for(const side of [-1,1]){
+      const p=worldToScreen({x,y:-13+side*.91}),z=camera.zoom;
+      ctx!.save();
+      ctx!.fillStyle='rgba(66,82,65,.15)';
+      ctx!.beginPath();ctx!.ellipse(p.x+.035*z,p.y+.055*z,.105*z,.055*z,0,0,Math.PI*2);ctx!.fill();
+      ctx!.fillStyle='#d7d8c6';roundedRect(ctx!,p.x-.035*z,p.y-.14*z,.07*z,.27*z,.025*z);ctx!.fill();
+      ctx!.fillStyle='#f6e8bd';roundedRect(ctx!,p.x-.043*z,p.y-.12*z,.086*z,.065*z,.02*z);ctx!.fill();
+      ctx!.restore();
+    }
+  }
+}
+
 function drawTerrain(){
   const ground=ctx!.createLinearGradient(0,0,width,height);ground.addColorStop(0,'#edf0e3');ground.addColorStop(.52,'#e6ebdc');ground.addColorStop(1,'#dfe8d7');ctx!.fillStyle=ground;ctx!.fillRect(0,0,width,height);
   const s=camera.zoom;
@@ -646,7 +688,7 @@ function drawVillageLife(){
 
 function render(){
   ctx!.clearRect(0,0,width,height);
-  drawTerrain();drawDecor();drawRoadNetwork();
+  drawTerrain();drawDecor();drawRoadNetwork();drawRoadDetails();
   drawFarmDetails();
   drawBarn(-13,-4);
   drawHouse(-6.5,-3.2,1.05,'#f3e6c8','#d98d75');
