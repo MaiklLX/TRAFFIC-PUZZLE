@@ -31,6 +31,8 @@ A mobile-first, strictly top-down 2D traffic-planning puzzle. Connect a growing 
 
 ## Current milestones
 
+- КТ-084 — building entrances that already sit beside a road can connect through a short apron to that exact projected road segment; the exception is endpoint-local and does not open parallel corridors. The medical-center spawn also invalidates cached route previews when its obstacle/access enters the map.
+
 - КТ-083 — restored endpoint connectivity after KT-080 over-rejected exact-to-grid snap segments; selected network anchors now have a short local apron independent of snap angle, and building exits allow a wider but bounded outward corridor.
 - КТ-082 — anchor snapping now chooses the closest physical target: a road tap is no longer stolen by a nearby building access pin, while exact ties still prefer the building entrance.
 - КТ-081 — route selection now retains the exact anchor type instead of re-resolving a coordinate on the next tap; preview and commit use identical endpoint permissions and smoothed-path validation, while preview A* is cached and no longer reruns on every animation frame.
