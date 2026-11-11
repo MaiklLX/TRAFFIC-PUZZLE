@@ -42,6 +42,7 @@ A mobile-first, strictly top-down 2D traffic-planning puzzle. Connect a growing 
 - КТ-073 — road routing now reserves existing road corridors, farm fields and orchard parcels; growth buildings check both their footprint and access against all roads; A* penalizes unnecessary turns and the resulting route is shortcut-simplified and collision-checked after curve smoothing.
 - КТ-074 — completed roads remain valid construction targets even without active traffic.
 - КТ-075 — network connection clearance is restricted to the exact selected road segment rather than a circular area that could include parallel roads; obstacle checks now use the same smoothed centreline geometry that is actually rendered.
+- КТ-076 — road routing distinguishes true crossings from parallel overlap: perpendicular/diagonal crossings become graph junctions, while travelling along an occupied road corridor stays blocked; junction edge highlights are trimmed at the shared mouth to remove crossing seams.
 - Growth buildings are collision-checked, join the road graph only through player-built access, and never appear as random map clutter.
 
 ## Run locally
