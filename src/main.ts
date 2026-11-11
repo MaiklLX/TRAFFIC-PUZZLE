@@ -48,6 +48,7 @@ const obstacles = [
 const builtRoads: Road[] = [];
 const constructionJobs: Road[] = [];
 const vehicles: Vehicle[] = [];
+const congestedVehicles=new Set<Vehicle>();
 const missionCount = document.querySelector<HTMLElement>('.mission-count');
 const missionProgress = document.querySelector<HTMLElement>('.progress span');
 const buildMessage = document.querySelector<HTMLElement>('#build-message');
@@ -1176,7 +1177,6 @@ reachableDestinations=tripDestinations.filter(destination=>reachableTrips.some(t
 updateDestinationBoard();
 let trafficSpawnTimer=5.5;
 let trafficHudTimer=0;
-const congestedVehicles=new Set<Vehicle>();
 function refreshCongestionSnapshot(poses=vehicles.map(vehicle=>vehiclePose(vehicle))){
   congestedVehicles.clear();
   const junctions=cachedTrafficJunctions??(cachedTrafficJunctions=collectRoadJunctions());
