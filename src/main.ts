@@ -594,6 +594,20 @@ function drawSchool(x:number,y:number,scale=1){
   ctx!.fillStyle='#d8c8a8';roundedRect(ctx!,-.82*s,1.08*s,1.64*s,.3*s,.08*s);ctx!.fill();
   ctx!.fillStyle='#e7d6a8';ctx!.beginPath();ctx!.arc(0,-.98*s,.18*s,0,Math.PI*2);ctx!.fill();ctx!.restore();
 }
+function drawMedicalCenter(x:number,y:number,scale=1){
+  const p=worldToScreen({x,y}),s=camera.zoom*scale;ctx!.save();ctx!.translate(p.x,p.y);
+  ctx!.fillStyle='#d5e2c5';roundedRect(ctx!,-2.05*s,-1.55*s,4.1*s,3.1*s,.38*s);ctx!.fill();
+  ctx!.fillStyle='#9ba98d';ctx!.globalAlpha=.2;roundedRect(ctx!,-1.65*s,-.9*s,3.3*s,2.3*s,.2*s);ctx!.fill();ctx!.globalAlpha=1;
+  ctx!.fillStyle='#eee8d8';roundedRect(ctx!,-1.72*s,-1.12*s,3.44*s,2.3*s,.18*s);ctx!.fill();
+  ctx!.fillStyle='#789b8a';ctx!.beginPath();ctx!.moveTo(-1.95*s,-1.02*s);ctx!.lineTo(-1.32*s,-1.5*s);ctx!.lineTo(1.32*s,-1.5*s);ctx!.lineTo(1.95*s,-1.02*s);ctx!.lineTo(1.76*s,-.72*s);ctx!.lineTo(-1.76*s,-.72*s);ctx!.closePath();ctx!.fill();
+  ctx!.strokeStyle='#688875';ctx!.lineWidth=Math.max(1,.045*s);ctx!.stroke();
+  ctx!.fillStyle='#b6d8d2';for(const wx of [-1.15,1.15]){roundedRect(ctx!,(wx-.2)*s,-.32*s,.4*s,.48*s,.05*s);ctx!.fill();}
+  ctx!.fillStyle='#d5b982';roundedRect(ctx!,-.3*s,.35*s,.6*s,.83*s,.06*s);ctx!.fill();
+  ctx!.fillStyle='#7d9e8a';roundedRect(ctx!,-.46*s,-.55*s,.92*s,.92*s,.12*s);ctx!.fill();
+  ctx!.fillStyle='#f3eee0';roundedRect(ctx!,-.13*s,-.43*s,.26*s,.68*s,.035*s);ctx!.fill();
+  roundedRect(ctx!,-.34*s,-.19*s,.68*s,.2*s,.035*s);ctx!.fill();
+  ctx!.restore();
+}
 function drawHouse(x:number,y:number,scale=1,wall='#f4e7c9',roof='#d98c73'){
   const p=worldToScreen({x,y}),s=camera.zoom*scale;ctx!.save();ctx!.translate(p.x,p.y);
   // Garden plot, soft building shadow and a real roof silhouette.
@@ -745,6 +759,7 @@ function drawMapLabels(){
   drawWorldLabel('МАГАЗИН',{x:11,y:-7.45});
   drawWorldLabel('САД',{x:16.8,y:-7.9});
   if(activeGrowthBuildings.length)drawWorldLabel('НОВЫЙ РАЙОН',{x:-19,y:10.55},'#718b76');
+  if(activeGrowthBuildings.some(building=>building.kind==='clinic'))drawWorldLabel('МЕДПУНКТ',{x:19,y:-6.45},'#718b76');
 }
 function drawVillageLife(){
   // Tiny residents walk slowly around their yards with a visible gait and shadow.
@@ -840,7 +855,7 @@ function drawStaticMapLayer(){
     drawHouse(2.8,8.3,.8,'#f2e9d5','#c98b76');
     drawHouse(-5,-9,.72,'#e8e4d0','#81a9a0');
     drawShop(11,-5);drawFuelStation(-8,-16.1);
-    for(const building of activeGrowthBuildings){if(building.kind==='school')drawSchool(building.position.x,building.position.y,building.scale);else drawHouse(building.position.x,building.position.y,building.scale,building.wall,building.roof);}
+    for(const building of activeGrowthBuildings){if(building.kind==='school')drawSchool(building.position.x,building.position.y,building.scale);else if(building.kind==='clinic')drawMedicalCenter(building.position.x,building.position.y,building.scale);else drawHouse(building.position.x,building.position.y,building.scale,building.wall,building.roof);}
     const trees=[[-14,-10,1.1],[-17,-4,.85],[-16,1,.9],[-12,10,1.05],[4,12,.9],[15,4,1.05],[14,-9,.85],[-19,-12,.75],[20,12,1],[19,-10,.8]] as const;
     for(const [x,y,size] of trees)drawTree(x,y,size);
   }finally{
@@ -1045,10 +1060,11 @@ const trafficDestinations:TrafficDestination[]=[
 ];
 const homeLocations=trafficDestinations.filter(item=>item.id.endsWith('-home'));
 const initialHomeLocations=[...homeLocations];
-type GrowthSite={id:string;name:string;position:Point;access:Point;color:string;weight:number;scale:number;wall:string;roof:string;obstacleRadius:number;kind:'house'|'school'};
+type GrowthSite={id:string;name:string;position:Point;access:Point;color:string;weight:number;scale:number;wall:string;roof:string;obstacleRadius:number;kind:'house'|'school'|'clinic'};
 const growthSites:GrowthSite[]=[
   {id:'northwest-home',name:'Новый дом на опушке',position:{x:-19,y:13},access:{x:-19,y:14.65},color:'#9db8a0',weight:1,scale:.78,wall:'#eee6d2',roof:'#8ea88e',obstacleRadius:1.8,kind:'house'},
-  {id:'school',name:'Школа в долине',position:{x:-9.5,y:14.2},access:{x:-9.5,y:16.65},color:'#8fae91',weight:2,scale:.92,wall:'#e9e2ce',roof:'#8da68a',obstacleRadius:2.2,kind:'school'}
+  {id:'school',name:'Школа в долине',position:{x:-9.5,y:14.2},access:{x:-9.5,y:16.65},color:'#8fae91',weight:2,scale:.92,wall:'#e9e2ce',roof:'#8da68a',obstacleRadius:2.2,kind:'school'},
+  {id:'medical-center',name:'Медпункт у восточной окраины',position:{x:19,y:-4},access:{x:19,y:-1.55},color:'#83a99b',weight:2,scale:.88,wall:'#eee8d8',roof:'#789b8a',obstacleRadius:1.9,kind:'clinic'}
 ];
 const activeGrowthBuildings:GrowthSite[]=[];
 let settlementGrowthStage=0;
@@ -1328,6 +1344,16 @@ function advanceNextGrowthSite(index:number){
   trafficOrigins.push({id:destination.id,name:destination.name,access:{...destination.access},color:destination.color,weight:destination.weight});
   settlementGrowthStage=3;staticLayerDirty=true;refreshVehicleRoutes();
 }
+function advanceMedicalGrowth(){
+  if(settlementGrowthStage!==4)return;
+  const site=growthSites.find(item=>item.id==='medical-center');
+  if(!site||!isGrowthSiteClear(site))return;
+  activeGrowthBuildings.push(site);obstacles.push({x:site.position.x,y:site.position.y,r:site.obstacleRadius,type:site.kind});
+  const destination:TrafficDestination={id:site.id,name:site.name,access:{...site.access},color:site.color,weight:site.weight};
+  trafficDestinations.push(destination);serviceLocations.push(destination);
+  trafficOrigins.push({id:destination.id,name:destination.name,access:{...destination.access},color:destination.color,weight:destination.weight});
+  settlementGrowthStage=5;staticLayerDirty=true;refreshVehicleRoutes();
+}
 function updateMission(){
   const barn=trafficDestinations.find(item=>item.id==='farm');
   const farmConnected=!!barn&&!!findRoadPath(barn.access,demoStart);
@@ -1338,12 +1364,17 @@ function updateMission(){
   if(newHomeConnected&&settlementGrowthStage===1)advanceNextGrowthSite(1);
   const school=trafficDestinations.find(item=>item.id==='school');
   const schoolConnected=!!school&&!!findRoadPath(school.access,demoStart);
-  if(schoolConnected)settlementGrowthStage=4;
+  if(schoolConnected&&settlementGrowthStage===3)settlementGrowthStage=4;
+  advanceMedicalGrowth();
+  const medicalCenter=trafficDestinations.find(item=>item.id==='medical-center');
+  const medicalConnected=!!medicalCenter&&!!findRoadPath(medicalCenter.access,demoStart);
+  if(medicalConnected&&settlementGrowthStage===5)settlementGrowthStage=6;
 
   // Mission progress is derived from four real network conditions, never a timer or a guessed percentage.
   const completed=[farmConnected,initialHomeConnected,newHomeConnected,schoolConnected].filter(Boolean).length;
-  const progress=Math.round(completed/4*100);
-  if(missionCount)missionCount.textContent=completed===4?'4/4 · ГОТОВО':completed+'/4 · В РАБОТЕ';
+  const secondPhase=schoolConnected;
+  const progress=secondPhase?(medicalConnected?100:0):Math.round(completed/4*100);
+  if(missionCount)missionCount.textContent=secondPhase?(medicalConnected?'2/2 · ГОТОВО':'1/2 · В РАБОТЕ'):(completed===4?'4/4 · ГОТОВО':completed+'/4 · В РАБОТЕ');
   if(missionProgress)missionProgress.style.width=progress+'%';
 
   const missionState=document.querySelector<HTMLElement>('#mission-state');
@@ -1367,11 +1398,21 @@ function updateMission(){
     if(settlementStatus)settlementStatus.textContent='ШКОЛА ЖДЁТ ПОДКЛЮЧЕНИЯ';
     if(missionObjectiveTitle)missionObjectiveTitle.textContent='Открой маршрут к школе';
     if(missionObjectiveHint)missionObjectiveHint.textContent='Подключение школы завершит сценарий';
+  }else if(settlementGrowthStage===4){
+    if(missionState)missionState.textContent='Первый вызов выполнен: ферма, жилой район, новый дом и школа связаны. Долине понадобилась медицинская помощь — появился новый медпункт.';
+    if(settlementStatus)settlementStatus.textContent='ВЫЗОВ 1 ВЫПОЛНЕН · ОТКРЫТ МЕДПУНКТ';
+    if(missionObjectiveTitle)missionObjectiveTitle.textContent='Новый вызов: медпункт';
+    if(missionObjectiveHint)missionObjectiveHint.textContent='Построй маршрут к восточной окраине';
+  }else if(settlementGrowthStage===5){
+    if(missionState)missionState.textContent='Медпункт открыт и уже создаёт поездки из жилых районов. Подключи его к сети, чтобы запустить новый поток.';
+    if(settlementStatus)settlementStatus.textContent='МЕДПУНКТ ЖДЁТ ПОДКЛЮЧЕНИЯ';
+    if(missionObjectiveTitle)missionObjectiveTitle.textContent='Подключи медпункт';
+    if(missionObjectiveHint)missionObjectiveHint.textContent='Открой маршрут к новому объекту';
   }else{
-    if(missionState)missionState.textContent='Все четыре цели выполнены. Дома связаны с фермой, магазином и школой — транспортная сеть долины работает.';
-    if(settlementStatus)settlementStatus.textContent='ШКОЛА ПОДКЛЮЧЕНА · СЦЕНАРИЙ ПРОЙДЕН';
-    if(missionObjectiveTitle)missionObjectiveTitle.textContent='Сеть долины создана';
-    if(missionObjectiveHint)missionObjectiveHint.textContent='Все объекты подключены · сценарий завершён';
+    if(missionState)missionState.textContent='Оба вызова выполнены. Теперь у долины есть связанная сеть для фермы, школы и медицинского пункта. Продолжай улучшать маршруты и следи за заторами.';
+    if(settlementStatus)settlementStatus.textContent='МЕДПУНКТ ПОДКЛЮЧЁН · СЕТЬ РАСТЁТ';
+    if(missionObjectiveTitle)missionObjectiveTitle.textContent='Второй вызов выполнен';
+    if(missionObjectiveHint)missionObjectiveHint.textContent='Сеть работает · можно развивать дальше';
   }
 }
 type RouteAnchor={point:Point;kind:'building'|'network';name:string};
