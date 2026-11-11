@@ -331,23 +331,59 @@ function collectRoadJunctions():{center:Point;arms:JunctionArm[]}[]{
   }
   return junctions.filter(junction=>junction.arms.length>=3).map(({center,arms})=>({center,arms}));
 }
+function drawRoadStateLine(points:Point[],color:string,dash:number[],alpha=1){
+  if(points.length<2)return;
+  ctx!.save();ctx!.globalAlpha=alpha;ctx!.strokeStyle=color;
+  ctx!.lineWidth=Math.max(1.15,camera.zoom*.052);ctx!.lineCap='round';ctx!.lineJoin='round';
+  ctx!.setLineDash(dash.map(value=>value*camera.zoom));
+  pathOnCanvas(smoothPoints(points));ctx!.stroke();ctx!.restore();
+}
+function drawOneWayMarkers(road:Road){
+  if(road.direction!=='forward'||road.progress<.999)return;
+  const points=smoothPoints(road.points),segments=points.slice(1).map((p,i)=>({a:points[i]!,b:p,length:distance(points[i]!,p)}));
+  const total=segments.reduce((sum,item)=>sum+item.length,0),spacing=5.2;
+  ctx!.save();ctx!.strokeStyle='rgba(255,246,218,.88)';ctx!.fillStyle='rgba(255,246,218,.88)';
+  ctx!.lineWidth=Math.max(1.2,camera.zoom*.075);ctx!.lineCap='round';ctx!.lineJoin='round';
+  for(let target=2.8;target<total-1;target+=spacing){
+    let walked=0;
+    for(const segment of segments){
+      if(target>walked+segment.length){walked+=segment.length;continue;}
+      const t=(target-walked)/Math.max(segment.length,.001);
+      const point={x:lerp(segment.a.x,segment.b.x,t),y:lerp(segment.a.y,segment.b.y,t)};
+      const angle=Math.atan2(segment.b.y-segment.a.y,segment.b.x-segment.a.x),p=worldToScreen(point),size=clamp(camera.zoom*.22,3.5,6.5);
+      ctx!.save();ctx!.translate(p.x,p.y);ctx!.rotate(angle);ctx!.beginPath();
+      ctx!.moveTo(-size,-size*.72);ctx!.lineTo(size*.25,0);ctx!.lineTo(-size,size*.72);ctx!.stroke();ctx!.restore();
+      break;
+    }
+  }
+  ctx!.restore();
+}
 function drawRoadNetwork(){
   const junctions=collectRoadJunctions();
   const base=staticRoads.map(road=>({points:staticRoadPath(road),progress:1,width:road.width}));
-  const complete=builtRoads.filter(road=>road.progress>=.999).map(road=>({points:road.points,progress:1,width:road.width}));
-  const constructing=builtRoads.filter(road=>road.progress<.999).map(road=>({points:road.points,progress:road.progress,width:road.width}));
-  // All finished streets share one pair of filled surface layers. Junction
-  // patches are calculated from their arms, so the asphalt is one connected shape.
-  strokeRoadNetworkGroup([...base,...complete],'#707d79','#cbd5c7',junctions);
-  // A restrained warm edge catches the light around the connected asphalt
-  // and visually blends the branch mouths into one continuous junction.
+  const complete=builtRoads.filter(road=>road.progress>=.999);
+  const construction=builtRoads.filter(road=>road.progress<.999);
+  const activeSources=new Set(roadGraph.edges.filter(edge=>edge.active).map(edge=>edge.source));
+  // Keep a single continuous asphalt surface; communicate network state with
+  // restrained centre strokes so branches never appear physically disconnected.
+  strokeRoadNetworkGroup([...base,...complete.map(road=>({points:road.points,progress:1,width:road.width}))],'#707d79','#cbd5c7',junctions);
   if(junctions.length){
     ctx!.save();ctx!.strokeStyle='rgba(245,239,218,.22)';
     ctx!.lineWidth=Math.max(.8,.035*camera.zoom);ctx!.lineJoin='round';
     for(const junction of junctions){ctx!.beginPath();appendJunctionSurface(junction,.17);ctx!.stroke();}
     ctx!.restore();
   }
-  for(const road of constructing)strokeRoad(road.points,road.progress,'#69777d',1,road.width);
+  for(let index=0;index<complete.length;index++){
+    const road=complete[index]!,active=activeSources.has('built-'+index);
+    if(active)drawRoadCentreLinePath(road.points,false,junctions);
+    else drawRoadStateLine(road.points,'#d8dfd1',[.16,.68],.82);
+    drawOneWayMarkers(road);
+  }
+  for(const road of construction){
+    strokeRoad(road.points,road.progress,'#69777d',1,road.width);
+    const sampled=smoothPoints(road.points);
+    drawRoadStateLine(sampled,'#e2c17f',[.22,.5],.9);
+  }
   if(staticRoads[0])drawRoadCentreLinePath(staticRoadPath(staticRoads[0]),true,junctions);
 }
 function drawRoadDetails(){
@@ -1134,9 +1170,38 @@ reachableDestinations=tripDestinations.filter(destination=>reachableTrips.some(t
 updateDestinationBoard();
 let trafficSpawnTimer=5.5;
 let trafficHudTimer=0;
+function countCongestedVehicles(poses=vehicles.map(vehicle=>vehiclePose(vehicle))){
+  const junctions=cachedTrafficJunctions??(cachedTrafficJunctions=collectRoadJunctions());
+  let count=0;
+  for(let i=0;i<vehicles.length;i++){
+    const vehicle=vehicles[i]!;
+    if(vehicle.speed>=vehicle.cruiseSpeed*.72)continue;
+    const pose=poses[i]!;
+    let constrained=false;
+    for(let j=0;j<vehicles.length&&!constrained;j++){
+      if(i===j)continue;
+      const leader=vehicles[j]!,other=poses[j]!;
+      const dx=other.x-pose.x,dy=other.y-pose.y;
+      const longitudinal=dx*pose.heading.x+dy*pose.heading.y;
+      const lateral=Math.abs(dx*pose.heading.y-dy*pose.heading.x);
+      const aligned=pose.heading.x*other.heading.x+pose.heading.y*other.heading.y>.72;
+      if(aligned&&longitudinal>1.25&&longitudinal<4.8&&lateral<.62&&leader.speed<leader.cruiseSpeed*.94)constrained=true;
+    }
+    if(!constrained){
+      for(const junction of junctions){
+        if(distance(pose,junction.center)>2.9)continue;
+        const projection=routeProjectionToPoint(vehicle.path,junction.center);
+        const remaining=projection.distance-vehicle.distance;
+        if(projection.lateral<2.35&&Math.abs(remaining)<2.15){constrained=true;break;}
+      }
+    }
+    if(constrained)count++;
+  }
+  return count;
+}
 function updateTrafficCounter(){
   if(trafficCount)trafficCount.textContent=String(vehicles.length);
-  if(jamCount)jamCount.textContent=String(vehicles.filter(vehicle=>vehicle.speed<.32).length);
+  if(jamCount)jamCount.textContent=String(countCongestedVehicles());
   if(fuelCount){const average=vehicles.length?vehicles.reduce((sum,vehicle)=>sum+vehicle.fuel/vehicle.fuelCapacity,0)/vehicles.length:1;fuelCount.textContent=vehicles.length?Math.round(average*100)+'%':'—';}
 }
 function chooseTrafficTrip(){
