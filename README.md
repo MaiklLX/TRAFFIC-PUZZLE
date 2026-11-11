@@ -31,12 +31,10 @@ A mobile-first, strictly top-down 2D traffic-planning puzzle. Connect a growing 
 
 ## Current milestones
 
-- КТ-046 — mobile-first fullscreen playfield.
-- КТ-047 — meaningful road endpoints and connected construction.
-- КТ-048 — destination reachability tied to the road graph.
-- КТ-049 — live traffic demand and congestion feedback.
-- КТ-050 — two-way trips between homes and services.
-- КТ-051 — congestion-aware routing and active-edge filtering (in progress).
+- КТ-065 — unified interface, mobile dispatcher and consistent controls.
+- КТ-066 — readable road states and congestion based on actual traffic constraints.
+- КТ-067 — first staged settlement expansion: a new residential site appears after the initial network is connected and adds real origin/destination demand.
+- Next — extend the growth chain with additional services and scenario progression, keeping building placement collision-safe and road-first.
 
 ## Run locally
 
