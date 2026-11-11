@@ -1384,10 +1384,10 @@ function updateMission(){
   const missionPhaseIndex=document.querySelector<HTMLElement>('.mission-title > span');
   const mapObjectiveIndex=document.querySelector<HTMLElement>('.objective-index');
   const chapterTitle=document.querySelector<HTMLElement>('.chapter-line b');
-  if(missionPhaseTitle)missionPhaseTitle.textContent=schoolConnected?'Медицинский маршрут':'Первое соединение';
-  if(missionPhaseIndex)missionPhaseIndex.textContent=schoolConnected?'02':'01';
-  if(mapObjectiveIndex)mapObjectiveIndex.textContent=schoolConnected?'02':'01';
-  if(chapterTitle)chapterTitle.textContent=schoolConnected?'МЕДИЦИНСКИЙ МАРШРУТ':'ПЕРВОЕ СОЕДИНЕНИЕ';
+  if(missionPhaseTitle)missionPhaseTitle.textContent=secondPhase?'Медицинский маршрут':'Первое соединение';
+  if(missionPhaseIndex)missionPhaseIndex.textContent=secondPhase?'02':'01';
+  if(mapObjectiveIndex)mapObjectiveIndex.textContent=secondPhase?'02':'01';
+  if(chapterTitle)chapterTitle.textContent=secondPhase?'МЕДИЦИНСКИЙ МАРШРУТ':'ПЕРВОЕ СОЕДИНЕНИЕ';
   if(settlementGrowthStage===0){
     if(missionState)missionState.textContent=farmConnected
       ?'Ферма подключена. Осталось связать с трассой хотя бы один жилой дом.'
@@ -1406,7 +1406,7 @@ function updateMission(){
     if(missionState)missionState.textContent='Школа построена. Подключи её к дорожной сети, чтобы открыть поездки между домами и школой.';
     if(settlementStatus)settlementStatus.textContent='ШКОЛА ЖДЁТ ПОДКЛЮЧЕНИЯ';
     if(missionObjectiveTitle)missionObjectiveTitle.textContent='Открой маршрут к школе';
-    if(missionObjectiveHint)missionObjectiveHint.textContent='Подключение школы завершит сценарий';
+    if(missionObjectiveHint)missionObjectiveHint.textContent='Подключение школы откроет следующий транспортный вызов';
   }else if(settlementGrowthStage===4){
     if(missionState)missionState.textContent='Первый вызов выполнен: ферма, жилой район, новый дом и школа связаны. Долине понадобилась медицинская помощь — появился новый медпункт.';
     if(settlementStatus)settlementStatus.textContent='ВЫЗОВ 1 ВЫПОЛНЕН · ОТКРЫТ МЕДПУНКТ';
