@@ -1597,40 +1597,54 @@ function findAutoRoadPath(start:Point,end:Point,allowStartNetwork=false,allowEnd
   const step=.75,ix0=Math.round(start.x/step),iy0=Math.round(start.y/step),ix1=Math.round(end.x/step),iy1=Math.round(end.y/step);
   const key=(x:number,y:number)=>x+','+y;
   const startKey=key(ix0,iy0),endKey=key(ix1,iy1);
-  const open=new Set<string>([startKey]),came=new Map<string,string>(),g=new Map<string,number>([[startKey,0]]),f=new Map<string,number>([[startKey,Math.hypot(ix1-ix0,iy1-iy0)]]);
   const coords=(id:string)=>id.split(',').map(Number) as [number,number];
   const directions=[[-1,0,1],[1,0,1],[0,-1,1],[0,1,1],[-1,-1,Math.SQRT2],[1,-1,Math.SQRT2],[-1,1,Math.SQRT2],[1,1,Math.SQRT2]] as const;
   const heuristic=(x:number,y:number)=>{const dx=Math.abs(ix1-x),dy=Math.abs(iy1-y);return Math.max(dx,dy)+(Math.SQRT2-1)*Math.min(dx,dy);};
-  const blocked=(x:number,y:number,fromX?:number,fromY?:number)=>{
-    const point={x:x*step,y:y*step};
-    const movement=fromX===undefined||fromY===undefined?undefined:{a:{x:fromX*step,y:fromY*step},b:point};
-    return routeCellBlocked(point,start,end,allowStartNetwork,allowEndNetwork,movement);
+  // Validate the actual movement segment at regular intervals. In particular,
+  // a diagonal step is not rejected merely because its two side cells touch asphalt.
+  const stepIsClear=(fromX:number,fromY:number,toX:number,toY:number)=>{
+    const a={x:fromX*step,y:fromY*step},b={x:toX*step,y:toY*step};
+    const length=distance(a,b),samples=Math.max(2,Math.ceil(length/.22));
+    for(let i=0;i<=samples;i++){
+      const t=i/samples;
+      const point={x:lerp(a.x,b.x,t),y:lerp(a.y,b.y,t)};
+      if(routeCellBlocked(point,start,end,allowStartNetwork,allowEndNetwork,{a,b}))return false;
+    }
+    return true;
   };
+  // Binary min-heap: avoids repeatedly scanning the entire open set on dense maps.
+  const heap:{id:string;score:number}[]=[];
+  const push=(item:{id:string;score:number})=>{
+    heap.push(item);let i=heap.length-1;
+    while(i>0){const parent=(i-1)>>1;if(heap[parent]!.score<=item.score)break;heap[i]=heap[parent]!;i=parent;}
+    heap[i]=item;
+  };
+  const pop=()=>{
+    if(!heap.length)return null;
+    const first=heap[0]!,last=heap.pop()!;
+    if(heap.length){let i=0;while(true){const left=i*2+1,right=left+1;if(left>=heap.length)break;let child=left;if(right<heap.length&&heap[right]!.score<heap[left]!.score)child=right;if(heap[child]!.score>=last.score)break;heap[i]=heap[child]!;i=child;}heap[i]=last;}
+    return first;
+  };
+  const came=new Map<string,string>(),g=new Map<string,number>([[startKey,0]]),f=new Map<string,number>([[startKey,heuristic(ix0,iy0)]]);
+  const closed=new Set<string>();
+  push({id:startKey,score:f.get(startKey)!});
   let found=false,iterations=0;
-  while(open.size&&iterations++<9000){
-    let current:string|null=null,best=Infinity;
-    for(const id of open){const score=f.get(id)??Infinity;if(score<best){best=score;current=id;}}
-    if(!current)break;
+  while(heap.length&&iterations++<50000){
+    const entry=pop();if(!entry)break;
+    const current=entry.id,currentScore=f.get(current)??Infinity;
+    if(entry.score>currentScore+1e-8||closed.has(current))continue;
     if(current===endKey){found=true;break;}
-    open.delete(current);
+    closed.add(current);
     const [x,y]=coords(current);
-    const previous=came.get(current),previousCoords=previous?coords(previous):null;
     for(const [dx,dy,cost] of directions){
       const nx=x+dx,ny=y+dy;
       if(nx*step<WORLD.minX+1||nx*step>WORLD.maxX-1||ny*step<WORLD.minY+1||ny*step>WORLD.maxY-1)continue;
-      if(blocked(nx,ny,x,y))continue;
-      if(dx!==0&&dy!==0&&(blocked(x+dx,y,x,y)||blocked(x,y+dy,x,y)))continue;
       const next=key(nx,ny);
-      let turnPenalty=0;
-      if(previousCoords){
-        const incomingX=x-previousCoords[0],incomingY=y-previousCoords[1];
-        const dot=(incomingX*dx+incomingY*dy)/(Math.hypot(incomingX,incomingY)*Math.hypot(dx,dy));
-        turnPenalty=.34*(1-dot);
-      }
-      const candidate=(g.get(current)??Infinity)+cost+turnPenalty;
-      if(candidate<(g.get(next)??Infinity)){
-        came.set(next,current);g.set(next,candidate);f.set(next,candidate+heuristic(nx,ny));open.add(next);
-      }
+      if(closed.has(next)||!stepIsClear(x,y,nx,ny))continue;
+      const candidate=(g.get(current)??Infinity)+cost;
+      if(candidate>=(g.get(next)??Infinity)-1e-8)continue;
+      came.set(next,current);g.set(next,candidate);
+      const score=candidate+heuristic(nx,ny);f.set(next,score);push({id:next,score});
     }
   }
   if(!found)return null;
