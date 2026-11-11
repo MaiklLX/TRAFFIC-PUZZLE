@@ -1581,8 +1581,10 @@ function isInsideEndpointApron(point:Point,anchor:Point,obstacle:{x:number;y:num
   const dx=point.x-anchor.x,dy=point.y-anchor.y;
   const outward=dx*ux+dy*uy;
   const lateral=Math.abs(dx*uy-dy*ux);
-  const apronLength=Math.min(3.2,Math.max(1.05,clearance-anchorDistance+1.05));
-  return outward>=-.12&&outward<=apronLength&&lateral<=1.2;
+  const apronLength=Math.min(4.2,Math.max(1.6,clearance-anchorDistance+1.55));
+  // The road may leave the access at a diagonal. Keep the exemption local,
+  // but do not force A* into one narrow ray that its 8-way grid cannot follow.
+  return outward>=-.35&&outward<=apronLength&&lateral<=2.1;
 }
 function routeCellBlocked(point:Point,start:Point,end:Point,allowStartNetwork=false,allowEndNetwork=false,movement?:{a:Point;b:Point},blockingRoads?:RouteCollisionIndex):number{
   for(const obstacle of obstacles){
@@ -1607,7 +1609,12 @@ function routeCellBlocked(point:Point,start:Point,end:Point,allowStartNetwork=fa
       // Test the crossing angle against the infinite local movement ray so every
       // A* cell through the asphalt width belongs to one deliberate crossing.
       let crossingAllowed=false;
-      if(move&&moveLength>.001){
+      // The explicitly selected network endpoint is an allowed short apron,
+      // regardless of the rounding vector's angle to the existing road.
+      const selectedStart=allowStartNetwork&&distance(start,point)<clearance+.55&&distanceToSegment(start,a,b)<.42;
+      const selectedEnd=allowEndNetwork&&distance(end,point)<clearance+.55&&distanceToSegment(end,a,b)<.42;
+      if(selectedStart||selectedEnd)crossingAllowed=true;
+      if(!crossingAllowed&&move&&moveLength>.001){
         const roadDx=b.x-a.x,roadDy=b.y-a.y,roadLength=Math.hypot(roadDx,roadDy);
         if(roadLength>.001){
           const sine=Math.abs(move.x*roadDy-move.y*roadDx)/(moveLength*roadLength);
@@ -1616,11 +1623,6 @@ function routeCellBlocked(point:Point,start:Point,end:Point,allowStartNetwork=fa
             const extended={a:{x:movement!.a.x-ux*reach,y:movement!.a.y-uy*reach},b:{x:movement!.b.x+ux*reach,y:movement!.b.y+uy*reach}};
             const crossing=segmentIntersection(extended.a,extended.b,a,b);
             crossingAllowed=!!crossing&&distance(point,crossing)<clearance+.42;
-            if(!crossingAllowed){
-              const selectedStart=allowStartNetwork&&distance(start,point)<clearance+.35&&distanceToSegment(start,a,b)<.28;
-              const selectedEnd=allowEndNetwork&&distance(end,point)<clearance+.35&&distanceToSegment(end,a,b)<.28;
-              crossingAllowed=selectedStart||selectedEnd;
-            }
           }
         }
       }
@@ -1669,11 +1671,8 @@ function findAutoRoadPath(start:Point,end:Point,allowStartNetwork=false,allowEnd
     }
     return true;
   };
-  // Exact access points must be physically connected to the lattice before A*
-  // is allowed to search. This catches snapped endpoints that land behind a
-  // building, inside a road corridor, or on the wrong side of a field.
-  if(distance(start,gridStart)>.015&&!connectorClear(start,gridStart))return null;
-  if(distance(end,gridEnd)>.015&&!connectorClear(gridEnd,end))return null;
+  // Preserve exact endpoints in the final path; do not reject the whole search
+  // because a sub-grid snap segment touches the selected endpoint's own apron.
   const key=(x:number,y:number)=>x+','+y;
   const startKey=key(ix0,iy0),endKey=key(ix1,iy1);
   const coords=(id:string)=>id.split(',').map(Number) as [number,number];
