@@ -31,6 +31,7 @@ A mobile-first, strictly top-down 2D traffic-planning puzzle. Connect a growing 
 
 ## Current milestones
 
+- КТ-082 — anchor snapping now chooses the closest physical target: a road tap is no longer stolen by a nearby building access pin, while exact ties still prefer the building entrance.
 - КТ-081 — route selection now retains the exact anchor type instead of re-resolving a coordinate on the next tap; preview and commit use identical endpoint permissions and smoothed-path validation, while preview A* is cached and no longer reruns on every animation frame.
 - КТ-080 — corrected building-access clearance: endpoint exemptions now form a short outward-facing corridor instead of opening an entire obstacle half-plane; exact access points are validated against their snapped grid points, the route grid is refined from 0.75 to 0.5 units, and both snapped endpoints remain in the reconstructed path.
 - КТ-065 — unified interface, mobile dispatcher and consistent controls.
