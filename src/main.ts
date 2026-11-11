@@ -51,6 +51,8 @@ const vehicles: Vehicle[] = [];
 const congestedVehicles=new Set<Vehicle>();
 const missionCount = document.querySelector<HTMLElement>('.mission-count');
 const missionProgress = document.querySelector<HTMLElement>('.progress span');
+const missionObjectiveTitle = document.querySelector<HTMLElement>('#objective-title');
+const missionObjectiveHint = document.querySelector<HTMLElement>('#objective-hint');
 const buildMessage = document.querySelector<HTMLElement>('#build-message');
 const trafficCount = document.querySelector<HTMLElement>('#traffic-count');
 const jamCount = document.querySelector<HTMLElement>('#jam-count');
@@ -1337,30 +1339,39 @@ function updateMission(){
   const school=trafficDestinations.find(item=>item.id==='school');
   const schoolConnected=!!school&&!!findRoadPath(school.access,demoStart);
   if(schoolConnected)settlementGrowthStage=4;
+
+  // Mission progress is derived from four real network conditions, never a timer or a guessed percentage.
+  const completed=[farmConnected,initialHomeConnected,newHomeConnected,schoolConnected].filter(Boolean).length;
+  const progress=Math.round(completed/4*100);
+  if(missionCount)missionCount.textContent=completed===4?'4/4 · ГОТОВО':completed+'/4 · В РАБОТЕ';
+  if(missionProgress)missionProgress.style.width=progress+'%';
+
   const missionState=document.querySelector<HTMLElement>('#mission-state');
   const settlementStatus=document.querySelector<HTMLElement>('#settlement-status');
   if(settlementGrowthStage===0){
-    if(missionCount)missionCount.textContent=farmConnected?'ЭТАП 2':'В РАБОТЕ';
-    if(missionProgress)missionProgress.style.width=farmConnected?'62%':'12%';
-    if(missionState)missionState.textContent=farmConnected?'Ферма подключена. Теперь свяжи с трассой любой жилой дом.':'Выбери въезд у амбара и точку на трассе';
-    if(settlementStatus)settlementStatus.textContent='ПОДКЛЮЧИ ФЕРМУ И ЖИЛОЙ РАЙОН';
+    if(missionState)missionState.textContent=farmConnected
+      ?'Ферма подключена. Осталось связать с трассой хотя бы один жилой дом.'
+      :initialHomeConnected
+        ?'Жилой район уже связан с трассой. Теперь подключи ферму.'
+        :'Подключи ферму и хотя бы один жилой дом к трассе. Порядок не важен.';
+    if(settlementStatus)settlementStatus.textContent=(farmConnected?'ФЕРМА ✓':'ФЕРМА')+' · '+(initialHomeConnected?'ЖИЛОЙ РАЙОН ✓':'ЖИЛОЙ РАЙОН');
+    if(missionObjectiveTitle)missionObjectiveTitle.textContent='Свяжи ферму и жилой район';
+    if(missionObjectiveHint)missionObjectiveHint.textContent='Нужны два реальных подключения к трассе';
   }else if(settlementGrowthStage===1){
-    if(missionCount)missionCount.textContent='НОВЫЙ РАЙОН';
-    if(missionProgress)missionProgress.style.width='78%';
     if(missionState)missionState.textContent='Долина расширилась: на северо-западной опушке появился новый дом. Подключи его к дорожной сети.';
     if(settlementStatus)settlementStatus.textContent='НОВЫЙ ДОМ · ОТКРЫТ НОВЫЙ СПРОС';
-  }else if(settlementGrowthStage===2){
-    if(missionCount)missionCount.textContent='РАЙОН РАСТЁТ';if(missionProgress)missionProgress.style.width='82%';
-    if(missionState)missionState.textContent='Новый дом подключён. Поселение получило школу — теперь свяжи её с дорожной сетью.';
-    if(settlementStatus)settlementStatus.textContent='ШКОЛА ПОЯВИЛАСЬ · НОВЫЙ МАРШРУТ';
+    if(missionObjectiveTitle)missionObjectiveTitle.textContent='Подключи новый жилой участок';
+    if(missionObjectiveHint)missionObjectiveHint.textContent='Новый дом уже создаёт спрос на поездки';
   }else if(settlementGrowthStage===3){
-    if(missionCount)missionCount.textContent='НОВАЯ ШКОЛА';if(missionProgress)missionProgress.style.width='91%';
-    if(missionState)missionState.textContent='Школа построена. Подключи её, чтобы открыть поездки между жилыми районами и школой.';
+    if(missionState)missionState.textContent='Школа построена. Подключи её к дорожной сети, чтобы открыть поездки между домами и школой.';
     if(settlementStatus)settlementStatus.textContent='ШКОЛА ЖДЁТ ПОДКЛЮЧЕНИЯ';
+    if(missionObjectiveTitle)missionObjectiveTitle.textContent='Открой маршрут к школе';
+    if(missionObjectiveHint)missionObjectiveHint.textContent='Подключение школы завершит сценарий';
   }else{
-    if(missionCount)missionCount.textContent='ДОЛИНА РАСТЁТ';if(missionProgress)missionProgress.style.width='100%';
-    if(missionState)missionState.textContent='Школа подключена. Теперь дома создают отдельный поток поездок к ферме, магазину и школе.';
-    if(settlementStatus)settlementStatus.textContent='ШКОЛА ПОДКЛЮЧЕНА · СЕТЬ РАСШИРЕНА';
+    if(missionState)missionState.textContent='Все четыре цели выполнены. Дома связаны с фермой, магазином и школой — транспортная сеть долины работает.';
+    if(settlementStatus)settlementStatus.textContent='ШКОЛА ПОДКЛЮЧЕНА · СЦЕНАРИЙ ПРОЙДЕН';
+    if(missionObjectiveTitle)missionObjectiveTitle.textContent='Сеть долины создана';
+    if(missionObjectiveHint)missionObjectiveHint.textContent='Все объекты подключены · сценарий завершён';
   }
 }
 type RouteAnchor={point:Point;kind:'building'|'network';name:string};
