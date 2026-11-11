@@ -45,6 +45,7 @@ A mobile-first, strictly top-down 2D traffic-planning puzzle. Connect a growing 
 - КТ-076 — road routing distinguishes true crossings from parallel overlap: perpendicular/diagonal crossings become graph junctions, while travelling along an occupied road corridor stays blocked; junction edge highlights are trimmed at the shared mouth to remove crossing seams.
 - КТ-077 — A* validates each actual movement segment, including diagonal crossings, instead of rejecting diagonals because adjacent side cells touch a road; a binary min-heap replaces the quadratic open-set scan and raises the safe search ceiling.
 - КТ-078 — road collision geometry is smoothed and collected once per route search, then reused for every A* sample and path-simplification check; this removes repeated full-road reconstruction from the hottest loop.
+- КТ-079 — collision segments are indexed in spatial buckets, so A* checks only nearby road geometry; failed searches now explain whether the route is blocked by a building, field/orchard, existing road or search limit. Building access points are prioritized over nearby road snapping.
 - Growth buildings are collision-checked, join the road graph only through player-built access, and never appear as random map clutter.
 
 ## Run locally
