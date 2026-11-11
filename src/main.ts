@@ -966,11 +966,12 @@ function rebuildRoadGraph(){
   };
   for(let sourceIndex=0;sourceIndex<sources.length;sourceIndex++){
     const source=sources[sourceIndex]!;
-    for(const segmentIndex of segmentsBySource[sourceIndex]!){
+    for(let localIndex=0;localIndex<segmentsBySource[sourceIndex]!.length;localIndex++){
+      const segmentIndex=segmentsBySource[sourceIndex]![localIndex]!;
       const splits=splitBySegment[segmentIndex]!;
       splits.sort((a,b)=>a.t-b.t);
       const unique=splits.filter((item,index)=>index===0||Math.abs(item.t-splits[index-1]!.t)>.0001);
-      const i=segmentsBySource[sourceIndex]!.indexOf(segmentIndex)+1;
+      const i=localIndex+1;
       for(let k=1;k<unique.length;k++){
         const from=getNode(unique[k-1]!.p),to=getNode(unique[k]!.p);
         if(from.id===to.id)continue;
