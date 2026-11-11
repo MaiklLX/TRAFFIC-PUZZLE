@@ -12,8 +12,12 @@ if (!mount) throw new Error('World mount not found');
 const canvas = document.createElement('canvas');
 canvas.setAttribute('aria-label', 'Игровое поле, вид сверху');
 mount.appendChild(canvas);
-const ctx = canvas.getContext('2d');
+let ctx: CanvasRenderingContext2D | null = canvas.getContext('2d');
 if (!ctx) throw new Error('Canvas 2D context is not available');
+let staticLayerCanvas: HTMLCanvasElement | null = null;
+let staticLayerDirty = true;
+let staticLayerCamera = { x: Number.NaN, y: Number.NaN, zoom: Number.NaN };
+let staticLayerWidth = 0, staticLayerHeight = 0, staticLayerDpr = 0;
 
 const WORLD = { minX: -23, maxX: 23, minY: -19, maxY: 17 };
 const roadHalfWidth = 0.95;
@@ -70,6 +74,7 @@ function resize(){
   canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);
   canvas.style.width=width+'px';canvas.style.height=height+'px';
   ctx!.setTransform(dpr,0,0,dpr,0,0);
+  staticLayerDirty = true;
   const fitZoom=getFitCameraZoom();
   if(!cameraInitialized){camera.zoom=fitZoom;cameraInitialized=true;}
   else camera.zoom=clamp(camera.zoom,Math.min(width/52,height/42),Math.min(width,height)/10);
@@ -754,25 +759,65 @@ function drawRouteAnchors(){
     drawPin(selected,'#dcae63',true,'ВЫБРАНО');
   }
 }
+function drawStaticMapLayer(){
+  const cameraChanged=staticLayerCamera.x!==camera.x||staticLayerCamera.y!==camera.y||staticLayerCamera.zoom!==camera.zoom;
+  const sizeChanged=staticLayerWidth!==width||staticLayerHeight!==height||staticLayerDpr!==dpr;
+  if(!staticLayerDirty&&!cameraChanged&&!sizeChanged&&staticLayerCanvas)return;
+
+  if(!staticLayerCanvas)staticLayerCanvas=document.createElement('canvas');
+  const pixelWidth=Math.max(1,Math.round(width*dpr)),pixelHeight=Math.max(1,Math.round(height*dpr));
+  if(staticLayerCanvas.width!==pixelWidth)staticLayerCanvas.width=pixelWidth;
+  if(staticLayerCanvas.height!==pixelHeight)staticLayerCanvas.height=pixelHeight;
+  const layerContext=staticLayerCanvas.getContext('2d');
+  if(!layerContext)return;
+
+  const visibleContext=ctx!;
+  layerContext.setTransform(dpr,0,0,dpr,0,0);
+  layerContext.clearRect(0,0,width,height);
+  ctx=layerContext;
+  try{
+    drawTerrain();drawDecor();drawRoadNetwork();drawRoadDetails();
+    drawBarn(-13,-4);
+    drawHouse(-6.5,-3.2,1.05,'#f3e6c8','#d98d75');
+    drawHouse(7.7,1.7,.92,'#e8e4d0','#78a9a5');
+    drawHouse(-10.4,5.8,.88,'#f1e4c8','#e0b66f');
+    drawHouse(2.8,8.3,.8,'#f2e9d5','#c98b76');
+    drawHouse(-5,-9,.72,'#e8e4d0','#81a9a0');
+    drawShop(11,-5);drawFuelStation(-8,-16.1);
+    const trees=[[-14,-10,1.1],[-17,-4,.85],[-16,1,.9],[-12,10,1.05],[4,12,.9],[15,4,1.05],[14,-9,.85],[-19,-12,.75],[20,12,1],[19,-10,.8]] as const;
+    for(const [x,y,size] of trees)drawTree(x,y,size);
+  }finally{
+    ctx=visibleContext;
+  }
+  staticLayerCamera={x:camera.x,y:camera.y,zoom:camera.zoom};
+  staticLayerWidth=width;staticLayerHeight=height;staticLayerDpr=dpr;
+  staticLayerDirty=false;
+}
 function render(){
   ctx!.clearRect(0,0,width,height);
-  drawTerrain();drawDecor();drawRoadNetwork();drawRoadDetails();
-  drawBarn(-13,-4);
-  drawHouse(-6.5,-3.2,1.05,'#f3e6c8','#d98d75');
-  drawHouse(7.7,1.7,.92,'#e8e4d0','#78a9a5');
-  drawHouse(-10.4,5.8,.88,'#f1e4c8','#e0b66f');
-  drawHouse(2.8,8.3,.8,'#f2e9d5','#c98b76');
-  drawHouse(-5,-9,.72,'#e8e4d0','#81a9a0');
-  drawShop(11,-5);drawFuelStation(-8,-16.1);
-  const trees=[[-14,-10,1.1],[-17,-4,.85],[-16,1,.9],[-12,10,1.05],[4,12,.9],[15,4,1.05],[14,-9,.85],[-19,-12,.75],[20,12,1],[19,-10,.8]] as const;
-  for(const [x,y,size] of trees)drawTree(x,y,size);
+  drawStaticMapLayer();
+  if(staticLayerCanvas)ctx!.drawImage(staticLayerCanvas,0,0,width,height);
+  else{
+    // Safe fallback for browsers that cannot create an offscreen 2D context.
+    drawTerrain();drawDecor();drawRoadNetwork();drawRoadDetails();
+    drawBarn(-13,-4);
+    drawHouse(-6.5,-3.2,1.05,'#f3e6c8','#d98d75');
+    drawHouse(7.7,1.7,.92,'#e8e4d0','#78a9a5');
+    drawHouse(-10.4,5.8,.88,'#f1e4c8','#e0b66f');
+    drawHouse(2.8,8.3,.8,'#f2e9d5','#c98b76');
+    drawHouse(-5,-9,.72,'#e8e4d0','#81a9a0');
+    drawShop(11,-5);drawFuelStation(-8,-16.1);
+    const trees=[[-14,-10,1.1],[-17,-4,.85],[-16,1,.9],[-12,10,1.05],[4,12,.9],[15,4,1.05],[14,-9,.85],[-19,-12,.75],[20,12,1],[19,-10,.8]] as const;
+    for(const [x,y,size] of trees)drawTree(x,y,size);
+  }
   for(const vehicle of vehicles)drawCar(vehicle);
   drawMapLabels();drawRoutePreview();drawRouteAnchors();
   if(routeSelection.length){
     const p=worldToScreen(routeSelection[0]!);
     ctx!.save();ctx!.strokeStyle='#e3b768';ctx!.lineWidth=2;ctx!.setLineDash([4,4]);ctx!.beginPath();ctx!.arc(p.x,p.y,Math.max(11,camera.zoom*.42),0,Math.PI*2);ctx!.stroke();ctx!.restore();
   }
-}function segmentIntersection(a:Point,b:Point,c:Point,d:Point):Point|null{
+}
+function segmentIntersection(a:Point,b:Point,c:Point,d:Point):Point|null{
   const rx=b.x-a.x,ry=b.y-a.y,sx=d.x-c.x,sy=d.y-c.y;
   const denominator=rx*sy-ry*sx;
   if(Math.abs(denominator)<1e-8)return null;
@@ -1229,7 +1274,7 @@ function commitRouteConnection(start:RouteAnchor,end:RouteAnchor):boolean{
   const touchesHighway=(Math.abs(start.point.y+13)<1.25&&start.kind==='network')||(Math.abs(end.point.y+13)<1.25&&end.kind==='network');
   const connectsBuilding=start.kind==='building'||end.kind==='building';
   const road:Road={points:path,progress:0,width:roadHalfWidth*2,connectsVillageToHighway:touchesHighway&&connectsBuilding,direction};
-  builtRoads.push(road);constructionJobs.push(road);rebuildRoadGraph();refreshVehicleRoutes();updateMission();
+  builtRoads.push(road);staticLayerDirty=true;constructionJobs.push(road);rebuildRoadGraph();refreshVehicleRoutes();updateMission();
   if(buildMessage)buildMessage.textContent='Соединение создано: '+start.name+' — '+end.name+'. Дорога прокладывается автоматически.';
   return true;
 }
@@ -1337,6 +1382,7 @@ function animate(time:number){
     const job=constructionJobs[i]!;
     const before=job.progress;
     job.progress=clamp(job.progress+delta/Math.max(1.2,job.points.length*.32),0,1);
+    if(job.progress!==before)staticLayerDirty=true;
     if(before<1&&job.progress>=1){constructionJobs.splice(i,1);networkChanged=true;}
   }
   if(networkChanged){rebuildRoadGraph();refreshVehicleRoutes();updateMission();}
