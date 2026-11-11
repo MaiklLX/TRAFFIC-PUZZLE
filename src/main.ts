@@ -40,6 +40,10 @@ const staticRoads: { a: Point; b: Point; points?: Point[]; width: number; direct
   {a:{x:-18,y:-13},b:{x:18,y:-13},width:1.55}
 ];
 function staticRoadPath(road:{a:Point;b:Point;points?:Point[]}):Point[]{return road.points??[road.a,road.b];}
+const terrainNoBuildZones=[
+  {id:'farm-field',x:-15,y:6.1,halfWidth:2.85,halfHeight:2.15},
+  {id:'orchard',x:16.8,y:-4.8,halfWidth:2.8,halfHeight:2.3}
+];
 const obstacles = [
   {x:-6.5,y:-3.2,r:2.15,type:'house'},{x:7.7,y:1.7,r:1.95,type:'house'},{x:-10.4,y:5.8,r:1.85,type:'house'},{x:2.8,y:8.3,r:1.75,type:'house'},{x:-5,y:-9,r:1.55,type:'house'},
   {x:11,y:-5,r:2.25,type:'shop'},{x:-13,y:-4,r:2.35,type:'barn'},
@@ -1106,7 +1110,7 @@ type GrowthSite={id:string;name:string;position:Point;access:Point;color:string;
 const growthSites:GrowthSite[]=[
   {id:'northwest-home',name:'Новый дом на опушке',position:{x:-19,y:13},access:{x:-19,y:14.65},color:'#9db8a0',weight:1,scale:.78,wall:'#eee6d2',roof:'#8ea88e',obstacleRadius:1.8,kind:'house'},
   {id:'school',name:'Школа в долине',position:{x:-8.5,y:13},access:{x:-8.5,y:10.55},color:'#8fae91',weight:2,scale:.92,wall:'#e9e2ce',roof:'#8da68a',obstacleRadius:2.2,kind:'school'},
-  {id:'medical-center',name:'Медпункт у восточной окраины',position:{x:19,y:-4},access:{x:19,y:-1.55},color:'#83a99b',weight:2,scale:.88,wall:'#eee8d8',roof:'#789b8a',obstacleRadius:1.9,kind:'clinic'}
+  {id:'medical-center',name:'Медпункт у восточной окраины',position:{x:20,y:-11.5},access:{x:20,y:-9.05},color:'#83a99b',weight:2,scale:.88,wall:'#eee8d8',roof:'#789b8a',obstacleRadius:1.9,kind:'clinic'}
 ];
 const activeGrowthBuildings:GrowthSite[]=[];
 let settlementGrowthStage=0;
@@ -1355,21 +1359,45 @@ function pointerPosition(event:MouseEvent):Point{
   const rect=canvas.getBoundingClientRect();return{x:event.clientX-rect.left,y:event.clientY-rect.top};
 }
 function clearRouteSelection(){routeSelection=[];render();}
+function isPointInTerrainZone(point:Point,clearance=0){
+  return terrainNoBuildZones.some(zone=>
+    Math.abs(point.x-zone.x)<zone.halfWidth+clearance&&
+    Math.abs(point.y-zone.y)<zone.halfHeight+clearance
+  );
+}
 function isGrowthSiteClear(site:GrowthSite){
-  // The building and its road access must both stay inside the A* construction envelope.
+  // Both the footprint and its access must fit the map, avoid terrain and stay clear of every road.
   if(site.position.x<WORLD.minX+2.8||site.position.x>WORLD.maxX-2.8||site.position.y<WORLD.minY+2.8||site.position.y>WORLD.maxY-2.8)return false;
   if(site.access.x<WORLD.minX+1||site.access.x>WORLD.maxX-1||site.access.y<WORLD.minY+1||site.access.y>WORLD.maxY-1)return false;
   if(obstacles.some(obstacle=>distance(site.position,obstacle)<site.obstacleRadius+obstacle.r+1.15))return false;
-  for(const road of staticRoads){
-    const points=staticRoadPath(road);
-    for(let i=1;i<points.length;i++)if(distanceToSegment(site.position,points[i-1]!,points[i]!)<site.obstacleRadius+road.width/2+1.1)return false;
+  if(obstacles.some(obstacle=>distance(site.access,obstacle)<obstacle.r+roadHalfWidth+.18))return false;
+  if(isPointInTerrainZone(site.position,site.obstacleRadius*.45)||isPointInTerrainZone(site.access,roadHalfWidth+.2))return false;
+  const roads=[
+    ...staticRoads.map(road=>({points:staticRoadPath(road),width:road.width})),
+    ...builtRoads.map(road=>({points:road.points,width:road.width}))
+  ];
+  for(const road of roads){
+    for(let i=1;i<road.points.length;i++){
+      if(distanceToSegment(site.position,road.points[i-1]!,road.points[i]!)<site.obstacleRadius+road.width/2+1.1)return false;
+    }
   }
   return true;
 }
+function findGrowthSitePlacement(site:GrowthSite):GrowthSite|null{
+  const offsets:Point[]=site.id==='school'
+    ?[{x:0,y:0},{x:0,y:1},{x:-1.2,y:1},{x:1.2,y:1},{x:-1.5,y:0},{x:1.5,y:0},{x:0,y:-1.5}]
+    :[{x:0,y:0}];
+  for(const offset of offsets){
+    const candidate:GrowthSite={...site,position:{x:site.position.x+offset.x,y:site.position.y+offset.y},access:{x:site.access.x+offset.x,y:site.access.y+offset.y}};
+    if(isGrowthSiteClear(candidate))return candidate;
+  }
+  return null;
+}
 function advanceSettlementGrowth(initialNetworkReady:boolean){
   if(!initialNetworkReady||settlementGrowthStage>0)return;
-  const site=growthSites[0];
-  if(!site||!isGrowthSiteClear(site))return;
+  const template=growthSites[0];
+  const site=template?findGrowthSitePlacement(template):null;
+  if(!site)return;
   activeGrowthBuildings.push(site);
   obstacles.push({x:site.position.x,y:site.position.y,r:site.obstacleRadius,type:site.kind});
   const destination:TrafficDestination={id:site.id,name:site.name,access:{...site.access},color:site.color,weight:site.weight};
@@ -1381,7 +1409,7 @@ function advanceSettlementGrowth(initialNetworkReady:boolean){
 }
 function advanceNextGrowthSite(index:number){
   if(settlementGrowthStage!==1)return;
-  const site=growthSites[index];if(!site||!isGrowthSiteClear(site))return;
+  const template=growthSites[index];const site=template?findGrowthSitePlacement(template):null;if(!site)return;
   activeGrowthBuildings.push(site);obstacles.push({x:site.position.x,y:site.position.y,r:site.obstacleRadius,type:site.kind});
   const destination:TrafficDestination={id:site.id,name:site.name,access:{...site.access},color:site.color,weight:site.weight};
   trafficDestinations.push(destination);serviceLocations.push(destination);
@@ -1390,8 +1418,9 @@ function advanceNextGrowthSite(index:number){
 }
 function advanceMedicalGrowth(){
   if(settlementGrowthStage!==4)return;
-  const site=growthSites.find(item=>item.id==='medical-center');
-  if(!site||!isGrowthSiteClear(site))return;
+  const template=growthSites.find(item=>item.id==='medical-center');
+  const site=template?findGrowthSitePlacement(template):null;
+  if(!site)return;
   activeGrowthBuildings.push(site);obstacles.push({x:site.position.x,y:site.position.y,r:site.obstacleRadius,type:site.kind});
   const destination:TrafficDestination={id:site.id,name:site.name,access:{...site.access},color:site.color,weight:site.weight};
   trafficDestinations.push(destination);serviceLocations.push(destination);
@@ -1485,9 +1514,9 @@ function resolveRouteAnchor(raw:Point):RouteAnchor|null{
   if(network&&distance(raw,network)<1.8)return{point:network,kind:'network',name:'Дорожная сеть'};
   return null;
 }
-function routeCellBlocked(point:Point,start:Point,end:Point){
+function routeCellBlocked(point:Point,start:Point,end:Point,allowStartNetwork=false,allowEndNetwork=false){
   for(const obstacle of obstacles){
-    const clearance=obstacle.r+roadHalfWidth+.34;
+    const clearance=obstacle.r+roadHalfWidth+.42;
     const d=distance(point,obstacle);
     if(d>=clearance)continue;
     const nearStart=distance(start,obstacle)<clearance+.2;
@@ -1496,9 +1525,48 @@ function routeCellBlocked(point:Point,start:Point,end:Point){
     if(nearEnd&&d>=distance(end,obstacle)-.08)continue;
     return true;
   }
+  // Roads must not be laid across cultivated parcels or the orchard.
+  if(isPointInTerrainZone(point,roadHalfWidth+.42))return true;
+  // Existing road corridors are reserved. A short exit/entry apron is allowed
+  // only at a deliberately selected road-network anchor.
+  const endpointApron=2.35;
+  const roads=[
+    ...staticRoads.map(road=>({points:staticRoadPath(road),width:road.width})),
+    ...builtRoads.map(road=>({points:road.points,width:road.width}))
+  ];
+  for(const road of roads){
+    const clearance=roadHalfWidth+road.width/2+.34;
+    for(let i=1;i<road.points.length;i++){
+      if(distanceToSegment(point,road.points[i-1]!,road.points[i]!)>=clearance)continue;
+      if(allowStartNetwork&&distance(point,start)<endpointApron)continue;
+      if(allowEndNetwork&&distance(point,end)<endpointApron)continue;
+      return true;
+    }
+  }
   return false;
 }
-function findAutoRoadPath(start:Point,end:Point):Point[]|null{
+function routeSegmentIsClear(a:Point,b:Point,start:Point,end:Point,allowStartNetwork:boolean,allowEndNetwork:boolean){
+  const length=distance(a,b),steps=Math.max(1,Math.ceil(length/.28));
+  for(let i=0;i<=steps;i++){
+    const t=i/steps;
+    if(routeCellBlocked({x:lerp(a.x,b.x,t),y:lerp(a.y,b.y,t)},start,end,allowStartNetwork,allowEndNetwork))return false;
+  }
+  return true;
+}
+function simplifyAutoRoadPath(path:Point[],start:Point,end:Point,allowStartNetwork:boolean,allowEndNetwork:boolean){
+  if(path.length<3)return path;
+  const simplified:Point[]=[path[0]!];
+  let index=0;
+  while(index<path.length-1){
+    let next=index+1;
+    for(let candidate=path.length-1;candidate>index+1;candidate--){
+      if(routeSegmentIsClear(path[index]!,path[candidate]!,start,end,allowStartNetwork,allowEndNetwork)){next=candidate;break;}
+    }
+    simplified.push(path[next]!);index=next;
+  }
+  return simplified;
+}
+function findAutoRoadPath(start:Point,end:Point,allowStartNetwork=false,allowEndNetwork=false):Point[]|null{
   const step=.75,ix0=Math.round(start.x/step),iy0=Math.round(start.y/step),ix1=Math.round(end.x/step),iy1=Math.round(end.y/step);
   const key=(x:number,y:number)=>x+','+y;
   const startKey=key(ix0,iy0),endKey=key(ix1,iy1);
@@ -1506,7 +1574,7 @@ function findAutoRoadPath(start:Point,end:Point):Point[]|null{
   const coords=(id:string)=>id.split(',').map(Number) as [number,number];
   const directions=[[-1,0,1],[1,0,1],[0,-1,1],[0,1,1],[-1,-1,Math.SQRT2],[1,-1,Math.SQRT2],[-1,1,Math.SQRT2],[1,1,Math.SQRT2]] as const;
   const heuristic=(x:number,y:number)=>{const dx=Math.abs(ix1-x),dy=Math.abs(iy1-y);return Math.max(dx,dy)+(Math.SQRT2-1)*Math.min(dx,dy);};
-  const blocked=(x:number,y:number)=>routeCellBlocked({x:x*step,y:y*step},start,end);
+  const blocked=(x:number,y:number)=>routeCellBlocked({x:x*step,y:y*step},start,end,allowStartNetwork,allowEndNetwork);
   let found=false,iterations=0;
   while(open.size&&iterations++<9000){
     let current:string|null=null,best=Infinity;
@@ -1515,12 +1583,20 @@ function findAutoRoadPath(start:Point,end:Point):Point[]|null{
     if(current===endKey){found=true;break;}
     open.delete(current);
     const [x,y]=coords(current);
+    const previous=came.get(current),previousCoords=previous?coords(previous):null;
     for(const [dx,dy,cost] of directions){
       const nx=x+dx,ny=y+dy;
       if(nx*step<WORLD.minX+1||nx*step>WORLD.maxX-1||ny*step<WORLD.minY+1||ny*step>WORLD.maxY-1)continue;
       if(blocked(nx,ny))continue;
       if(dx!==0&&dy!==0&&(blocked(x+dx,y)||blocked(x,y+dy)))continue;
-      const next=key(nx,ny),candidate=(g.get(current)??Infinity)+cost;
+      const next=key(nx,ny);
+      let turnPenalty=0;
+      if(previousCoords){
+        const incomingX=x-previousCoords[0],incomingY=y-previousCoords[1];
+        const dot=(incomingX*dx+incomingY*dy)/(Math.hypot(incomingX,incomingY)*Math.hypot(dx,dy));
+        turnPenalty=.34*(1-dot);
+      }
+      const candidate=(g.get(current)??Infinity)+cost+turnPenalty;
       if(candidate<(g.get(next)??Infinity)){
         came.set(next,current);g.set(next,candidate);f.set(next,candidate+heuristic(nx,ny));open.add(next);
       }
@@ -1530,15 +1606,18 @@ function findAutoRoadPath(start:Point,end:Point):Point[]|null{
   const cells:Point[]=[];let cursor=endKey;
   while(cursor!==startKey){const [x,y]=coords(cursor);cells.push({x:x*step,y:y*step});const previous=came.get(cursor);if(!previous)return null;cursor=previous;}
   cells.push({x:ix0*step,y:iy0*step});cells.reverse();
-  return [{...start},...cells.slice(0,-1),{...end}];
+  const raw=[{...start},...cells.slice(1,-1),{...end}];
+  return simplifyAutoRoadPath(raw,start,end,allowStartNetwork,allowEndNetwork);
 }
 function commitRouteConnection(start:RouteAnchor,end:RouteAnchor):boolean{
   if(distance(start.point,end.point)<1.05){if(buildMessage)buildMessage.textContent='Выбери две разные точки подключения.';return false;}
-  const path=findAutoRoadPath(start.point,end.point);
+  const path=findAutoRoadPath(start.point,end.point,start.kind==='network',end.kind==='network');
   if(!path||path.length<2){if(buildMessage)buildMessage.textContent='Здесь нельзя проложить дорогу. Выбери другую точку подключения.';return false;}
   const direction=(document.querySelector<HTMLSelectElement>('#road-direction')?.value??'both') as 'both'|'forward';
   const touchesHighway=(Math.abs(start.point.y+13)<1.25&&start.kind==='network')||(Math.abs(end.point.y+13)<1.25&&end.kind==='network');
   const connectsBuilding=start.kind==='building'||end.kind==='building';
+  // Final geometric guard: smoothing the centreline must not bring the road back into a blocked corridor.
+  for(let i=1;i<path.length;i++)if(!routeSegmentIsClear(path[i-1]!,path[i]!,start.point,end.point,start.kind==='network',end.kind==='network')){if(buildMessage)buildMessage.textContent='Маршрут пересекает занятую территорию или существующую дорогу. Выбери другие точки.';return false;}
   const road:Road={points:path,progress:0,width:roadHalfWidth*2,connectsVillageToHighway:touchesHighway&&connectsBuilding,direction};
   builtRoads.push(road);staticLayerDirty=true;constructionJobs.push(road);rebuildRoadGraph();refreshVehicleRoutes();updateMission();
   if(buildMessage)buildMessage.textContent='Соединение создано: '+start.name+' — '+end.name+'. Дорога прокладывается автоматически.';
