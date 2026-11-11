@@ -400,13 +400,13 @@ function drawTerrain(){
   const field=worldToScreen({x:-15,y:6.1});
   ctx!.fillStyle='#d3dfb7';roundedRect(ctx!,field.x-2.65*s,field.y-1.9*s,5.3*s,3.8*s,.35*s);ctx!.fill();
   ctx!.save();
-  for(let row=0;row<8;row++){
-    const y=field.y+(-1.48+row*.42)*s;
+  for(let row=0;row<6;row++){
+    const y=field.y+(-1.48+row*.56)*s;
     ctx!.strokeStyle=row%2?'#c0d19f':'#b4c58f';ctx!.globalAlpha=.78;ctx!.lineWidth=Math.max(1,.085*s);
     ctx!.beginPath();ctx!.moveTo(field.x-2.25*s,y);ctx!.quadraticCurveTo(field.x,y-.18*s,field.x+2.25*s,y);ctx!.stroke();
     ctx!.strokeStyle='#e8edcf';ctx!.globalAlpha=.68;ctx!.lineWidth=Math.max(.7,.025*s);
     ctx!.beginPath();ctx!.moveTo(field.x-2.2*s,y-.07*s);ctx!.quadraticCurveTo(field.x,y-.25*s,field.x+2.2*s,y-.07*s);ctx!.stroke();
-    for(let col=0;col<13;col++){const x=field.x+(-2.08+col*.345)*s+(row%2)*.06*s,yy=y+Math.sin(col*1.7+row)*.045*s;ctx!.fillStyle=col%3?'#91ad72':'#a8bd7e';ctx!.beginPath();ctx!.ellipse(x,yy,.045*s,.09*s,-.25,0,Math.PI*2);ctx!.fill();}
+    for(let col=0;col<9;col++){const x=field.x+(-2.08+col*.49)*s+(row%2)*.06*s,yy=y+Math.sin(col*1.7+row)*.045*s;ctx!.fillStyle=col%3?'#91ad72':'#a8bd7e';ctx!.beginPath();ctx!.ellipse(x,yy,.045*s,.09*s,-.25,0,Math.PI*2);ctx!.fill();}
   }
   ctx!.restore();
   const orchard=worldToScreen({x:16.8,y:-4.8});
@@ -420,12 +420,12 @@ function drawTerrain(){
   ctx!.fillStyle='#b7d2c6';ctx!.beginPath();ctx!.ellipse(pond.x-.08*s,pond.y-.04*s,4.34*s,3.02*s,-.18,0,Math.PI*2);ctx!.fill();
   ctx!.fillStyle='#a9d1d0';ctx!.beginPath();ctx!.moveTo(pond.x-4.1*s,pond.y-.2*s);ctx!.bezierCurveTo(pond.x-3.5*s,pond.y-3.1*s,pond.x+.9*s,pond.y-3.3*s,pond.x+3.8*s,pond.y-1.3*s);ctx!.bezierCurveTo(pond.x+4.6*s,pond.y+.8*s,pond.x+2*s,pond.y+2.8*s,pond.x-.8*s,pond.y+2.6*s);ctx!.bezierCurveTo(pond.x-3.4*s,pond.y+2.4*s,pond.x-4.7*s,pond.y+1.1*s,pond.x-4.1*s,pond.y-.2*s);ctx!.fill();
   ctx!.save();ctx!.strokeStyle='#d9ece2';ctx!.lineWidth=Math.max(1,.075*s);ctx!.globalAlpha=.72;
-  for(let i=0;i<4;i++){const yy=(-.72+i*.42)+Math.sin(ambientClock*.65+i)*.05;ctx!.beginPath();ctx!.moveTo(pond.x+(-1.8+i*.12)*s,pond.y+yy*s);ctx!.quadraticCurveTo(pond.x+(-.1+i*.12)*s,pond.y+(yy-.18)*s,pond.x+(1.45-i*.12)*s,pond.y+yy*s);ctx!.stroke();}
+  for(let i=0;i<2;i++){const yy=(-.42+i*.72)+Math.sin(ambientClock*.65+i)*.035;ctx!.beginPath();ctx!.moveTo(pond.x+(-1.8+i*.12)*s,pond.y+yy*s);ctx!.quadraticCurveTo(pond.x+(-.1+i*.12)*s,pond.y+(yy-.18)*s,pond.x+(1.45-i*.12)*s,pond.y+yy*s);ctx!.stroke();}
   for(const [dx,dy] of [[-2.1,-1.1],[1.85,.85],[.65,-1.8]] as const){ctx!.fillStyle='#83b49b';ctx!.beginPath();ctx!.arc(pond.x+dx*s,pond.y+dy*s,.2*s,.25,Math.PI*1.82);ctx!.lineTo(pond.x+dx*s,pond.y+dy*s);ctx!.fill();ctx!.fillStyle='#f4ead1';ctx!.beginPath();ctx!.arc(pond.x+(dx+.04)*s,pond.y+(dy-.02)*s,.045*s,0,Math.PI*2);ctx!.fill();}
   ctx!.restore();
   for(let i=0;i<18;i++){const angle=i/18*Math.PI*2,rx=4.42+Math.sin(i*3.1)*.12,ry=3.1+Math.cos(i*2.2)*.1,x=pond.x+Math.cos(angle)*rx*s,y=pond.y+Math.sin(angle)*ry*s;if(i%2===0){ctx!.strokeStyle='#849f77';ctx!.lineWidth=Math.max(1,.045*s);ctx!.beginPath();ctx!.moveTo(x,y);ctx!.lineTo(x+Math.sin(i)*.11*s,y-.23*s);ctx!.stroke();}else{ctx!.fillStyle='#d7cba9';ctx!.beginPath();ctx!.ellipse(x,y,.1*s,.065*s,.2,0,Math.PI*2);ctx!.fill();}}
   // Stable, sparse grass tufts and meadow flowers.
-  for(let i=0;i<116;i++){
+  for(let i=0;i<52;i++){
     const x=((i*37)%45)-22,y=((i*61)%35)-18;if(Math.hypot((x-16)/4.8,(y-7)/3.5)<1.08)continue;
     const p=worldToScreen({x,y}),size=Math.max(.7,.04*s)*(i%4===0?1.5:1);
     ctx!.save();ctx!.translate(p.x,p.y);ctx!.rotate((i%7)*.42);ctx!.strokeStyle=i%3===0?'#a4bb8f':'#b6c99e';ctx!.globalAlpha=.42;ctx!.lineWidth=Math.max(.65,.025*s);
@@ -737,26 +737,36 @@ function drawRouteAnchors(){
   if(selectedTool!=='road')return;
   const selected=routeSelection[0]??null;
   const connected=(id:string)=>reachableTrips.some(trip=>trip.origin.id===id||trip.destination.id===id);
-  const drawPin=(point:Point,color:string,active:boolean)=>{
-    const p=worldToScreen(point),r=Math.max(4.2,camera.zoom*.19);
-    ctx!.save();ctx!.fillStyle='#fffdf5';ctx!.globalAlpha=.96;ctx!.beginPath();ctx!.arc(p.x,p.y,r+3.5,0,Math.PI*2);ctx!.fill();
+  const drawPin=(point:Point,color:string,active:boolean,label?:string)=>{
+    const p=worldToScreen(point),r=clamp(camera.zoom*.24,7,10);
+    ctx!.save();
+    // A quiet halo keeps touch targets readable without turning the map into a pin board.
+    ctx!.fillStyle='#fffdf5';ctx!.globalAlpha=.96;ctx!.beginPath();ctx!.arc(p.x,p.y,r+3,0,Math.PI*2);ctx!.fill();
     ctx!.fillStyle=color;ctx!.beginPath();ctx!.arc(p.x,p.y,r,0,Math.PI*2);ctx!.fill();
-    ctx!.strokeStyle='#fffdf5';ctx!.lineWidth=1.5;ctx!.beginPath();ctx!.arc(p.x,p.y,r*.48,0,Math.PI*2);ctx!.stroke();
-    if(active){ctx!.strokeStyle='#dcae63';ctx!.lineWidth=2.2;ctx!.beginPath();ctx!.arc(p.x,p.y,r+6,0,Math.PI*2);ctx!.stroke();}
+    ctx!.strokeStyle='#fffdf5';ctx!.lineWidth=1.6;ctx!.beginPath();ctx!.arc(p.x,p.y,r*.42,0,Math.PI*2);ctx!.stroke();
+    if(active){ctx!.strokeStyle='#dcae63';ctx!.lineWidth=2.4;ctx!.beginPath();ctx!.arc(p.x,p.y,r+5,0,Math.PI*2);ctx!.stroke();}
+    if(label&&camera.zoom>=13){
+      ctx!.font='700 '+clamp(camera.zoom*.28,8,10)+'px Arial,sans-serif';
+      const textWidth=ctx!.measureText(label).width+12,h=18,x=p.x,y=p.y-r-15;
+      ctx!.fillStyle='#fffef7ed';roundedRect(ctx!,x-textWidth/2,y-h/2,textWidth,h,7);ctx!.fill();
+      ctx!.strokeStyle='#d9e3d5';ctx!.lineWidth=.8;ctx!.stroke();
+      ctx!.fillStyle='#536d5c';ctx!.textAlign='center';ctx!.textBaseline='middle';ctx!.fillText(label,x,y+.3);
+    }
     ctx!.restore();
   };
   for(const destination of trafficDestinations){
     const isConnected=connected(destination.id);
-    drawPin(destination.access,isConnected?'#78a486':'#d6ad70',!!selected&&distance(selected,destination.access)<.12);
+    const shortName=destination.id==='farm'?'ФЕРМА':destination.id==='market'?'МАГАЗИН':'ДОМ';
+    drawPin(destination.access,isConnected?'#78a486':'#d6ad70',!!selected&&distance(selected,destination.access)<.12,shortName);
   }
-  for(const station of fuelStations)drawPin(station.access,'#d6ad70',!!selected&&distance(selected,station.access)<.12);
-  for(let x=-16;x<=16;x+=4){
+  for(const station of fuelStations)drawPin(station.access,'#d6ad70',!!selected&&distance(selected,station.access)<.12,'АЗС');
+  // Fewer, evenly spaced highway anchors make the choice obvious and uncluttered.
+  for(let x=-16;x<=16;x+=8){
     const point={x,y:-13};
-    drawPin(point,'#f3f0df',!!selected&&distance(selected,point)<.12);
+    drawPin(point,'#8a9d8b',!!selected&&distance(selected,point)<.12,'ТРАССА');
   }
-  // The first chosen point is highlighted even when it lies mid-segment.
   if(selected&&!trafficDestinations.some(item=>distance(item.access,selected)<.12)&&Math.abs(selected.y+13)>.5){
-    drawPin(selected,'#dcae63',true);
+    drawPin(selected,'#dcae63',true,'ВЫБРАНО');
   }
 }
 function render(){
