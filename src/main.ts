@@ -1616,8 +1616,9 @@ function commitRouteConnection(start:RouteAnchor,end:RouteAnchor):boolean{
   const direction=(document.querySelector<HTMLSelectElement>('#road-direction')?.value??'both') as 'both'|'forward';
   const touchesHighway=(Math.abs(start.point.y+13)<1.25&&start.kind==='network')||(Math.abs(end.point.y+13)<1.25&&end.kind==='network');
   const connectsBuilding=start.kind==='building'||end.kind==='building';
-  // Final geometric guard: smoothing the centreline must not bring the road back into a blocked corridor.
-  for(let i=1;i<path.length;i++)if(!routeSegmentIsClear(path[i-1]!,path[i]!,start.point,end.point,start.kind==='network',end.kind==='network')){if(buildMessage)buildMessage.textContent='Маршрут пересекает занятую территорию или существующую дорогу. Выбери другие точки.';return false;}
+  // Validate the exact rounded centreline that will be rendered, not only the A* polyline.
+  const renderedPath=smoothPoints(path);
+  for(let i=1;i<renderedPath.length;i++)if(!routeSegmentIsClear(renderedPath[i-1]!,renderedPath[i]!,start.point,end.point,start.kind==='network',end.kind==='network')){if(buildMessage)buildMessage.textContent='Плавный маршрут задевает занятую территорию. Выбери другие точки.';return false;}
   const road:Road={points:path,progress:0,width:roadHalfWidth*2,connectsVillageToHighway:touchesHighway&&connectsBuilding,direction};
   builtRoads.push(road);staticLayerDirty=true;constructionJobs.push(road);rebuildRoadGraph();refreshVehicleRoutes();updateMission();
   if(buildMessage)buildMessage.textContent='Соединение создано: '+start.name+' — '+end.name+'. Дорога прокладывается автоматически.';
