@@ -1224,7 +1224,7 @@ function findAutoRoadPath(start:Point,end:Point):Point[]|null{
   const cells:Point[]=[];let cursor=endKey;
   while(cursor!==startKey){const [x,y]=coords(cursor);cells.push({x:x*step,y:y*step});const previous=came.get(cursor);if(!previous)return null;cursor=previous;}
   cells.push({x:ix0*step,y:iy0*step});cells.reverse();
-  return [{...start},...cells.slice(1,-1),{...end}];
+  return [{...start},...cells.slice(0,-1),{...end}];
 }
 function commitRouteConnection(start:RouteAnchor,end:RouteAnchor):boolean{
   if(distance(start.point,end.point)<1.05){if(buildMessage)buildMessage.textContent='Выбери две разные точки подключения.';return false;}
