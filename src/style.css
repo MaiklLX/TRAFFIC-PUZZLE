@@ -187,3 +187,34 @@ body{background:#e8ede0;color:var(--ink)}
 @media(max-width:800px){#app{background:#e8ede0;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}.topbar{height:48px;flex-basis:48px;padding:0 12px;background:linear-gradient(180deg,#f4f6ed,#e9eee2)}.brand b{font-size:12px}.brand small{font-size:7px;letter-spacing:1.1px}.view-button{width:39px;height:39px;border-radius:12px}.map-stage{inset:2px 0 0;border-radius:18px;box-shadow:0 8px 22px #4c694b18}.map-topline{top:12px;left:13px;font-size:7px}.map-location{top:34px;left:12px;padding:7px 10px;border-radius:11px;font-size:8px}.map-live{top:35px;right:12px;padding:7px 10px;font-size:7px}.map-objective{top:78px;left:12px;max-width:calc(100% - 24px);padding:10px 12px;border-radius:14px}.map-objective b{font-size:11px}.map-objective em{font-size:8px}.map-controls{right:12px;bottom:100px;gap:9px}.map-controls button{width:42px;height:42px;border-radius:14px;font-size:22px;background:#fbfcf3ed}.tool-rail{bottom:12px;min-height:68px;padding:7px 9px;gap:7px;border-color:#cfddce;border-radius:20px;background:#fbfcf0ed;box-shadow:0 10px 28px #425b452b}.tool{width:70px;min-width:70px;min-height:54px;border-radius:14px}.tool-glyph{font-size:23px}.tool b{font-size:9px}.build-hud{bottom:92px;padding:12px 13px;border-radius:16px}.build-hud p{font-size:10px}.road-direction-control{font-size:8px}}
 @media(max-width:420px){.map-objective{top:76px}.map-controls{bottom:96px}.tool-rail{gap:4px;padding:6px 7px}.tool{width:65px;min-width:65px}}
 @media(max-width:800px) and (orientation:landscape){.tool-rail{bottom:7px;min-height:56px;padding:5px 8px}.tool{width:60px;min-width:60px;min-height:45px}.map-controls{bottom:73px}.map-objective{top:64px}.build-hud{bottom:69px}}
+
+
+/* KT-057 — calm, minimal route-planning interface. */
+.tool-rail{gap:7px;padding:8px}
+.tool-rail .rail-divider,.tool-rail .tool.locked{display:none}
+.tool{min-width:68px;border-radius:12px}
+.tool.active{background:#e7f0e4;border-color:#c9ddc8;color:#47745a;box-shadow:inset 0 1px 0 #fff,0 2px 7px #557d5d12}
+.map-objective{border-color:#dbe4d6;background:#fffffff0;box-shadow:0 5px 18px #50694c12}
+.map-objective b{font-size:11px;letter-spacing:-.1px}
+.map-objective em{font-size:8px}
+.build-hud{border-color:#d5e1d1;background:#fffffff4;box-shadow:0 8px 22px #52694b18}
+.build-icon{background:#e7f0e4;color:#62876a}
+.build-head b{font-size:10px;letter-spacing:.35px}
+.build-head small{font-size:8px;color:#839287}
+.build-hud p{font-size:9px;line-height:1.55;color:#62786a}
+.undo-road{border-radius:10px;background:#f1f5ed;border-color:#dce6d8;color:#5f7b65}
+.map-location,.map-live{box-shadow:0 2px 8px #536b5010}
+.map-topline{opacity:.76}
+@media(max-width:800px){
+  .tool-rail{gap:8px;padding:6px 9px;min-height:62px;border-radius:18px}
+  .tool{min-width:76px;width:76px;min-height:49px}
+  .tool-glyph{font-size:21px}
+  .tool b{font-size:9px}
+  .build-hud{bottom:88px;left:10px;right:10px;padding:10px 12px}
+  .build-hud p{margin:7px 0;font-size:9px}
+  .map-objective{max-width:min(320px,calc(100% - 24px))}
+}
+@media(max-width:420px){
+  .tool-rail{gap:5px}
+  .tool{min-width:69px;width:69px}
+}
