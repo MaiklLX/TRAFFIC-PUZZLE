@@ -829,7 +829,9 @@ function segmentIntersection(a:Point,b:Point,c:Point,d:Point):Point|null{
 }
 const roadGraph:RoadGraph={nodes:[],edges:[]};
 const networkStatus=document.querySelector<HTMLElement>('#network-status');
+let cachedTrafficJunctions:{center:Point;arms:JunctionArm[]}[]|null=null;
 function rebuildRoadGraph(){
+  cachedTrafficJunctions=null;
   roadGraph.nodes.length=0;roadGraph.edges.length=0;
   const sources:{id:string;points:Point[];width:number;kind:'highway'|'local';direction:'both'|'forward'}[]=[
     ...staticRoads.map((r,i)=>({id:'base-'+i,points:smoothPoints(staticRoadPath(r)),width:r.width,kind:r.width>1.45?'highway' as const:'local' as const,direction:r.direction??'both'})),
@@ -1131,6 +1133,7 @@ reachableTrips=getReachableTrips();
 reachableDestinations=tripDestinations.filter(destination=>reachableTrips.some(trip=>trip.destination.id===destination.id));
 updateDestinationBoard();
 let trafficSpawnTimer=5.5;
+let trafficHudTimer=0;
 function updateTrafficCounter(){
   if(trafficCount)trafficCount.textContent=String(vehicles.length);
   if(jamCount)jamCount.textContent=String(vehicles.filter(vehicle=>vehicle.speed<.32).length);
@@ -1355,23 +1358,32 @@ function routeProjectionToPoint(path:Point[],point:Point){
   }
   return{lateral:bestLateral,distance:bestDistance};
 }
-function junctionYieldSpeeds(){
+function junctionYieldSpeeds(poses:{x:number;y:number;angle:number;heading:Point}[]){
   const limits=vehicles.map(vehicle=>vehicle.cruiseSpeed);
-  const junctions=collectRoadJunctions();
+  const junctions=cachedTrafficJunctions??(cachedTrafficJunctions=collectRoadJunctions());
   for(const junction of junctions){
-    const approaches=vehicles.map((vehicle,index)=>{
-      const projection=routeProjectionToPoint(vehicle.path,junction.center);
-      return{index,remaining:projection.distance-vehicle.distance,lateral:projection.lateral};
-    }).filter(item=>item.lateral<2.65&&item.remaining>=-1.45&&item.remaining<=5.6);
-    if(approaches.length<2)continue;
-    const occupants=approaches.filter(item=>Math.abs(item.remaining)<=1.45);
-    const winner=occupants.length
-      ?occupants.sort((a,b)=>a.index-b.index)[0]!
-      :approaches.filter(item=>item.remaining>0).sort((a,b)=>a.remaining-b.remaining||a.index-b.index)[0]!;
-    for(const item of approaches){
-      if(item.index!==winner.index&&item.remaining>-.9){
-        limits[item.index]=0;
+    let winner=-1,winnerRemaining=Infinity,hasOccupant=false;
+    const approaches:{index:number;remaining:number}[]=[];
+    for(let index=0;index<vehicles.length;index++){
+      const pose=poses[index]!;
+      const dx=pose.x-junction.center.x,dy=pose.y-junction.center.y;
+      // A vehicle farther than the approach window cannot affect this junction.
+      if(dx*dx+dy*dy>8.3*8.3)continue;
+      const projection=routeProjectionToPoint(vehicles[index]!.path,junction.center);
+      const remaining=projection.distance-vehicles[index]!.distance;
+      if(projection.lateral>=2.65||remaining< -1.45||remaining>5.6)continue;
+      approaches.push({index,remaining});
+      const occupant=Math.abs(remaining)<=1.45;
+      if(occupant){
+        if(!hasOccupant||index<winner){winner=index;winnerRemaining=remaining;}
+        hasOccupant=true;
+      }else if(!hasOccupant&&remaining>0&&(remaining<winnerRemaining||(remaining===winnerRemaining&&index<winner))){
+        winner=index;winnerRemaining=remaining;
       }
+    }
+    if(approaches.length<2)continue;
+    for(const approach of approaches){
+      if(approach.index!==winner&&approach.remaining>-.9)limits[approach.index]=0;
     }
   }
   return limits;
@@ -1390,7 +1402,7 @@ function animate(time:number){
   // Follow the vehicle directly ahead on the same lane. Braking is gradual,
   // and acceleration is slower than braking so gaps recover smoothly.
   const poses=vehicles.map(vehicle=>vehiclePose(vehicle));
-  const junctionLimits=junctionYieldSpeeds();
+  const junctionLimits=junctionYieldSpeeds(poses);
   // Spatial buckets limit car-following checks to nearby vehicles instead of
   // comparing every car with the entire fleet (quadratic work at peak traffic).
   const cellSize=2.6,buckets=new Map<string,number[]>();
@@ -1429,10 +1441,13 @@ function animate(time:number){
       if(vehicle.fuel>0)vehicle.stalled=false;
     }
   }
+  let vehiclesRemoved=false;
   for(let i=vehicles.length-1;i>=0;i--){
-    if(vehicles[i]!.distance>=vehicles[i]!.routeLength){vehicles.splice(i,1);updateTrafficCounter();updateDestinationBoard();}
+    if(vehicles[i]!.distance>=vehicles[i]!.routeLength){vehicles.splice(i,1);vehiclesRemoved=true;}
   }
-  updateTrafficCounter();
+  if(vehiclesRemoved){updateTrafficCounter();updateDestinationBoard();}
+  trafficHudTimer-=delta;
+  if(trafficHudTimer<=0){updateTrafficCounter();trafficHudTimer=.25;}
   trafficSpawnTimer-=delta;
   if(trafficSpawnTimer<=0){spawnTrafficVehicle();trafficSpawnTimer=getTrafficSpawnInterval();}
   render();requestAnimationFrame(animate);
