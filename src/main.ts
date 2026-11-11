@@ -16,56 +16,22 @@ const ctx = canvas.getContext('2d');
 if (!ctx) throw new Error('Canvas 2D context is not available');
 
 const WORLD = { minX: -23, maxX: 23, minY: -19, maxY: 17 };
-const roadGrid = 1.5;
+const roadGrid = .75;
 const roadHalfWidth = 0.95;
 let width = 1, height = 1, dpr = 1;
 let camera = { x: 0, y: -1, zoom: 20 };
 let cameraInitialized=false;
 let selectedTool = 'inspect';
-let drawing = false;
 let panning = false;
 let lastPointer: Point | null = null;
-let draft: Point[] = [];
-let pointerId: number | null = null;
+let routeSelection: Point[] = [];
+let routeHover: Point | null = null;
 const activePointers = new Map<number, Point>();
 let pinchStart: { distance: number; zoom: number; center: Point } | null = null;
 
 const staticRoads: { a: Point; b: Point; points?: Point[]; width: number; direction?: 'both'|'forward' }[] = [
-  // A single village spine branches from the federal highway and serves every building.
-  {a:{x:-18,y:-13},b:{x:18,y:-13},width:1.55},
-  {a:{x:-1,y:-10.5},b:{x:-.1,y:7.2},points:[
-    {x:-1,y:-10.5},{x:-.8,y:-9.6},{x:-.7,y:-8.5},{x:-.7,y:-7.1},
-    {x:-.7,y:-5.2},{x:-.7,y:-3.2},{x:-.4,y:-1.2},{x:-.1,y:1},
-    {x:-.1,y:3.2},{x:-.1,y:5.2},{x:-.1,y:7.2}
-  ],width:1.48},
-  // West branch: farm and two residential plots.
-  {a:{x:-.1,y:3.2},b:{x:-10.4,y:7.45},points:[
-    {x:-.1,y:3.2},{x:-2.2,y:3.7},{x:-4.3,y:4.2},{x:-6.4,y:4.7},
-    {x:-8.4,y:5.5},{x:-10.4,y:7.45}
-  ],width:1.18},
-  {a:{x:-4.3,y:4.2},b:{x:-10.55,y:-4},points:[
-    {x:-4.3,y:4.2},{x:-6.1,y:2.6},{x:-7.7,y:.5},{x:-9.1,y:-1.7},{x:-10.55,y:-4}
-  ],width:1.12},
-  {a:{x:-.7,y:-5.2},b:{x:-6.5,y:-1.65},points:[
-    {x:-.7,y:-5.2},{x:-2.1,y:-4.35},{x:-3.8,y:-3.15},{x:-5.1,y:-2.15},{x:-6.5,y:-1.65}
-  ],width:1.02},
-  {a:{x:-.7,y:-7.1},b:{x:-5,y:-7.35},points:[
-    {x:-.7,y:-7.1},{x:-2.1,y:-6.65},{x:-3.5,y:-6.85},{x:-5,y:-7.35}
-  ],width:.98},
-  // East branch: village home and market access.
-  {a:{x:-.1,y:5.2},b:{x:7.7,y:3.15},points:[
-    {x:-.1,y:5.2},{x:2.1,y:5.35},{x:4.1,y:4.95},{x:5.8,y:4.1},{x:7.7,y:3.15}
-  ],width:1.12},
-  {a:{x:-.1,y:7.2},b:{x:2.8,y:9.65},points:[
-    {x:-.1,y:7.2},{x:1.15,y:8.1},{x:1.95,y:8.95},{x:2.8,y:9.65}
-  ],width:.98},
-  {a:{x:18,y:-13},b:{x:11,y:-7.25},points:[
-    {x:18,y:-13},{x:15.8,y:-12.4},{x:13.8,y:-11.1},{x:12.2,y:-9.25},{x:11,y:-7.25}
-  ],width:1.16},
-  // The fuel station is connected directly to the highway via its forecourt.
-  {a:{x:-8,y:-13},b:{x:-8,y:-14.65},points:[
-    {x:-8,y:-13},{x:-8.35,y:-13.55},{x:-8.25,y:-14.1},{x:-8,y:-14.65}
-  ],width:1.05}
+  // The highway is the only pre-built road. Every local connection is a player decision.
+  {a:{x:-18,y:-13},b:{x:18,y:-13},width:1.55}
 ];
 function staticRoadPath(road:{a:Point;b:Point;points?:Point[]}):Point[]{return road.points??[road.a,road.b];}
 const obstacles = [
@@ -768,6 +734,31 @@ function drawVillageLife(){
   ctx!.globalAlpha=1;
 }
 
+function drawRouteAnchors(){
+  if(selectedTool!=='road')return;
+  const selected=routeSelection[0]??null;
+  const connected=(id:string)=>reachableTrips.some(trip=>trip.origin.id===id||trip.destination.id===id);
+  const drawPin=(point:Point,color:string,active:boolean)=>{
+    const p=worldToScreen(point),r=Math.max(4.2,camera.zoom*.19);
+    ctx!.save();ctx!.fillStyle='#fffdf5';ctx!.globalAlpha=.96;ctx!.beginPath();ctx!.arc(p.x,p.y,r+3.5,0,Math.PI*2);ctx!.fill();
+    ctx!.fillStyle=color;ctx!.beginPath();ctx!.arc(p.x,p.y,r,0,Math.PI*2);ctx!.fill();
+    ctx!.strokeStyle='#fffdf5';ctx!.lineWidth=1.5;ctx!.beginPath();ctx!.arc(p.x,p.y,r*.48,0,Math.PI*2);ctx!.stroke();
+    if(active){ctx!.strokeStyle='#dcae63';ctx!.lineWidth=2.2;ctx!.beginPath();ctx!.arc(p.x,p.y,r+6,0,Math.PI*2);ctx!.stroke();}
+    ctx!.restore();
+  };
+  for(const destination of trafficDestinations){
+    const isConnected=connected(destination.id);
+    drawPin(destination.access,isConnected?'#78a486':destination.color,!!selected&&distance(selected,destination.access)<.12);
+  }
+  for(let x=-16;x<=16;x+=4){
+    const point={x,y:-13};
+    drawPin(point,'#f3f0df',!!selected&&distance(selected,point)<.12);
+  }
+  // The first chosen point is highlighted even when it lies mid-segment.
+  if(selected&&!trafficDestinations.some(item=>distance(item.access,selected)<.12)&&Math.abs(selected.y+13)>.5){
+    drawPin(selected,'#dcae63',true);
+  }
+}
 function render(){
   ctx!.clearRect(0,0,width,height);
   drawTerrain();drawDecor();drawRoadNetwork();drawRoadDetails();
@@ -784,8 +775,11 @@ function render(){
   for(const [x,y,size] of trees)drawTree(x,y,size);
   for(const [x,y] of [[15.2,-3.8],[17.6,-3.7],[15.2,-5.8],[17.6,-5.8],[19,-4.8]] as const)drawTree(x,y,.58);
   for(const vehicle of vehicles)drawCar(vehicle);
-  drawMapLabels();
-  if(draft.length>1){const validation=validateRoadPath(draft);const valid=validation.valid;strokeRoad(draft,1,valid?'#e6b95f':'#d77d70',.95);const first=worldToScreen(draft[0]!);ctx!.fillStyle=valid?'#fff4d3':'#f9d2c8';ctx!.beginPath();ctx!.arc(first.x,.0+first.y,.2*camera.zoom,0,Math.PI*2);ctx!.fill();}
+  drawMapLabels();drawRouteAnchors();
+  if(routeSelection.length){
+    const p=worldToScreen(routeSelection[0]!);
+    ctx!.save();ctx!.strokeStyle='#e3b768';ctx!.lineWidth=2;ctx!.setLineDash([4,4]);ctx!.beginPath();ctx!.arc(p.x,p.y,Math.max(11,camera.zoom*.42),0,Math.PI*2);ctx!.stroke();ctx!.restore();
+  }
 }function segmentIntersection(a:Point,b:Point,c:Point,d:Point):Point|null{
   const rx=b.x-a.x,ry=b.y-a.y,sx=d.x-c.x,sy=d.y-c.y;
   const denominator=rx*sy-ry*sx;
@@ -839,8 +833,8 @@ function rebuildRoadGraph(){
   if(activeRoadCount)activeRoadCount.textContent=String(active);
 }
 // KT-011: graph-based shortest path for all demonstration vehicles.
-function nearestGraphNode(point:Point):RoadGraphNode|null{
-  let best:RoadGraphNode|null=null,bestDistance=Infinity;
+function nearestGraphNode(point:Point,maxDistance=Infinity):RoadGraphNode|null{
+  let best:RoadGraphNode|null=null,bestDistance=maxDistance;
   for(const node of roadGraph.nodes){const d=distance(point,node);if(d<bestDistance){bestDistance=d;best=node;}}
   return best;
 }
@@ -850,7 +844,7 @@ function nearestGraphNode(point:Point):RoadGraphNode|null{
 function classifyRoadActivity(){
   const anchorPoints=[demoStart,demoExit,...trafficDestinations.map(destination=>destination.access),...fuelStations.map(station=>station.access)];
   const anchors=new Set<number>();
-  for(const point of anchorPoints){const node=nearestGraphNode(point);if(node)anchors.add(node.id);}
+  for(const point of anchorPoints){const node=nearestGraphNode(point,1.85);if(node)anchors.add(node.id);}
   const activeIds=new Set(roadGraph.edges.map(edge=>edge.id));
   let changed=true;
   while(changed){
@@ -903,7 +897,7 @@ function estimatedRoadCost(edge:RoadGraphEdge,traffic:TrafficRouteSnapshot[]){
   return length*roadFactor*(1+congestionPenalty);
 }
 function findRoadPath(start:Point,end:Point):Point[]|null{
-  const source=nearestGraphNode(start),target=nearestGraphNode(end);
+  const source=nearestGraphNode(start,1.85),target=nearestGraphNode(end,1.85);
   if(!source||!target)return null;
   if(source.id===target.id)return[{x:source.x,y:source.y}];
   const traffic=vehicles.map(vehicle=>{
@@ -1141,6 +1135,7 @@ updateTrafficCounter();
 function nearestNetworkPoint(p:Point):Point|null{
   let nearest=Infinity,best:Point|null=null;
   for(const edge of roadGraph.edges){
+    if(!edge.active)continue;
     const a=roadGraph.nodes[edge.from]!,b=roadGraph.nodes[edge.to]!;
     const dx=b.x-a.x,dy=b.y-a.y;
     const t=clamp(((p.x-a.x)*dx+(p.y-a.y)*dy)/Math.max(dx*dx+dy*dy,.0001),0,1);
@@ -1251,56 +1246,124 @@ function pointerToGrid(event:PointerEvent):Point{
   const p=screenToWorld(pointerPosition(event));
   return{x:clamp(Math.round(p.x/roadGrid)*roadGrid,-18,18),y:clamp(Math.round(p.y/roadGrid)*roadGrid,-18,15)};
 }
-function clearDraft(){draft=[];drawing=false;render();}
+function clearRouteSelection(){routeSelection=[];routeHover=null;render();}
 function updateMission(){
-  const done=builtRoads.some(r=>r.connectsVillageToHighway);
+  const barn=trafficDestinations.find(item=>item.id==='farm');
+  const done=!!barn&&!!findRoadPath(barn.access,demoStart);
   if(missionCount)missionCount.textContent=done?'ВЫПОЛНЕНО':'В РАБОТЕ';
   if(missionProgress)missionProgress.style.width=done?'100%':'12%';
   const missionState=document.querySelector<HTMLElement>('#mission-state');
-  if(missionState)missionState.textContent=done?'Сеть получила новый маршрут':'Соедини федеральную трассу с поселением';
+  if(missionState)missionState.textContent=done?'Ферма связана с трассой — машины могут ехать':'Выбери въезд у амбара и точку на трассе';
 }
-function startRoad(event:PointerEvent){
-  if(selectedTool!=='road'||event.button!==0)return;
-  const raw=pointerToGrid(event);
-  const p=snapRoadEndpoint(raw);
-  if(!p){if(buildMessage)buildMessage.textContent='Начинай дорогу от существующей улицы, перекрёстка или въезда в объект.';return;}
-  if(!isBuildingAccess(p)&&obstacles.some(o=>Math.hypot(p.x-o.x,p.y-o.y)<o.r+roadHalfWidth)){if(buildMessage)buildMessage.textContent='Точка подключения перекрыта препятствием. Выбери другой подъезд.';return;}
-  drawing=true;pointerId=event.pointerId;draft=[p];canvas.setPointerCapture(event.pointerId);event.preventDefault();render();
+type RouteAnchor={point:Point;kind:'building'|'network';name:string};
+function resolveRouteAnchor(raw:Point):RouteAnchor|null{
+  let nearestBuilding:TrafficDestination|null=null,buildingDistance=2.75;
+  for(const destination of trafficDestinations){
+    const d=distance(raw,destination.access);
+    if(d<buildingDistance){buildingDistance=d;nearestBuilding=destination;}
+  }
+  if(nearestBuilding)return{point:{...nearestBuilding.access},kind:'building',name:nearestBuilding.name};
+  const network=nearestNetworkPoint(raw);
+  if(network&&distance(raw,network)<1.8)return{point:network,kind:'network',name:'Дорожная сеть'};
+  return null;
 }
-function finishRoad(event:PointerEvent){
-  if(!drawing||pointerId!==event.pointerId)return;
-  drawing=false;pointerId=null;
-  if(draft.length<2){draft=[];if(buildMessage)buildMessage.textContent='Наметь линию хотя бы на один участок.';render();return;}
-  // Snap both ends BEFORE validation: the validator must inspect the exact geometry
-  // that will be committed, not the unsnapped pointer approximation.
-  const firstSnap=snapRoadEndpoint(draft[0]!);
-  const lastIndex=draft.length-1,lastSnap=snapRoadEndpoint(draft[lastIndex]!);
-  if(!firstSnap||!lastSnap){draft=[];if(buildMessage)buildMessage.textContent='Не получилось подключить оба конца. Заверши линию на дороге, перекрёстке или въезде в здание.';render();return;}
-  draft[0]={...firstSnap};draft[lastIndex]={...lastSnap};
-  const validation=validateRoadPath(draft);
-  if(!validation.valid){draft=[];if(buildMessage)buildMessage.textContent='Проект отклонён: '+validation.reason;render();return;}
-  const touchesHighway=draft.some(p=>Math.abs(p.y+13)<=1.65&&Math.abs(p.x)<=18);
-  const touchesVillage=draft.some(p=>(Math.abs(p.x+1)<=1.65&&p.y>=-12&&p.y<=11)||(Math.abs(p.x)<=1.65&&p.y>=-12&&p.y<=-2)||(Math.abs(p.y-5)<=1.4&&p.x>=3&&p.x<=11)||(Math.abs(p.y-3)<=1.4&&p.x>=-11&&p.x<=-3));
+function routeCellBlocked(point:Point,start:Point,end:Point){
+  for(const obstacle of obstacles){
+    const clearance=obstacle.r+roadHalfWidth+.34;
+    const d=distance(point,obstacle);
+    if(d>=clearance)continue;
+    const nearStart=distance(start,obstacle)<clearance+.2;
+    const nearEnd=distance(end,obstacle)<clearance+.2;
+    if(nearStart&&d>=distance(start,obstacle)-.08)continue;
+    if(nearEnd&&d>=distance(end,obstacle)-.08)continue;
+    return true;
+  }
+  return false;
+}
+function findAutoRoadPath(start:Point,end:Point):Point[]|null{
+  const step=.75,ix0=Math.round(start.x/step),iy0=Math.round(start.y/step),ix1=Math.round(end.x/step),iy1=Math.round(end.y/step);
+  const key=(x:number,y:number)=>x+','+y;
+  const startKey=key(ix0,iy0),endKey=key(ix1,iy1);
+  const open=new Set<string>([startKey]),came=new Map<string,string>(),g=new Map<string,number>([[startKey,0]]),f=new Map<string,number>([[startKey,Math.hypot(ix1-ix0,iy1-iy0)]]);
+  const coords=(id:string)=>id.split(',').map(Number) as [number,number];
+  const directions=[[-1,0,1],[1,0,1],[0,-1,1],[0,1,1],[-1,-1,Math.SQRT2],[1,-1,Math.SQRT2],[-1,1,Math.SQRT2],[1,1,Math.SQRT2]] as const;
+  const heuristic=(x:number,y:number)=>{const dx=Math.abs(ix1-x),dy=Math.abs(iy1-y);return Math.max(dx,dy)+(Math.SQRT2-1)*Math.min(dx,dy);};
+  const blocked=(x:number,y:number)=>routeCellBlocked({x:x*step,y:y*step},start,end);
+  let found=false,iterations=0;
+  while(open.size&&iterations++<9000){
+    let current:string|null=null,best=Infinity;
+    for(const id of open){const score=f.get(id)??Infinity;if(score<best){best=score;current=id;}}
+    if(!current)break;
+    if(current===endKey){found=true;break;}
+    open.delete(current);
+    const [x,y]=coords(current);
+    for(const [dx,dy,cost] of directions){
+      const nx=x+dx,ny=y+dy;
+      if(nx*step<WORLD.minX+1||nx*step>WORLD.maxX-1||ny*step<WORLD.minY+1||ny*step>WORLD.maxY-1)continue;
+      if(blocked(nx,ny))continue;
+      if(dx!==0&&dy!==0&&(blocked(x+dx,y)||blocked(x,y+dy)))continue;
+      const next=key(nx,ny),candidate=(g.get(current)??Infinity)+cost;
+      if(candidate<(g.get(next)??Infinity)){
+        came.set(next,current);g.set(next,candidate);f.set(next,candidate+heuristic(nx,ny));open.add(next);
+      }
+    }
+  }
+  if(!found)return null;
+  const cells:Point[]=[];let cursor=endKey;
+  while(cursor!==startKey){const [x,y]=coords(cursor);cells.push({x:x*step,y:y*step});const previous=came.get(cursor);if(!previous)return null;cursor=previous;}
+  cells.push({x:ix0*step,y:iy0*step});cells.reverse();
+  const points=[{...start},...cells.slice(1,-1),{...end}];
+  // Remove redundant collinear grid nodes while retaining the safe A* corridor.
+  const compact:Point[]=[points[0]!];
+  for(let i=1;i<points.length-1;i++){
+    const a=compact[compact.length-1]!,b=points[i]!,c=points[i+1]!;
+    const abx=b.x-a.x,aby=b.y-a.y,bcx=c.x-b.x,bcy=c.y-b.y;
+    if(Math.abs(abx*bcy-aby*bcx)>.04)compact.push(b);
+  }
+  compact.push(points[points.length-1]!);
+  return compact;
+}
+function commitRouteConnection(start:RouteAnchor,end:RouteAnchor){
+  if(distance(start.point,end.point)<1.05){if(buildMessage)buildMessage.textContent='Выбери две разные точки подключения.';return;}
+  const path=findAutoRoadPath(start.point,end.point);
+  if(!path||path.length<2){if(buildMessage)buildMessage.textContent='Здесь нельзя проложить дорогу. Выбери другой путь подключения.';return;}
   const direction=(document.querySelector<HTMLSelectElement>('#road-direction')?.value??'both') as 'both'|'forward';
-   const road:Road={points:draft.map(p=>({...p})),progress:0,width:roadHalfWidth*2,connectsVillageToHighway:touchesHighway&&touchesVillage,direction};
-  builtRoads.push(road);constructionJobs.push(road);rebuildRoadGraph();refreshVehicleRoutes();draft=[];updateMission();
-  if(buildMessage)buildMessage.textContent='Проект принят. Дорога постепенно прокладывается по намеченной линии.';
+  const touchesHighway=(Math.abs(start.point.y+13)<.95&&start.kind==='network')||(Math.abs(end.point.y+13)<.95&&end.kind==='network');
+  const connectsBuilding=start.kind==='building'||end.kind==='building';
+  const road:Road={points:path,progress:0,width:roadHalfWidth*2,connectsVillageToHighway:touchesHighway&&connectsBuilding,direction};
+  builtRoads.push(road);constructionJobs.push(road);rebuildRoadGraph();refreshVehicleRoutes();updateMission();
+  if(buildMessage)buildMessage.textContent='Соединение создано: '+start.name+' — '+end.name+'. Машины проверяют новый маршрут.';
+}
+function selectRoutePoint(raw:Point){
+  const anchor=resolveRouteAnchor(raw);
+  if(!anchor){if(buildMessage)buildMessage.textContent='Нажми на подсвеченный въезд объекта или на существующую дорогу.';return;}
+  if(!routeSelection.length){
+    routeSelection=[anchor.point];
+    if(buildMessage)buildMessage.textContent='Начало выбрано: '+anchor.name+'. Теперь выбери вторую точку подключения.';
+  }else{
+    const firstPoint=routeSelection[0]!;
+    const first=resolveRouteAnchor(firstPoint);
+    if(!first){routeSelection=[];return;}
+    commitRouteConnection(first,anchor);
+    routeSelection=[];routeHover=null;
+  }
   render();
 }
 canvas.addEventListener('pointerdown',event=>{
   const p=pointerPosition(event);activePointers.set(event.pointerId,p);
-  if(activePointers.size===2){drawing=false;panning=false;const pts=[...activePointers.values()];pinchStart={distance:distance(pts[0]!,pts[1]!),zoom:camera.zoom,center:{x:(pts[0]!.x+pts[1]!.x)/2,y:(pts[0]!.y+pts[1]!.y)/2}};return;}
-  if(selectedTool==='road'){startRoad(event);return;}
+  if(activePointers.size===2){panning=false;const pts=[...activePointers.values()];pinchStart={distance:distance(pts[0]!,pts[1]!),zoom:camera.zoom,center:{x:(pts[0]!.x+pts[1]!.x)/2,y:(pts[0]!.y+pts[1]!.y)/2}};return;}
+  if(selectedTool==='road'){
+    selectRoutePoint(screenToWorld(p));event.preventDefault();return;
+  }
   panning=true;lastPointer=p;canvas.setPointerCapture(event.pointerId);
 });
 canvas.addEventListener('pointermove',event=>{
   const p=pointerPosition(event);if(activePointers.has(event.pointerId))activePointers.set(event.pointerId,p);
   if(pinchStart&&activePointers.size>=2){const pts=[...activePointers.values()],d=distance(pts[0]!,pts[1]!);const anchor=screenToWorld(pinchStart.center);camera.zoom=clamp(pinchStart.zoom*d/Math.max(pinchStart.distance,1),Math.min(width,height)/42,Math.min(width,height)/10);const after=screenToWorld(pinchStart.center);camera.x+=anchor.x-after.x;camera.y+=anchor.y-after.y;render();return;}
-  if(drawing){updateDraftPath(pointerToGrid(event));render();return;}
+  if(selectedTool==='road'){routeHover=screenToWorld(p);return;}
   if(panning&&lastPointer){camera.x-=(p.x-lastPointer.x)/camera.zoom;camera.y-=(p.y-lastPointer.y)/camera.zoom;lastPointer=p;render();}
 });
 function releasePointer(event:PointerEvent){
-  if(drawing){finishRoad(event);}
   activePointers.delete(event.pointerId);if(activePointers.size<2)pinchStart=null;
   panning=false;lastPointer=null;
 }
@@ -1315,17 +1378,18 @@ const toolButtons=[...document.querySelectorAll<HTMLButtonElement>('.tool')];
 toolButtons.forEach(button=>button.addEventListener('click',()=>{
   selectedTool=button.dataset.tool??'inspect';document.querySelector('.tool.active')?.classList.remove('active');button.classList.add('active');
   const hud=document.querySelector<HTMLElement>('#build-hud');if(hud)hud.hidden=selectedTool!=='road';
-  if(buildMessage)buildMessage.textContent=selectedTool==='road'?'Соедини дорогу с перекрёстком, улицей или въездом в здание.':'Выбери инструмент «Дороги», чтобы начать строительство.';
-  canvas.style.cursor=selectedTool==='road'?'crosshair':'grab';
+  routeSelection=[];routeHover=null;
+  if(buildMessage)buildMessage.textContent=selectedTool==='road'?'Выбери две точки: сначала объект, затем трассу или существующую дорогу.':'Обзор карты. Перетаскивай поле и приближай его жестом.';
+  canvas.style.cursor=selectedTool==='road'?'pointer':'grab';render();
 }));
-document.querySelector<HTMLButtonElement>('#cancel-road')?.addEventListener('click',()=>{clearDraft();if(buildMessage)buildMessage.textContent='Черновик дороги отменён.';});
+document.querySelector<HTMLButtonElement>('#cancel-road')?.addEventListener('click',()=>{clearRouteSelection();if(buildMessage)buildMessage.textContent='Выбор точек сброшен. Начни с любой подсвеченной точки.';});
 document.querySelector<HTMLButtonElement>('#undo-road')?.addEventListener('click',()=>{
   const road=builtRoads.pop();if(!road)return;const index=constructionJobs.indexOf(road);if(index>=0)constructionJobs.splice(index,1);rebuildRoadGraph();refreshVehicleRoutes();updateMission();if(buildMessage)buildMessage.textContent='Последний построенный участок удалён.';render();
 });
 window.addEventListener('keydown',event=>{
   if(event.key==='+'||event.key==='=')setZoom(1.12);if(event.key==='-')setZoom(.89);
   if(event.key.toLowerCase()==='r'){camera={x:0,y:-1,zoom:Math.min(width/(WORLD.maxX-WORLD.minX),height/(WORLD.maxY-WORLD.minY))*.92};render();}
-  if(event.key==='Escape'&&draft.length)clearDraft();
+  if(event.key==='Escape'&&routeSelection.length)clearRouteSelection();
 });
 let previousTime=0;
 function routeProjectionToPoint(path:Point[],point:Point){
@@ -1409,5 +1473,6 @@ function animate(time:number){
   render();requestAnimationFrame(animate);
 }
 canvas.style.cursor='grab';
+rebuildRoadGraph();refreshVehicleRoutes();updateMission();
 render();requestAnimationFrame(animate);
 window.addEventListener('beforeunload',()=>observer.disconnect());
