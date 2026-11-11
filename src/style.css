@@ -323,3 +323,7 @@ button:active:not(:disabled){transform:translateY(1px)}
 .destination-row.is-busy>em{color:#a65f4d;background:#f5e4dc}
 .destination-row.is-slow>i{box-shadow:0 0 0 3px #c99b5830}
 .destination-row.is-busy>i{box-shadow:0 0 0 3px #b9786238}
+
+/* KT-067 — settlement growth objective, visually aligned with the valley UI. */
+#settlement-status{display:block;color:#748d78;font-size:7px;line-height:1.45;letter-spacing:.35px}
+.mission-reward{min-height:32px}
