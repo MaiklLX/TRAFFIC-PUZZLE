@@ -533,19 +533,37 @@ const walkers=[
 ];
 function drawTree(x:number,y:number,size=1){
   const p=worldToScreen({x,y}),s=camera.zoom*size,seed=Math.abs(Math.floor(x*7+y*13));
-  const greens=['#6f9878','#789f80','#83a989','#71977a'];
+  const palettes=[
+    ['#6e9677','#79a27f','#8aaf8c','#719878'],
+    ['#789777','#86a47c','#9ab58a','#6e8f70'],
+    ['#668f78','#75a087','#87ad91','#6c947c']
+  ];
+  const greens=palettes[seed%palettes.length]!;
+  const variant=seed%3,rotation=(seed%11-5)*.055;
+  const crowns=[
+    [[-.24,-.1,.36],[.2,-.2,.34],[-.34,.2,.31],[.18,.2,.4],[0,0,.43],[.02,-.36,.25]],
+    [[-.3,-.08,.33],[.16,-.25,.36],[-.2,.24,.34],[.31,.12,.3],[0,0,.44],[-.04,-.39,.24]],
+    [[-.22,-.2,.34],[.27,-.12,.36],[-.3,.16,.32],[.12,.25,.35],[-.04,.02,.42],[.02,-.4,.23]]
+  ];
   ctx!.save();
-  // Soft contact shadow and a small trunk anchor keep the canopy grounded.
-  ctx!.fillStyle='#718b70';ctx!.globalAlpha=.22;ctx!.beginPath();ctx!.ellipse(p.x+.12*s,p.y+.28*s,.68*s,.43*s,-.18,0,Math.PI*2);ctx!.fill();
-  ctx!.globalAlpha=1;ctx!.fillStyle='#947b5e';ctx!.beginPath();ctx!.arc(p.x,p.y+.05*s,.16*s,0,Math.PI*2);ctx!.fill();
-  const lobes=[[-.22,-.12,.36],[.2,-.2,.35],[-.32,.19,.32],[.18,.2,.39],[0,0,.43],[.02,-.36,.25]];
+  // Irregular canopy clusters vary by tree while retaining a shared illustrated style.
+  ctx!.fillStyle='#718b70';ctx!.globalAlpha=.2;ctx!.beginPath();ctx!.ellipse(p.x+.12*s,p.y+.3*s,.7*s,.42*s,-.18,0,Math.PI*2);ctx!.fill();
+  ctx!.globalAlpha=1;ctx!.fillStyle='#947b5e';ctx!.beginPath();ctx!.ellipse(p.x,p.y+.09*s,.14*s,.22*s,-.12,0,Math.PI*2);ctx!.fill();
+  ctx!.translate(p.x,p.y);ctx!.rotate(rotation);
+  ctx!.fillStyle='#56765f';ctx!.globalAlpha=.22;ctx!.beginPath();ctx!.ellipse(0,.03*s,.49*s,.45*s,0,0,Math.PI*2);ctx!.fill();
+  const lobes=crowns[variant]!;
   for(let i=0;i<lobes.length;i++){
     const [dx,dy,r]=lobes[i]!;
-    ctx!.fillStyle=greens[(seed+i)%greens.length]!;
-    ctx!.beginPath();ctx!.arc(p.x+dx*s,p.y+dy*s,r*s,0,Math.PI*2);ctx!.fill();
+    ctx!.fillStyle=greens[(i+seed)%greens.length]!;
+    ctx!.beginPath();ctx!.arc(dx*s,dy*s,r*s,0,Math.PI*2);ctx!.fill();
   }
-  ctx!.fillStyle='#a9c49b';ctx!.globalAlpha=.72;ctx!.beginPath();ctx!.arc(p.x-.13*s,p.y-.24*s,.18*s,0,Math.PI*2);ctx!.fill();
-  ctx!.globalAlpha=.25;ctx!.fillStyle='#496f58';ctx!.beginPath();ctx!.arc(p.x+.16*s,p.y+.13*s,.27*s,.1,Math.PI*.9);ctx!.fill();
+  // Small sunlit leaves and a darker lower rim give the crowns more depth.
+  for(let i=0;i<3;i++){
+    const dx=(-.23+i*.22+(seed%4)*.018)*s,dy=(-.27+(i%2)*.1)*s;
+    ctx!.fillStyle=i===1?'#b6c99a':'#a7c294';ctx!.globalAlpha=.68;
+    ctx!.beginPath();ctx!.ellipse(dx,dy,.105*s,.07*s,-.35+i*.22,0,Math.PI*2);ctx!.fill();
+  }
+  ctx!.globalAlpha=.24;ctx!.fillStyle='#496f58';ctx!.beginPath();ctx!.arc(.16*s,.15*s,.27*s,.1,Math.PI*.9);ctx!.fill();
   ctx!.restore();
 }
 
@@ -572,7 +590,20 @@ function drawHouse(x:number,y:number,scale=1,wall='#f4e7c9',roof='#d98c73'){
   ctx!.fillStyle='#c9b99b';roundedRect(ctx!,-.34*s,.72*s,.68*s,.36*s,.07*s);ctx!.fill();
   ctx!.fillStyle='#ead9b8';roundedRect(ctx!,-.19*s,.31*s,.38*s,.48*s,.06*s);ctx!.fill();
   ctx!.fillStyle='#f6e7c9';roundedRect(ctx!,-.25*s,.78*s,.5*s,.11*s,.04*s);ctx!.fill();
-  ctx!.fillStyle='#c7d6b4';ctx!.beginPath();ctx!.moveTo(-.2*s,1.05*s);ctx!.lineTo(.2*s,1.05*s);ctx!.lineTo(.34*s,1.31*s);ctx!.lineTo(-.34*s,1.31*s);ctx!.closePath();ctx!.fill();
+  // A pale stone path leads from the porch into the garden, with individual pavers.
+  ctx!.fillStyle='#d9c9a8';ctx!.beginPath();ctx!.moveTo(-.2*s,.99*s);ctx!.lineTo(.2*s,.99*s);ctx!.lineTo(.39*s,1.34*s);ctx!.lineTo(-.39*s,1.34*s);ctx!.closePath();ctx!.fill();
+  for(let i=0;i<3;i++){
+    ctx!.fillStyle=i%2?'#c8b894':'#eadbbd';
+    roundedRect(ctx!,(-.105+(i%2)*.035)*s,(1.04+i*.095)*s,.21*s,.055*s,.025*s);ctx!.fill();
+  }
+  // Low flower borders add colour without obscuring the house silhouette.
+  for(let side of [-1,1]){
+    for(let i=0;i<3;i++){
+      const fx=side*(.83+i*.13),fy=(.92-i*.13);
+      ctx!.fillStyle=i%2?'#d8a17d':'#e6c47d';ctx!.beginPath();ctx!.arc(fx*s,fy*s,.055*s,0,Math.PI*2);ctx!.fill();
+      ctx!.fillStyle='#789d76';ctx!.beginPath();ctx!.ellipse((fx-side*.045)*s,(fy+.055)*s,.045*s,.075*s,-side*.35,0,Math.PI*2);ctx!.fill();
+    }
+  }
   // Small shrubs and a chimney cap add readable scale at normal zoom.
   for(const [sx,sy] of [[-1.28,.72],[1.27,-.62],[-1.23,-.82]] as const){ctx!.fillStyle='#77a17e';ctx!.beginPath();ctx!.arc(sx*s,sy*s,.16*s,0,Math.PI*2);ctx!.fill();ctx!.fillStyle='#a8c69a';ctx!.beginPath();ctx!.arc((sx-.04)*s,(sy-.05)*s,.07*s,0,Math.PI*2);ctx!.fill();}
   ctx!.fillStyle='#a9a18c';roundedRect(ctx!,.61*s,-1.03*s,.23*s,.31*s,.035*s);ctx!.fill();
