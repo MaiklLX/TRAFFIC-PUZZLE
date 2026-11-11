@@ -34,7 +34,8 @@ A mobile-first, strictly top-down 2D traffic-planning puzzle. Connect a growing 
 - КТ-065 — unified interface, mobile dispatcher and consistent controls.
 - КТ-066 — readable road states and congestion based on actual traffic constraints.
 - КТ-067 — first staged settlement expansion: a new residential site appears after the initial network is connected and adds real origin/destination demand.
-- Next — extend the growth chain with additional services and scenario progression, keeping building placement collision-safe and road-first.
+- КТ-068 — second growth stage adds a village school after the new home is connected; the school becomes a real service endpoint and opens bidirectional home-to-school traffic.
+- Growth buildings are collision-checked, join the road graph only through player-built access, and never appear as random map clutter.
 
 ## Run locally
 
