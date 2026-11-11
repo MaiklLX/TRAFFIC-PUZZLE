@@ -16,7 +16,6 @@ const ctx = canvas.getContext('2d');
 if (!ctx) throw new Error('Canvas 2D context is not available');
 
 const WORLD = { minX: -23, maxX: 23, minY: -19, maxY: 17 };
-const roadGrid = .75;
 const roadHalfWidth = 0.95;
 let width = 1, height = 1, dpr = 1;
 let camera = { x: 0, y: -1, zoom: 20 };
@@ -25,7 +24,6 @@ let selectedTool = 'inspect';
 let panning = false;
 let lastPointer: Point | null = null;
 let routeSelection: Point[] = [];
-let routeHover: Point | null = null;
 const activePointers = new Map<number, Point>();
 let pinchStart: { distance: number; zoom: number; center: Point } | null = null;
 
@@ -750,6 +748,7 @@ function drawRouteAnchors(){
     const isConnected=connected(destination.id);
     drawPin(destination.access,isConnected?'#78a486':destination.color,!!selected&&distance(selected,destination.access)<.12);
   }
+  for(const station of fuelStations)drawPin(station.access,'#83a98b',!!selected&&distance(selected,station.access)<.12);
   for(let x=-16;x<=16;x+=4){
     const point={x,y:-13};
     drawPin(point,'#f3f0df',!!selected&&distance(selected,point)<.12);
@@ -1152,101 +1151,7 @@ function distanceToSegment(p:Point,a:Point,b:Point){
   const dx=b.x-a.x,dy=b.y-a.y,t=clamp(((p.x-a.x)*dx+(p.y-a.y)*dy)/Math.max(dx*dx+dy*dy,.0001),0,1);
   return distance(p,{x:a.x+dx*t,y:a.y+dy*t});
 }
-const roadOverlapDistance=roadHalfWidth*1.72;
-const roadConnectionTolerance=roadHalfWidth+roadGrid*.75;
-const endpointOverlapAllowance=roadOverlapDistance+roadGrid*.5;
-function touchesRoadNetwork(p:Point){
-  return nearestNetworkDistance(p)<=roadConnectionTolerance;
-}
-// Roads are connectors, not freehand paint: each end must dock to the
-// existing network or to a real building/service entrance.
-const buildingSnapDistance=2.45;
-function nearestBuildingAccess(p:Point):Point|null{
-  let best:Point|null=null,bestDistance=buildingSnapDistance;
-  for(const destination of trafficDestinations){
-    const d=distance(p,destination.access);
-    if(d<bestDistance){bestDistance=d;best=destination.access;}
-  }
-  return best?{...best}:null;
-}
-function isBuildingAccess(p:Point){
-  return trafficDestinations.some(destination=>distance(p,destination.access)<.08);
-}
-function snapRoadEndpoint(p:Point):Point|null{
-  const network=nearestNetworkPoint(p);
-  const networkDistance=network?distance(p,network):Infinity;
-  if(network&&networkDistance<=roadConnectionTolerance)return network;
-  const building=nearestBuildingAccess(p);
-  if(building)return building;
-  return null;
-}
-function isMeaningfulRoadEndpoint(p:Point){
-  return touchesRoadNetwork(p)||nearestBuildingAccess(p)!==null;
-}
-type RoadValidation = { valid:boolean; reason:string };
-function validateRoadPath(points:Point[]):RoadValidation{
-  if(points.length<2)return{valid:false,reason:'Нужно провести линию хотя бы на один участок.'};
-  const start=points[0]!,end=points[points.length-1]!;
-  if(!isMeaningfulRoadEndpoint(start)||!isMeaningfulRoadEndpoint(end))return{valid:false,reason:'Дорога должна соединять существующую сеть с дорогой или въездом в здание. Свободные отрезки не строятся.'};
-  if(!touchesRoadNetwork(start)&&!touchesRoadNetwork(end))return{valid:false,reason:'Нельзя создавать изолированную улицу: хотя бы один конец должен подключаться к дорожной сети.'};
-  if(distance(start,end)<1.1)return{valid:false,reason:'Слишком короткое соединение. Выбери две разные точки сети или въезды.'};
-
-  // A deliberate crossing of a road is a valid junction, not an illegal overlap.
-  // Keep a small junction clearance around each true centreline intersection;
-  // parallel travel along an existing road remains forbidden.
-  const junctionContacts:{point:Point;radius:number}[]=[];
-  const existingSegments:{a:Point;b:Point;width:number}[]=[
-    ...staticRoads.flatMap(road=>staticRoadPath(road).slice(1).map((point,index)=>({a:staticRoadPath(road)[index]!,b:point,width:road.width}))),
-    ...builtRoads.flatMap(road=>road.points.slice(1).map((point,index)=>({a:road.points[index]!,b:point,width:road.width})))
-  ];
-  for(let i=1;i<points.length;i++){
-    const a=points[i-1]!,b=points[i]!;
-    for(const road of existingSegments){
-      const crossing=segmentIntersection(a,b,road.a,road.b);
-      if(crossing)junctionContacts.push({point:crossing,radius:roadHalfWidth+road.width/2+.24});
-    }
-  }
-
-  const total=points.slice(1).reduce((sum,p,i)=>sum+distance(p,points[i]!),0);let travelled=0;
-  for(let i=1;i<points.length;i++){
-    const a=points[i-1]!,b=points[i]!,len=distance(a,b),steps=Math.max(2,Math.ceil(len/.2));
-    for(let step=0;step<=steps;step++){
-      const t=step/steps,p={x:lerp(a.x,b.x,t),y:lerp(a.y,b.y,t)};
-      const along=travelled+len*t;
-      const atBuildingDriveway=(along<1.05&&isBuildingAccess(points[0]!))||(total-along<1.05&&isBuildingAccess(points[points.length-1]!));
-      if(!atBuildingDriveway&&obstacles.some(o=>Math.hypot(p.x-o.x,p.y-o.y)<o.r+roadHalfWidth))return{valid:false,reason:'На пути препятствие: здание, дерево или водоём. Обойди его.'};
-      const atStart=along<endpointOverlapAllowance,atEnd=total-along<endpointOverlapAllowance;
-      const overlapStatic=staticRoads.some(road=>staticRoadPath(road).some((point,index,path)=>index>0&&distanceToSegment(p,path[index-1]!,point)<roadOverlapDistance));
-      const overlapBuilt=builtRoads.some(road=>road.points.some((q,index)=>index>0&&distanceToSegment(p,road.points[index-1]!,q)<roadOverlapDistance));
-      const atJunction=junctionContacts.some(contact=>distance(p,contact.point)<=contact.radius);
-      if((overlapStatic||overlapBuilt)&&!(atStart||atEnd||atJunction))return{valid:false,reason:'Линия слишком долго идёт поверх существующей дороги. Сделай отдельное ответвление.'};
-    }
-    travelled+=len;
-  }
-  return{valid:true,reason:''};
-}
-function updateDraftPath(destination:Point){
-  const current=draft[draft.length-1];if(!current||distance(current,destination)<.1)return;
-  for(let i=draft.length-2;i>=0;i--){if(distance(draft[i]!,destination)<.1){draft.splice(i+1);return;}}
-  // Eight-direction planning: diagonal segments are first-class road geometry,
-  // not a staircase of horizontal/vertical cells. Keep samples short enough
-  // for obstacle checks and smooth curve construction.
-  const span=distance(current,destination);
-  const steps=Math.max(1,Math.ceil(span/(roadGrid*.72)));
-  for(let step=1;step<=steps;step++){
-    const t=step/steps;
-    const next={x:lerp(current.x,destination.x,t),y:lerp(current.y,destination.y,t)};
-    if(distance(draft[draft.length-1]!,next)>.08)draft.push(next);
-  }
-}
-function pointerPosition(event:MouseEvent):Point{
-  const rect=canvas.getBoundingClientRect();return{x:event.clientX-rect.left,y:event.clientY-rect.top};
-}
-function pointerToGrid(event:PointerEvent):Point{
-  const p=screenToWorld(pointerPosition(event));
-  return{x:clamp(Math.round(p.x/roadGrid)*roadGrid,-18,18),y:clamp(Math.round(p.y/roadGrid)*roadGrid,-18,15)};
-}
-function clearRouteSelection(){routeSelection=[];routeHover=null;render();}
+function clearRouteSelection(){routeSelection=[];render();}
 function updateMission(){
   const barn=trafficDestinations.find(item=>item.id==='farm');
   const done=!!barn&&!!findRoadPath(barn.access,demoStart);
@@ -1261,6 +1166,10 @@ function resolveRouteAnchor(raw:Point):RouteAnchor|null{
   for(const destination of trafficDestinations){
     const d=distance(raw,destination.access);
     if(d<buildingDistance){buildingDistance=d;nearestBuilding=destination;}
+  }
+  for(const station of fuelStations){
+    const d=distance(raw,station.access);
+    if(d<buildingDistance){buildingDistance=d;nearestBuilding={id:station.id,name:station.name,access:station.access,color:'#83a98b',weight:1};}
   }
   if(nearestBuilding)return{point:{...nearestBuilding.access},kind:'building',name:nearestBuilding.name};
   const network=nearestNetworkPoint(raw);
@@ -1312,27 +1221,18 @@ function findAutoRoadPath(start:Point,end:Point):Point[]|null{
   const cells:Point[]=[];let cursor=endKey;
   while(cursor!==startKey){const [x,y]=coords(cursor);cells.push({x:x*step,y:y*step});const previous=came.get(cursor);if(!previous)return null;cursor=previous;}
   cells.push({x:ix0*step,y:iy0*step});cells.reverse();
-  const points=[{...start},...cells.slice(1,-1),{...end}];
-  // Remove redundant collinear grid nodes while retaining the safe A* corridor.
-  const compact:Point[]=[points[0]!];
-  for(let i=1;i<points.length-1;i++){
-    const a=compact[compact.length-1]!,b=points[i]!,c=points[i+1]!;
-    const abx=b.x-a.x,aby=b.y-a.y,bcx=c.x-b.x,bcy=c.y-b.y;
-    if(Math.abs(abx*bcy-aby*bcx)>.04)compact.push(b);
-  }
-  compact.push(points[points.length-1]!);
-  return compact;
+  return [{...start},...cells.slice(1,-1),{...end}];
 }
 function commitRouteConnection(start:RouteAnchor,end:RouteAnchor){
   if(distance(start.point,end.point)<1.05){if(buildMessage)buildMessage.textContent='Выбери две разные точки подключения.';return;}
   const path=findAutoRoadPath(start.point,end.point);
   if(!path||path.length<2){if(buildMessage)buildMessage.textContent='Здесь нельзя проложить дорогу. Выбери другой путь подключения.';return;}
   const direction=(document.querySelector<HTMLSelectElement>('#road-direction')?.value??'both') as 'both'|'forward';
-  const touchesHighway=(Math.abs(start.point.y+13)<.95&&start.kind==='network')||(Math.abs(end.point.y+13)<.95&&end.kind==='network');
+  const touchesHighway=(Math.abs(start.point.y+13)<1.25&&start.kind==='network')||(Math.abs(end.point.y+13)<1.25&&end.kind==='network');
   const connectsBuilding=start.kind==='building'||end.kind==='building';
   const road:Road={points:path,progress:0,width:roadHalfWidth*2,connectsVillageToHighway:touchesHighway&&connectsBuilding,direction};
   builtRoads.push(road);constructionJobs.push(road);rebuildRoadGraph();refreshVehicleRoutes();updateMission();
-  if(buildMessage)buildMessage.textContent='Соединение создано: '+start.name+' — '+end.name+'. Машины проверяют новый маршрут.';
+  if(buildMessage)buildMessage.textContent='Соединение создано: '+start.name+' — '+end.name+'. Дорога прокладывается автоматически.';
 }
 function selectRoutePoint(raw:Point){
   const anchor=resolveRouteAnchor(raw);
@@ -1360,7 +1260,7 @@ canvas.addEventListener('pointerdown',event=>{
 canvas.addEventListener('pointermove',event=>{
   const p=pointerPosition(event);if(activePointers.has(event.pointerId))activePointers.set(event.pointerId,p);
   if(pinchStart&&activePointers.size>=2){const pts=[...activePointers.values()],d=distance(pts[0]!,pts[1]!);const anchor=screenToWorld(pinchStart.center);camera.zoom=clamp(pinchStart.zoom*d/Math.max(pinchStart.distance,1),Math.min(width,height)/42,Math.min(width,height)/10);const after=screenToWorld(pinchStart.center);camera.x+=anchor.x-after.x;camera.y+=anchor.y-after.y;render();return;}
-  if(selectedTool==='road'){routeHover=screenToWorld(p);return;}
+  if(selectedTool==='road'){return;}
   if(panning&&lastPointer){camera.x-=(p.x-lastPointer.x)/camera.zoom;camera.y-=(p.y-lastPointer.y)/camera.zoom;lastPointer=p;render();}
 });
 function releasePointer(event:PointerEvent){
@@ -1434,7 +1334,7 @@ function animate(time:number){
     job.progress=clamp(job.progress+delta/Math.max(1.2,job.points.length*.32),0,1);
     if(before<1&&job.progress>=1){constructionJobs.splice(i,1);networkChanged=true;}
   }
-  if(networkChanged){rebuildRoadGraph();refreshVehicleRoutes();}
+  if(networkChanged){rebuildRoadGraph();refreshVehicleRoutes();updateMission();}
   // Follow the vehicle directly ahead on the same lane. Braking is gradual,
   // and acceleration is slower than braking so gaps recover smoothly.
   const poses=vehicles.map(vehicle=>vehiclePose(vehicle));
