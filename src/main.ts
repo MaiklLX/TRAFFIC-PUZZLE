@@ -580,6 +580,18 @@ function drawTree(x:number,y:number,size=1){
   ctx!.restore();
 }
 
+function drawSchool(x:number,y:number,scale=1){
+  const p=worldToScreen({x,y}),s=camera.zoom*scale;ctx!.save();ctx!.translate(p.x,p.y);
+  ctx!.fillStyle='#d5e2c5';roundedRect(ctx!,-2.15*s,-1.55*s,4.3*s,3.1*s,.38*s);ctx!.fill();
+  ctx!.fillStyle='#9ba98d';ctx!.globalAlpha=.2;roundedRect(ctx!,-1.72*s,-.89*s,3.44*s,2.25*s,.2*s);ctx!.fill();ctx!.globalAlpha=1;
+  ctx!.fillStyle='#e9e2ce';roundedRect(ctx!,-1.78*s,-1.12*s,3.56*s,2.25*s,.18*s);ctx!.fill();
+  ctx!.fillStyle='#8da68a';ctx!.beginPath();ctx!.moveTo(-2.02*s,-1.02*s);ctx!.lineTo(-1.38*s,-1.48*s);ctx!.lineTo(1.38*s,-1.48*s);ctx!.lineTo(2.02*s,-1.02*s);ctx!.lineTo(1.82*s,-.72*s);ctx!.lineTo(-1.82*s,-.72*s);ctx!.closePath();ctx!.fill();
+  ctx!.strokeStyle='#718b70';ctx!.lineWidth=Math.max(1,.045*s);ctx!.stroke();
+  ctx!.fillStyle='#b6d8d2';for(const xw of [-1.22,1.22])for(const yw of [-.48,.18]){roundedRect(ctx!,(xw-.2)*s,yw*s,.4*s,.42*s,.045*s);ctx!.fill();}
+  ctx!.fillStyle='#d6b984';roundedRect(ctx!,-.28*s,.42*s,.56*s,.7*s,.06*s);ctx!.fill();
+  ctx!.fillStyle='#d8c8a8';roundedRect(ctx!,-.82*s,1.08*s,1.64*s,.3*s,.08*s);ctx!.fill();
+  ctx!.fillStyle='#e7d6a8';ctx!.beginPath();ctx!.arc(0,-.98*s,.18*s,0,Math.PI*2);ctx!.fill();ctx!.restore();
+}
 function drawHouse(x:number,y:number,scale=1,wall='#f4e7c9',roof='#d98c73'){
   const p=worldToScreen({x,y}),s=camera.zoom*scale;ctx!.save();ctx!.translate(p.x,p.y);
   // Garden plot, soft building shadow and a real roof silhouette.
@@ -788,7 +800,7 @@ function drawRouteAnchors(){
   };
   for(const destination of trafficDestinations){
     const isConnected=connected(destination.id);
-    const shortName=destination.id==='farm'?'ФЕРМА':destination.id==='market'?'МАГАЗИН':'ДОМ';
+    const shortName=destination.id==='farm'?'ФЕРМА':destination.id==='market'?'МАГАЗИН':destination.id==='school'?'ШКОЛА':'ДОМ';
     drawPin(destination.access,isConnected?'#78a486':'#d6ad70',!!selected&&distance(selected,destination.access)<.12,shortName);
   }
   for(const station of fuelStations)drawPin(station.access,'#d6ad70',!!selected&&distance(selected,station.access)<.12,'АЗС');
@@ -826,7 +838,7 @@ function drawStaticMapLayer(){
     drawHouse(2.8,8.3,.8,'#f2e9d5','#c98b76');
     drawHouse(-5,-9,.72,'#e8e4d0','#81a9a0');
     drawShop(11,-5);drawFuelStation(-8,-16.1);
-    for(const building of activeGrowthBuildings)drawHouse(building.position.x,building.position.y,building.scale,building.wall,building.roof);
+    for(const building of activeGrowthBuildings){if(building.kind==='school')drawSchool(building.position.x,building.position.y,building.scale);else drawHouse(building.position.x,building.position.y,building.scale,building.wall,building.roof);}
     const trees=[[-14,-10,1.1],[-17,-4,.85],[-16,1,.9],[-12,10,1.05],[4,12,.9],[15,4,1.05],[14,-9,.85],[-19,-12,.75],[20,12,1],[19,-10,.8]] as const;
     for(const [x,y,size] of trees)drawTree(x,y,size);
   }finally{
@@ -850,7 +862,7 @@ function render(){
     drawHouse(2.8,8.3,.8,'#f2e9d5','#c98b76');
     drawHouse(-5,-9,.72,'#e8e4d0','#81a9a0');
     drawShop(11,-5);drawFuelStation(-8,-16.1);
-    for(const building of activeGrowthBuildings)drawHouse(building.position.x,building.position.y,building.scale,building.wall,building.roof);
+    for(const building of activeGrowthBuildings){if(building.kind==='school')drawSchool(building.position.x,building.position.y,building.scale);else drawHouse(building.position.x,building.position.y,building.scale,building.wall,building.roof);}
     const trees=[[-14,-10,1.1],[-17,-4,.85],[-16,1,.9],[-12,10,1.05],[4,12,.9],[15,4,1.05],[14,-9,.85],[-19,-12,.75],[20,12,1],[19,-10,.8]] as const;
     for(const [x,y,size] of trees)drawTree(x,y,size);
   }
@@ -1031,9 +1043,10 @@ const trafficDestinations:TrafficDestination[]=[
 ];
 const homeLocations=trafficDestinations.filter(item=>item.id.endsWith('-home'));
 const initialHomeLocations=[...homeLocations];
-type GrowthSite={id:string;name:string;position:Point;access:Point;color:string;weight:number;scale:number;wall:string;roof:string;obstacleRadius:number};
+type GrowthSite={id:string;name:string;position:Point;access:Point;color:string;weight:number;scale:number;wall:string;roof:string;obstacleRadius:number;kind:'house'|'school'};
 const growthSites:GrowthSite[]=[
-  {id:'northwest-home',name:'Новый дом на опушке',position:{x:-19,y:13},access:{x:-19,y:14.65},color:'#9db8a0',weight:1,scale:.78,wall:'#eee6d2',roof:'#8ea88e',obstacleRadius:1.8}
+  {id:'northwest-home',name:'Новый дом на опушке',position:{x:-19,y:13},access:{x:-19,y:14.65},color:'#9db8a0',weight:1,scale:.78,wall:'#eee6d2',roof:'#8ea88e',obstacleRadius:1.8,kind:'house'},
+  {id:'school',name:'Школа в долине',position:{x:-9.5,y:14.2},access:{x:-9.5,y:16.65},color:'#8fae91',weight:2,scale:.92,wall:'#e9e2ce',roof:'#8da68a',obstacleRadius:2.2,kind:'school'}
 ];
 const activeGrowthBuildings:GrowthSite[]=[];
 let settlementGrowthStage=0;
@@ -1044,7 +1057,9 @@ const trafficOrigins:TrafficOrigin[]=trafficDestinations.map(item=>({
 const tripDestinations=trafficDestinations;
 function isHomeLocation(id:string){return id.endsWith('-home');}
 function isValidTripPair(originId:string,destinationId:string){
-  return isHomeLocation(originId)!==isHomeLocation(destinationId);
+  const originIsHome=isHomeLocation(originId),destinationIsHome=isHomeLocation(destinationId);
+  const originIsService=serviceLocations.some(item=>item.id===originId),destinationIsService=serviceLocations.some(item=>item.id===destinationId);
+  return (originIsHome&&destinationIsService)||(originIsService&&destinationIsHome);
 }
 function buildTrafficRoute(originId:string,destinationId:string):Point[]|null{
   const origin=trafficOrigins.find(item=>item.id===originId);
@@ -1294,12 +1309,22 @@ function advanceSettlementGrowth(initialNetworkReady:boolean){
   const site=growthSites[0];
   if(!site||!isGrowthSiteClear(site))return;
   activeGrowthBuildings.push(site);
-  obstacles.push({x:site.position.x,y:site.position.y,r:site.obstacleRadius,type:'house'});
+  obstacles.push({x:site.position.x,y:site.position.y,r:site.obstacleRadius,type:site.kind});
   const destination:TrafficDestination={id:site.id,name:site.name,access:{...site.access},color:site.color,weight:site.weight};
-  trafficDestinations.push(destination);homeLocations.push(destination);
+  trafficDestinations.push(destination);
+  if(site.kind==='house')homeLocations.push(destination);else serviceLocations.push(destination);
   trafficOrigins.push({id:destination.id,name:destination.name,access:{...destination.access},color:destination.color,weight:destination.weight});
   settlementGrowthStage=1;staticLayerDirty=true;
   refreshVehicleRoutes();
+}
+function advanceNextGrowthSite(index:number){
+  if(settlementGrowthStage!==1)return;
+  const site=growthSites[index];if(!site||!isGrowthSiteClear(site))return;
+  activeGrowthBuildings.push(site);obstacles.push({x:site.position.x,y:site.position.y,r:site.obstacleRadius,type:site.kind});
+  const destination:TrafficDestination={id:site.id,name:site.name,access:{...site.access},color:site.color,weight:site.weight};
+  trafficDestinations.push(destination);serviceLocations.push(destination);
+  trafficOrigins.push({id:destination.id,name:destination.name,access:{...destination.access},color:destination.color,weight:destination.weight});
+  settlementGrowthStage=3;staticLayerDirty=true;refreshVehicleRoutes();
 }
 function updateMission(){
   const barn=trafficDestinations.find(item=>item.id==='farm');
@@ -1308,7 +1333,10 @@ function updateMission(){
   advanceSettlementGrowth(farmConnected&&initialHomeConnected);
   const newHome=trafficDestinations.find(item=>item.id==='northwest-home');
   const newHomeConnected=!!newHome&&!!findRoadPath(newHome.access,demoStart);
-  if(newHomeConnected)settlementGrowthStage=2;
+  if(newHomeConnected&&settlementGrowthStage===1)advanceNextGrowthSite(1);
+  const school=trafficDestinations.find(item=>item.id==='school');
+  const schoolConnected=!!school&&!!findRoadPath(school.access,demoStart);
+  if(schoolConnected)settlementGrowthStage=4;
   const missionState=document.querySelector<HTMLElement>('#mission-state');
   const settlementStatus=document.querySelector<HTMLElement>('#settlement-status');
   if(settlementGrowthStage===0){
@@ -1321,11 +1349,18 @@ function updateMission(){
     if(missionProgress)missionProgress.style.width='78%';
     if(missionState)missionState.textContent='Долина расширилась: на северо-западной опушке появился новый дом. Подключи его к дорожной сети.';
     if(settlementStatus)settlementStatus.textContent='НОВЫЙ ДОМ · ОТКРЫТ НОВЫЙ СПРОС';
+  }else if(settlementGrowthStage===2){
+    if(missionCount)missionCount.textContent='РАЙОН РАСТЁТ';if(missionProgress)missionProgress.style.width='82%';
+    if(missionState)missionState.textContent='Новый дом подключён. Поселение получило школу — теперь свяжи её с дорожной сетью.';
+    if(settlementStatus)settlementStatus.textContent='ШКОЛА ПОЯВИЛАСЬ · НОВЫЙ МАРШРУТ';
+  }else if(settlementGrowthStage===3){
+    if(missionCount)missionCount.textContent='НОВАЯ ШКОЛА';if(missionProgress)missionProgress.style.width='91%';
+    if(missionState)missionState.textContent='Школа построена. Подключи её, чтобы открыть поездки между жилыми районами и школой.';
+    if(settlementStatus)settlementStatus.textContent='ШКОЛА ЖДЁТ ПОДКЛЮЧЕНИЯ';
   }else{
-    if(missionCount)missionCount.textContent='РАЙОН РАСТЁТ';
-    if(missionProgress)missionProgress.style.width='100%';
-    if(missionState)missionState.textContent='Новый жилой участок подключён. Поездки из него уже включены в общий поток долины.';
-    if(settlementStatus)settlementStatus.textContent='НОВЫЙ ДОМ ПОДКЛЮЧЁН · ПОТОК РАСТЁТ';
+    if(missionCount)missionCount.textContent='ДОЛИНА РАСТЁТ';if(missionProgress)missionProgress.style.width='100%';
+    if(missionState)missionState.textContent='Школа подключена. Теперь дома создают отдельный поток поездок к ферме, магазину и школе.';
+    if(settlementStatus)settlementStatus.textContent='ШКОЛА ПОДКЛЮЧЕНА · СЕТЬ РАСШИРЕНА';
   }
 }
 type RouteAnchor={point:Point;kind:'building'|'network';name:string};
