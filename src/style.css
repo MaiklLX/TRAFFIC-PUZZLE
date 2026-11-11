@@ -327,3 +327,60 @@ button:active:not(:disabled){transform:translateY(1px)}
 /* KT-067 — settlement growth objective, visually aligned with the valley UI. */
 #settlement-status{display:block;color:#748d78;font-size:7px;line-height:1.45;letter-spacing:.35px}
 .mission-reward{min-height:32px}
+
+
+/* KT-072 — declutter the playfield: map first, details on demand. */
+.workspace{position:relative;display:block;min-height:0;padding-top:10px}
+.map-stage{position:absolute;inset:10px 0 0;border:0;border-radius:20px}
+.tool-rail{
+  position:absolute;z-index:8;left:16px;bottom:16px;
+  display:flex;flex-direction:row;align-items:center;gap:5px;
+  padding:5px;border:1px solid #cbd8ca;border-radius:15px;
+  background:#f7f8f1eF;box-shadow:0 6px 20px #435a451c;
+}
+.tool{width:82px;min-height:44px;flex-direction:row;gap:7px;padding:7px 10px}
+.tool-glyph svg{width:18px;height:18px}
+.tool b{font-size:10px}
+.map-topline,.map-location,.map-live,.map-help{display:none!important}
+.map-objective{top:16px;left:16px;max-width:min(360px,calc(100% - 32px));}
+.map-controls{right:16px;bottom:16px}
+.dispatch-toggle{display:inline-flex}
+.dispatch-scrim{
+  display:block;position:fixed;z-index:28;inset:0;border:0;border-radius:0;
+  background:#263c3038;opacity:0;visibility:hidden;pointer-events:none;
+  transition:opacity .18s,visibility .18s
+}
+.command-panel{
+  display:flex;position:fixed;z-index:29;top:calc(env(safe-area-inset-top) + 72px);
+  right:16px;bottom:16px;width:min(350px,calc(100vw - 32px));
+  min-height:0;overflow:auto;padding:18px;
+  border:1px solid #d1ddce;border-radius:18px;
+  background:linear-gradient(165deg,#fbfcf6 0%,#f1f5eb 100%);
+  box-shadow:0 18px 48px #263c3040;
+  opacity:0;visibility:hidden;pointer-events:none;transform:translateX(12px);
+  transition:opacity .18s,transform .18s,visibility .18s
+}
+#app.dispatcher-open .command-panel{opacity:1;visibility:visible;pointer-events:auto;transform:translateX(0)}
+#app.dispatcher-open .dispatch-scrim{opacity:1;visibility:visible;pointer-events:auto}
+.dispatch-close{display:inline-flex}
+.panel-intro h1{font-size:23px}
+@media(max-width:800px){
+  #app{padding:env(safe-area-inset-top) 6px env(safe-area-inset-bottom)}
+  .workspace{display:block;padding-top:0}
+  .map-stage{inset:0;border-radius:18px}
+  .tool-rail{left:10px;bottom:calc(env(safe-area-inset-bottom) + 12px);gap:4px;padding:4px}
+  .tool{width:76px;min-width:76px;min-height:44px;padding:6px 8px}
+  .map-objective{top:12px;left:10px;max-width:min(320px,calc(100% - 20px));padding:9px 11px}
+  .map-controls{right:10px;bottom:calc(env(safe-area-inset-bottom) + 12px)}
+  .build-hud{top:auto;left:10px;right:10px;bottom:calc(env(safe-area-inset-bottom) + 70px);width:auto}
+  .command-panel{
+    top:calc(env(safe-area-inset-top) + 58px);right:8px;
+    bottom:calc(env(safe-area-inset-bottom) + 8px);
+    width:min(370px,calc(100vw - 16px));padding:15px
+  }
+  .dispatch-toggle{min-height:38px}
+}
+@media(max-width:420px){
+  .tool{width:69px;min-width:69px}
+  .map-objective b{font-size:10px}
+}
