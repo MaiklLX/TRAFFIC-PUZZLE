@@ -1541,10 +1541,7 @@ function routeCellBlocked(point:Point,start:Point,end:Point,allowStartNetwork=fa
   }
   // Cultivated parcels and the orchard remain hard no-build areas.
   if(isPointInTerrainZone(point,roadHalfWidth+.42))return true;
-  const roads=[
-    ...staticRoads.map((road,index)=>({id:'static-'+index,points:smoothPoints(staticRoadPath(road)),width:road.width})),
-    ...builtRoads.map((road,index)=>({id:'built-'+index,points:smoothPoints(road.points),width:road.width}))
-  ];
+  const roads=blockingRoads??collectRouteBlockingRoads();
   const move=movement?{x:movement.b.x-movement.a.x,y:movement.b.y-movement.a.y}:null;
   const moveLength=move?Math.hypot(move.x,move.y):0;
   for(const road of roads){
@@ -1601,7 +1598,9 @@ function simplifyAutoRoadPath(path:Point[],start:Point,end:Point,allowStartNetwo
   return simplified;
 }
 function findAutoRoadPath(start:Point,end:Point,allowStartNetwork=false,allowEndNetwork=false):Point[]|null{
-  // Road geometry is immutable during one search; smooth it once, not thousands of times per A* cell.\n  const blockingRoads=collectRouteBlockingRoads();\n  const step=.75,ix0=Math.round(start.x/step),iy0=Math.round(start.y/step),ix1=Math.round(end.x/step),iy1=Math.round(end.y/step);
+  // Road geometry is immutable during one search; smooth it once, not thousands of times per A* cell.
+  const blockingRoads=collectRouteBlockingRoads();
+  const step=.75,ix0=Math.round(start.x/step),iy0=Math.round(start.y/step),ix1=Math.round(end.x/step),iy1=Math.round(end.y/step);
   const key=(x:number,y:number)=>x+','+y;
   const startKey=key(ix0,iy0),endKey=key(ix1,iy1);
   const coords=(id:string)=>id.split(',').map(Number) as [number,number];
