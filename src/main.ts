@@ -879,7 +879,7 @@ function render(){
     drawHouse(2.8,8.3,.8,'#f2e9d5','#c98b76');
     drawHouse(-5,-9,.72,'#e8e4d0','#81a9a0');
     drawShop(11,-5);drawFuelStation(-8,-16.1);
-    for(const building of activeGrowthBuildings){if(building.kind==='school')drawSchool(building.position.x,building.position.y,building.scale);else drawHouse(building.position.x,building.position.y,building.scale,building.wall,building.roof);}
+    for(const building of activeGrowthBuildings){if(building.kind==='school')drawSchool(building.position.x,building.position.y,building.scale);else if(building.kind==='clinic')drawMedicalCenter(building.position.x,building.position.y,building.scale);else drawHouse(building.position.x,building.position.y,building.scale,building.wall,building.roof);}
     const trees=[[-14,-10,1.1],[-17,-4,.85],[-16,1,.9],[-12,10,1.05],[4,12,.9],[15,4,1.05],[14,-9,.85],[-19,-12,.75],[20,12,1],[19,-10,.8]] as const;
     for(const [x,y,size] of trees)drawTree(x,y,size);
   }
