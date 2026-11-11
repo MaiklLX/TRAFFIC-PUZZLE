@@ -496,11 +496,12 @@ function drawCar(vehicle:Vehicle){
   // Soft contact shadow and a dark underbody create a grounded miniature vehicle.
   ctx!.fillStyle='#53666a';ctx!.globalAlpha=.2;ctx!.beginPath();ctx!.ellipse(-.015*s,.085*s,(length*.57)*s,.31*s,0,0,Math.PI*2);ctx!.fill();ctx!.globalAlpha=1;
   ctx!.fillStyle='#38494d';roundedRect(ctx!,-length*.53*s,-.255*s,length*1.06*s,.51*s,.16*s);ctx!.fill();
-  // Four compact tyres, all kept inside the lane envelope.
+  // Four compact tyres, with a restrained sidewall highlight for a clearer top-down read.
   for(const x of [-length*.32,length*.32]){
     for(const y of [-.225,.225]){
       ctx!.fillStyle='#29383b';roundedRect(ctx!,(x-.105)*s,(y-.058)*s,.21*s,.116*s,.045*s);ctx!.fill();
       ctx!.fillStyle='#84918c';roundedRect(ctx!,(x-.045)*s,(y-.035)*s,.09*s,.07*s,.025*s);ctx!.fill();
+      ctx!.fillStyle='rgba(255,255,255,.2)';roundedRect(ctx!,(x-.075)*s,(y-.047)*s,.035*s,.018*s,.008*s);ctx!.fill();
     }
   }
   // Body shell with a subtle painted-metal gradient.
@@ -519,8 +520,18 @@ function drawCar(vehicle:Vehicle){
   // Door seam, handles and bumpers add scale cues without visual clutter.
   ctx!.strokeStyle='rgba(55,70,67,.52)';ctx!.lineWidth=Math.max(.7,.022*s);ctx!.beginPath();ctx!.moveTo(-.02*s,-bodyWidth*.49*s);ctx!.lineTo(-.02*s,bodyWidth*.49*s);ctx!.stroke();
   ctx!.fillStyle='#f0e7d3';roundedRect(ctx!,-length*.5*s,-.12*s,.045*s,.24*s,.02*s);ctx!.fill();
-  ctx!.fillStyle='#fff1c9';roundedRect(ctx!,(length*.5-.09)*s,-.145*s,.07*s,.095*s,.025*s);ctx!.fill();roundedRect(ctx!,(length*.5-.09)*s,.05*s,.07*s,.095*s,.025*s);ctx!.fill();
-  ctx!.fillStyle='#c96f61';roundedRect(ctx!,-length*.5*s,-.14*s,.055*s,.1*s,.02*s);ctx!.fill();roundedRect(ctx!,-length*.5*s,.04*s,.055*s,.1*s,.02*s);ctx!.fill();
+  // Front lamps stay warm and compact; they read as glass details rather than beams.
+  ctx!.fillStyle='rgba(255,238,190,.42)';roundedRect(ctx!,(length*.5-.13)*s,-.17*s,.12*s,.13*s,.035*s);ctx!.fill();
+  roundedRect(ctx!,(length*.5-.13)*s,.04*s,.12*s,.13*s,.035*s);ctx!.fill();
+  ctx!.fillStyle='#fff4d5';roundedRect(ctx!,(length*.5-.105)*s,-.145*s,.075*s,.075*s,.025*s);ctx!.fill();
+  roundedRect(ctx!,(length*.5-.105)*s,.07*s,.075*s,.075*s,.025*s);ctx!.fill();
+  // Brake lamps respond to actual speed loss, becoming clearer in queues and at junctions.
+  const braking=clamp((vehicle.cruiseSpeed-vehicle.speed)/Math.max(vehicle.cruiseSpeed,.1)*1.6,0,1);
+  const brakeAlpha=.48+braking*.5;
+  ctx!.fillStyle='rgba(111,43,36,.42)';roundedRect(ctx!,-length*.5*s,-.16*s,.105*s,.13*s,.025*s);ctx!.fill();
+  roundedRect(ctx!,-length*.5*s,.03*s,.105*s,.13*s,.025*s);ctx!.fill();
+  ctx!.fillStyle='rgba(238,105,83,'+brakeAlpha+')';roundedRect(ctx!,-length*.5*s,-.145*s,.075*s,.09*s,.02*s);ctx!.fill();
+  roundedRect(ctx!,-length*.5*s,.055*s,.075*s,.09*s,.02*s);ctx!.fill();
   // A tiny specular strip gives each car a readable silhouette at normal zoom.
   ctx!.strokeStyle='rgba(255,255,255,.55)';ctx!.lineWidth=Math.max(.8,.035*s);ctx!.beginPath();ctx!.moveTo(-length*.34*s,-bodyWidth*.38*s);ctx!.quadraticCurveTo(0,-bodyWidth*.52*s,length*.34*s,-bodyWidth*.38*s);ctx!.stroke();
   ctx!.restore();
