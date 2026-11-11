@@ -1537,8 +1537,8 @@ function routeCellBlocked(point:Point,start:Point,end:Point,allowStartNetwork=fa
   // parallel roads: that was the source of accidental overlaps.
   const endpointApron=2.6;
   const roads=[
-    ...staticRoads.map((road,index)=>({id:'static-'+index,points:staticRoadPath(road),width:road.width})),
-    ...builtRoads.map((road,index)=>({id:'built-'+index,points:road.points,width:road.width}))
+    ...staticRoads.map((road,index)=>({id:'static-'+index,points:smoothPoints(staticRoadPath(road)),width:road.width})),
+    ...builtRoads.map((road,index)=>({id:'built-'+index,points:smoothPoints(road.points),width:road.width}))
   ];
   for(const road of roads){
     const clearance=roadHalfWidth+road.width/2+.34;
