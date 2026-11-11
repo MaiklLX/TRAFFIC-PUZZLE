@@ -730,6 +730,7 @@ function drawMapLabels(){
   drawWorldLabel('ЖИЛОЙ РАЙОН',{x:4.2,y:10.9});
   drawWorldLabel('МАГАЗИН',{x:11,y:-7.45});
   drawWorldLabel('САД',{x:16.8,y:-7.9});
+  if(activeGrowthBuildings.length)drawWorldLabel('НОВЫЙ РАЙОН',{x:-19,y:10.55},'#718b76');
 }
 function drawVillageLife(){
   // Tiny residents walk slowly around their yards with a visible gait and shadow.
@@ -825,6 +826,7 @@ function drawStaticMapLayer(){
     drawHouse(2.8,8.3,.8,'#f2e9d5','#c98b76');
     drawHouse(-5,-9,.72,'#e8e4d0','#81a9a0');
     drawShop(11,-5);drawFuelStation(-8,-16.1);
+    for(const building of activeGrowthBuildings)drawHouse(building.position.x,building.position.y,building.scale,building.wall,building.roof);
     const trees=[[-14,-10,1.1],[-17,-4,.85],[-16,1,.9],[-12,10,1.05],[4,12,.9],[15,4,1.05],[14,-9,.85],[-19,-12,.75],[20,12,1],[19,-10,.8]] as const;
     for(const [x,y,size] of trees)drawTree(x,y,size);
   }finally{
@@ -848,6 +850,7 @@ function render(){
     drawHouse(2.8,8.3,.8,'#f2e9d5','#c98b76');
     drawHouse(-5,-9,.72,'#e8e4d0','#81a9a0');
     drawShop(11,-5);drawFuelStation(-8,-16.1);
+    for(const building of activeGrowthBuildings)drawHouse(building.position.x,building.position.y,building.scale,building.wall,building.roof);
     const trees=[[-14,-10,1.1],[-17,-4,.85],[-16,1,.9],[-12,10,1.05],[4,12,.9],[15,4,1.05],[14,-9,.85],[-19,-12,.75],[20,12,1],[19,-10,.8]] as const;
     for(const [x,y,size] of trees)drawTree(x,y,size);
   }
@@ -1027,6 +1030,13 @@ const trafficDestinations:TrafficDestination[]=[
   {id:'market',name:'Магазин у трассы',access:{x:11,y:-7.25},color:'#d7a45f',weight:2}
 ];
 const homeLocations=trafficDestinations.filter(item=>item.id.endsWith('-home'));
+const initialHomeLocations=[...homeLocations];
+type GrowthSite={id:string;name:string;position:Point;access:Point;color:string;weight:number;scale:number;wall:string;roof:string;obstacleRadius:number};
+const growthSites:GrowthSite[]=[
+  {id:'northwest-home',name:'Новый дом на опушке',position:{x:-19,y:13},access:{x:-19,y:14.65},color:'#9db8a0',weight:1,scale:.78,wall:'#eee6d2',roof:'#8ea88e',obstacleRadius:1.8}
+];
+const activeGrowthBuildings:GrowthSite[]=[];
+let settlementGrowthStage=0;
 const serviceLocations=trafficDestinations.filter(item=>item.id==='farm'||item.id==='market');
 const trafficOrigins:TrafficOrigin[]=trafficDestinations.map(item=>({
   id:item.id,name:item.name,access:item.access,color:item.color,weight:item.weight
@@ -1270,18 +1280,53 @@ function pointerPosition(event:MouseEvent):Point{
   const rect=canvas.getBoundingClientRect();return{x:event.clientX-rect.left,y:event.clientY-rect.top};
 }
 function clearRouteSelection(){routeSelection=[];render();}
+function isGrowthSiteClear(site:GrowthSite){
+  if(site.position.x<WORLD.minX+2.8||site.position.x>WORLD.maxX-2.8||site.position.y<WORLD.minY+2.8||site.position.y>WORLD.maxY-2.8)return false;
+  if(obstacles.some(obstacle=>distance(site.position,obstacle)<site.obstacleRadius+obstacle.r+1.15))return false;
+  for(const road of staticRoads){
+    const points=staticRoadPath(road);
+    for(let i=1;i<points.length;i++)if(distanceToSegment(site.position,points[i-1]!,points[i]!)<site.obstacleRadius+road.width/2+1.1)return false;
+  }
+  return true;
+}
+function advanceSettlementGrowth(initialNetworkReady:boolean){
+  if(!initialNetworkReady||settlementGrowthStage>0)return;
+  const site=growthSites[0];
+  if(!site||!isGrowthSiteClear(site))return;
+  activeGrowthBuildings.push(site);
+  obstacles.push({x:site.position.x,y:site.position.y,r:site.obstacleRadius,type:'house'});
+  const destination:TrafficDestination={id:site.id,name:site.name,access:{...site.access},color:site.color,weight:site.weight};
+  trafficDestinations.push(destination);homeLocations.push(destination);
+  trafficOrigins.push({id:destination.id,name:destination.name,access:{...destination.access},color:destination.color,weight:destination.weight});
+  settlementGrowthStage=1;staticLayerDirty=true;
+  refreshVehicleRoutes();
+}
 function updateMission(){
   const barn=trafficDestinations.find(item=>item.id==='farm');
   const farmConnected=!!barn&&!!findRoadPath(barn.access,demoStart);
-  const homeConnected=homeLocations.some(home=>!!findRoadPath(home.access,demoStart));
-  const complete=farmConnected&&homeConnected;
-  if(missionCount)missionCount.textContent=complete?'ВЫПОЛНЕНО':farmConnected?'ЭТАП 2':'В РАБОТЕ';
-  if(missionProgress)missionProgress.style.width=complete?'100%':farmConnected?'62%':'12%';
+  const initialHomeConnected=initialHomeLocations.some(home=>!!findRoadPath(home.access,demoStart));
+  advanceSettlementGrowth(farmConnected&&initialHomeConnected);
+  const newHome=trafficDestinations.find(item=>item.id==='northwest-home');
+  const newHomeConnected=!!newHome&&!!findRoadPath(newHome.access,demoStart);
+  if(newHomeConnected)settlementGrowthStage=2;
   const missionState=document.querySelector<HTMLElement>('#mission-state');
-  if(missionState)missionState.textContent=complete
-    ?'Ферма и жилой район связаны. Машины получили рабочие маршруты.'
-    :farmConnected?'Ферма подключена. Теперь свяжи с трассой любой жилой дом.'
-    :'Выбери въезд у амбара и точку на трассе';
+  const settlementStatus=document.querySelector<HTMLElement>('#settlement-status');
+  if(settlementGrowthStage===0){
+    if(missionCount)missionCount.textContent=farmConnected?'ЭТАП 2':'В РАБОТЕ';
+    if(missionProgress)missionProgress.style.width=farmConnected?'62%':'12%';
+    if(missionState)missionState.textContent=farmConnected?'Ферма подключена. Теперь свяжи с трассой любой жилой дом.':'Выбери въезд у амбара и точку на трассе';
+    if(settlementStatus)settlementStatus.textContent='ПОДКЛЮЧИ ФЕРМУ И ЖИЛОЙ РАЙОН';
+  }else if(settlementGrowthStage===1){
+    if(missionCount)missionCount.textContent='НОВЫЙ РАЙОН';
+    if(missionProgress)missionProgress.style.width='78%';
+    if(missionState)missionState.textContent='Долина расширилась: на северо-западной опушке появился новый дом. Подключи его к дорожной сети.';
+    if(settlementStatus)settlementStatus.textContent='НОВЫЙ ДОМ · ОТКРЫТ НОВЫЙ СПРОС';
+  }else{
+    if(missionCount)missionCount.textContent='РАЙОН РАСТЁТ';
+    if(missionProgress)missionProgress.style.width='100%';
+    if(missionState)missionState.textContent='Новый жилой участок подключён. Поездки из него уже включены в общий поток долины.';
+    if(settlementStatus)settlementStatus.textContent='НОВЫЙ ДОМ ПОДКЛЮЧЁН · ПОТОК РАСТЁТ';
+  }
 }
 type RouteAnchor={point:Point;kind:'building'|'network';name:string};
 function resolveRouteAnchor(raw:Point):RouteAnchor|null{
