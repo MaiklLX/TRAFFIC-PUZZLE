@@ -66,7 +66,7 @@ function getFitCameraZoom(){
 function resize(){
   const rect=mount!.getBoundingClientRect();
   if(!rect.width||!rect.height)return;
-  width=rect.width;height=rect.height;dpr=Math.min(window.devicePixelRatio||1,2);
+  width=rect.width;height=rect.height;dpr=Math.min(window.devicePixelRatio||1,1.5);
   canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);
   canvas.style.width=width+'px';canvas.style.height=height+'px';
   ctx!.setTransform(dpr,0,0,dpr,0,0);
@@ -473,53 +473,23 @@ function vehiclePose(vehicle:Vehicle):{x:number;y:number;angle:number;heading:Po
 }
 function drawCar(vehicle:Vehicle){
   const pose=vehiclePose(vehicle),p=worldToScreen({x:pose.x,y:pose.y}),s=camera.zoom;
-  const seed=vehicle.destinationId.split('').reduce((sum,char)=>sum+char.charCodeAt(0),0);
-  const length=seed%4===0?1.38:seed%3===0?1.2:1.29;
-  const bodyWidth=seed%5===0?.43:.46;
-  const roofTone=seed%2===0?'#f4ead7':'#e9f0e8';
-  const glass=seed%3===0?'#8fb8bd':'#a8c9ca';
+  // Compact flat vehicle glyph: one body, one cabin and two signal marks.
+  // No per-frame gradients, soft shadows, wheel loops or decorative strokes.
+  const length=1.24*s,width=.39*s;
   ctx!.save();ctx!.translate(p.x,p.y);ctx!.rotate(pose.angle);
-  // Soft contact shadow and a dark underbody create a grounded miniature vehicle.
-  ctx!.fillStyle='#53666a';ctx!.globalAlpha=.2;ctx!.beginPath();ctx!.ellipse(-.015*s,.085*s,(length*.57)*s,.31*s,0,0,Math.PI*2);ctx!.fill();ctx!.globalAlpha=1;
-  ctx!.fillStyle='#38494d';roundedRect(ctx!,-length*.53*s,-.255*s,length*1.06*s,.51*s,.16*s);ctx!.fill();
-  // Four compact tyres, with a restrained sidewall highlight for a clearer top-down read.
-  for(const x of [-length*.32,length*.32]){
-    for(const y of [-.225,.225]){
-      ctx!.fillStyle='#29383b';roundedRect(ctx!,(x-.105)*s,(y-.058)*s,.21*s,.116*s,.045*s);ctx!.fill();
-      ctx!.fillStyle='#84918c';roundedRect(ctx!,(x-.045)*s,(y-.035)*s,.09*s,.07*s,.025*s);ctx!.fill();
-      ctx!.fillStyle='rgba(255,255,255,.2)';roundedRect(ctx!,(x-.075)*s,(y-.047)*s,.035*s,.018*s,.008*s);ctx!.fill();
-    }
-  }
-  // Body shell with a subtle painted-metal gradient.
-  const paint=ctx!.createLinearGradient(0,-.25*s,0,.25*s);
-  paint.addColorStop(0,'#ffffff');paint.addColorStop(.16,vehicle.color);paint.addColorStop(.72,vehicle.color);paint.addColorStop(1,'#53666a');
-  ctx!.fillStyle=paint;roundedRect(ctx!,-length*.5*s,-bodyWidth*.5*s,length*s,bodyWidth*s,.14*s);ctx!.fill();
-  ctx!.strokeStyle='rgba(48,65,65,.55)';ctx!.lineWidth=Math.max(.7,.025*s);ctx!.stroke();
-  // Front and rear glass are separate, with a narrow painted roof between them.
-  const cabinLength=length*.54;
-  ctx!.fillStyle='#536d70';roundedRect(ctx!,-cabinLength*.5*s,-.19*s,cabinLength*s,.38*s,.095*s);ctx!.fill();
-  ctx!.fillStyle=glass;roundedRect(ctx!,.035*s,-.155*s,cabinLength*.39*s,.31*s,.065*s);ctx!.fill();
-  ctx!.fillStyle=roofTone;ctx!.globalAlpha=.88;roundedRect(ctx!,-cabinLength*.39*s,-.155*s,cabinLength*.34*s,.31*s,.06*s);ctx!.fill();ctx!.globalAlpha=1;
-  // Windshield reflections and roof panel.
-  ctx!.strokeStyle='rgba(255,255,255,.62)';ctx!.lineWidth=Math.max(.8,.035*s);ctx!.beginPath();ctx!.moveTo(.1*s,-.12*s);ctx!.lineTo(.29*s,-.12*s);ctx!.stroke();
-  ctx!.fillStyle='rgba(255,255,255,.22)';roundedRect(ctx!,-.13*s,-.12*s,.14*s,.24*s,.035*s);ctx!.fill();
-  // Door seam, handles and bumpers add scale cues without visual clutter.
-  ctx!.strokeStyle='rgba(55,70,67,.52)';ctx!.lineWidth=Math.max(.7,.022*s);ctx!.beginPath();ctx!.moveTo(-.02*s,-bodyWidth*.49*s);ctx!.lineTo(-.02*s,bodyWidth*.49*s);ctx!.stroke();
-  ctx!.fillStyle='#f0e7d3';roundedRect(ctx!,-length*.5*s,-.12*s,.045*s,.24*s,.02*s);ctx!.fill();
-  // Front lamps stay warm and compact; they read as glass details rather than beams.
-  ctx!.fillStyle='rgba(255,238,190,.42)';roundedRect(ctx!,(length*.5-.13)*s,-.17*s,.12*s,.13*s,.035*s);ctx!.fill();
-  roundedRect(ctx!,(length*.5-.13)*s,.04*s,.12*s,.13*s,.035*s);ctx!.fill();
-  ctx!.fillStyle='#fff4d5';roundedRect(ctx!,(length*.5-.105)*s,-.145*s,.075*s,.075*s,.025*s);ctx!.fill();
-  roundedRect(ctx!,(length*.5-.105)*s,.07*s,.075*s,.075*s,.025*s);ctx!.fill();
-  // Brake lamps respond to actual speed loss, becoming clearer in queues and at junctions.
-  const braking=clamp((vehicle.cruiseSpeed-vehicle.speed)/Math.max(vehicle.cruiseSpeed,.1)*1.6,0,1);
-  const brakeAlpha=.48+braking*.5;
-  ctx!.fillStyle='rgba(111,43,36,.42)';roundedRect(ctx!,-length*.5*s,-.16*s,.105*s,.13*s,.025*s);ctx!.fill();
-  roundedRect(ctx!,-length*.5*s,.03*s,.105*s,.13*s,.025*s);ctx!.fill();
-  ctx!.fillStyle='rgba(238,105,83,'+brakeAlpha+')';roundedRect(ctx!,-length*.5*s,-.145*s,.075*s,.09*s,.02*s);ctx!.fill();
-  roundedRect(ctx!,-length*.5*s,.055*s,.075*s,.09*s,.02*s);ctx!.fill();
-  // A tiny specular strip gives each car a readable silhouette at normal zoom.
-  ctx!.strokeStyle='rgba(255,255,255,.55)';ctx!.lineWidth=Math.max(.8,.035*s);ctx!.beginPath();ctx!.moveTo(-length*.34*s,-bodyWidth*.38*s);ctx!.quadraticCurveTo(0,-bodyWidth*.52*s,length*.34*s,-bodyWidth*.38*s);ctx!.stroke();
+  ctx!.fillStyle='#35494a';
+  roundedRect(ctx!,-length*.5,-width*.5,length,width,.11*s);ctx!.fill();
+  ctx!.fillStyle=vehicle.color;
+  roundedRect(ctx!,-length*.43,-width*.43,length*.86,width*.86,.085*s);ctx!.fill();
+  ctx!.fillStyle='#a9c9c8';
+  roundedRect(ctx!,-.08*s,-width*.32,.39*s,width*.64,.055*s);ctx!.fill();
+  ctx!.fillStyle='#fff0c8';
+  ctx!.fillRect(length*.39,-width*.31,.07*s,.09*s);
+  ctx!.fillRect(length*.39,width*.22,.07*s,.09*s);
+  const braking=vehicle.speed<vehicle.cruiseSpeed*.72;
+  ctx!.fillStyle=braking?'#f07862':'#a85f55';
+  ctx!.fillRect(-length*.47,-width*.34,.065*s,.1*s);
+  ctx!.fillRect(-length*.47,width*.24,.065*s,.1*s);
   ctx!.restore();
 }
 let ambientClock=0;
@@ -1374,17 +1344,30 @@ function animate(time:number){
   // and acceleration is slower than braking so gaps recover smoothly.
   const poses=vehicles.map(vehicle=>vehiclePose(vehicle));
   const junctionLimits=junctionYieldSpeeds();
+  // Spatial buckets limit car-following checks to nearby vehicles instead of
+  // comparing every car with the entire fleet (quadratic work at peak traffic).
+  const cellSize=2.6,buckets=new Map<string,number[]>();
+  for(let i=0;i<poses.length;i++){
+    const pose=poses[i]!,key=Math.floor(pose.x/cellSize)+','+Math.floor(pose.y/cellSize);
+    const bucket=buckets.get(key);
+    if(bucket)bucket.push(i);else buckets.set(key,[i]);
+  }
   for(let i=0;i<vehicles.length;i++){
     const vehicle=vehicles[i]!,pose=poses[i]!;
     let desiredSpeed=vehicle.fuel>0?(junctionLimits[i]??vehicle.cruiseSpeed):0;
-    for(let j=0;j<vehicles.length;j++){
-      if(i===j)continue;
-      const other=poses[j]!,dx=other.x-pose.x,dy=other.y-pose.y;
-      const longitudinal=dx*pose.heading.x+dy*pose.heading.y;
-      const lateral=Math.abs(dx*pose.heading.y-dy*pose.heading.x);
-      if(longitudinal>0&&lateral<.38){
-        const gap=longitudinal-1.28;
-        desiredSpeed=Math.min(desiredSpeed,clamp((gap-1.1)*2.2,0,vehicle.cruiseSpeed));
+    const cellX=Math.floor(pose.x/cellSize),cellY=Math.floor(pose.y/cellSize);
+    for(let ox=-1;ox<=1;ox++)for(let oy=-1;oy<=1;oy++){
+      const nearby=buckets.get((cellX+ox)+','+(cellY+oy));
+      if(!nearby)continue;
+      for(const j of nearby){
+        if(i===j)continue;
+        const other=poses[j]!,dx=other.x-pose.x,dy=other.y-pose.y;
+        const longitudinal=dx*pose.heading.x+dy*pose.heading.y;
+        const lateral=Math.abs(dx*pose.heading.y-dy*pose.heading.x);
+        if(longitudinal>0&&lateral<.38){
+          const gap=longitudinal-1.28;
+          desiredSpeed=Math.min(desiredSpeed,clamp((gap-1.1)*2.2,0,vehicle.cruiseSpeed));
+        }
       }
     }
     const rate=desiredSpeed<vehicle.speed?7.5:2.1;
