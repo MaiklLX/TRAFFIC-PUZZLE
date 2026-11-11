@@ -39,6 +39,7 @@ A mobile-first, strictly top-down 2D traffic-planning puzzle. Connect a growing 
 - КТ-070 — after the first scenario, a medical center appears on the eastern edge as a second transport call; it generates real home-to-service demand and must be connected by the player.
 - КТ-071 — construction animation is rendered as a lightweight live overlay instead of invalidating the full static map every frame; road intersections and graph nodes use spatial buckets, and junction geometry is cached until the network changes.
 - КТ-072 — moved the school access point inside the roadfinding envelope and validate growth-site access bounds; decluttered the playfield so the map and current objective lead, while traffic details live in an on-demand summary panel.
+- КТ-073 — road routing now reserves existing road corridors, farm fields and orchard parcels; growth buildings check both their footprint and access against all roads; A* penalizes unnecessary turns and the resulting route is shortcut-simplified and collision-checked after curve smoothing.
 - Growth buildings are collision-checked, join the road graph only through player-built access, and never appear as random map clutter.
 
 ## Run locally
