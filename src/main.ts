@@ -1610,7 +1610,7 @@ function routeSegmentIsClear(a:Point,b:Point,start:Point,end:Point,allowStartNet
   }
   return true;
 }
-function simplifyAutoRoadPath(path:Point[],start:Point,end:Point,allowStartNetwork:boolean,allowEndNetwork:boolean,blockingRoads?:RouteBlockingRoad[]){
+function simplifyAutoRoadPath(path:Point[],start:Point,end:Point,allowStartNetwork:boolean,allowEndNetwork:boolean,blockingRoads?:RouteCollisionIndex){
   if(path.length<3)return path;
   const simplified:Point[]=[path[0]!];
   let index=0;
