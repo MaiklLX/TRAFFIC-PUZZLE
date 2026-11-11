@@ -380,9 +380,7 @@ function drawRoadNetwork(){
     drawOneWayMarkers(road);
   }
   for(const road of construction){
-    strokeRoad(road.points,road.progress,'#69777d',1,road.width);
-    const sampled=smoothPoints(road.points);
-    drawRoadStateLine(sampled,'#e2c17f',[.22,.5],.9);
+    strokeRoad(road.points,road.progress,'#c49a59',1,road.width);
   }
   if(staticRoads[0])drawRoadCentreLinePath(staticRoadPath(staticRoads[0]),true,junctions);
 }
