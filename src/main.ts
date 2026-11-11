@@ -230,16 +230,35 @@ function appendJunctionSurface(junction:{center:Point;arms:JunctionArm[]},extra:
 }
 function strokeRoadNetworkGroup(roads:{points:Point[];progress:number;width:number}[],color:string,outerColor:string,junctions:{center:Point;arms:JunctionArm[]}[]=[]){
   if(!roads.length)return;
-  // Filled offset ribbons replace thick strokes: both edges are calculated from
-  // the same centreline, so width changes and bends no longer look like stickers.
-  ctx!.save();ctx!.fillStyle=outerColor;ctx!.beginPath();
-  for(const road of roads)appendRoadRibbon(road.points,road.width*.41+.12);
-  for(const junction of junctions)appendJunctionSurface(junction,.22);
+  // A three-layer roadbed gives every street a soft verge, a clean asphalt edge
+  // and a gently lit driving surface without breaking the connected ribbons.
+  ctx!.save();
+  ctx!.fillStyle='rgba(91,111,88,.10)';ctx!.beginPath();
+  for(const road of roads)appendRoadRibbon(road.points,road.width*.46+.2);
+  for(const junction of junctions)appendJunctionSurface(junction,.34);
   ctx!.fill();
-  ctx!.fillStyle=color;ctx!.beginPath();
+  ctx!.fillStyle=outerColor;ctx!.beginPath();
+  for(const road of roads)appendRoadRibbon(road.points,road.width*.415+.13);
+  for(const junction of junctions)appendJunctionSurface(junction,.23);
+  ctx!.fill();
+  const asphalt=ctx!.createLinearGradient(0,0,width,height);
+  asphalt.addColorStop(0,'#7b837c');asphalt.addColorStop(.5,color);asphalt.addColorStop(1,'#68756f');
+  ctx!.fillStyle=asphalt;ctx!.beginPath();
   for(const road of roads)appendRoadRibbon(road.points,road.width*.35);
   for(const junction of junctions)appendJunctionSurface(junction,.08);
-  ctx!.fill();ctx!.restore();
+  ctx!.fill();
+  // Fine inner edge glints keep the road silhouette crisp against the meadow.
+  ctx!.strokeStyle='rgba(247,241,220,.17)';ctx!.lineWidth=Math.max(.65,.026*camera.zoom);
+  for(const road of roads){
+    const edge=ribbonOffsets(road.points,road.width*.335);
+    for(const side of [edge.left,edge.right]){
+      if(side.length<2)continue;
+      ctx!.beginPath();const first=worldToScreen(side[0]!);ctx!.moveTo(first.x,first.y);
+      for(let i=1;i<side.length;i++){const p=worldToScreen(side[i]!);ctx!.lineTo(p.x,p.y);}
+      ctx!.stroke();
+    }
+  }
+  ctx!.restore();
 }
 function drawRoadCentreLinePath(points:Point[],subtle:boolean,junctions:{center:Point;arms:JunctionArm[]}[],progress=1){
   if(points.length<2||progress<=0)return;
@@ -585,10 +604,13 @@ function drawHouse(x:number,y:number,scale=1,wall='#f4e7c9',roof='#d98c73'){
   ctx!.strokeStyle='#b9cda9';ctx!.lineWidth=Math.max(1,.035*s);ctx!.setLineDash([.12*s,.13*s]);roundedRect(ctx!,-1.48*s,-1.22*s,2.96*s,2.44*s,.28*s);ctx!.stroke();ctx!.setLineDash([]);
   ctx!.fillStyle='#9ba98d';ctx!.globalAlpha=.2;roundedRect(ctx!,-1.12*s,-.77*s+.17*s,2.24*s,1.78*s,.18*s);ctx!.fill();ctx!.globalAlpha=1;
   ctx!.fillStyle='#e9dfc7';roundedRect(ctx!,-1.13*s,-.83*s,2.26*s,1.76*s,.18*s);ctx!.fill();
+  ctx!.strokeStyle='rgba(112,119,94,.22)';ctx!.lineWidth=Math.max(1,.035*s);roundedRect(ctx!,-1.13*s,-.83*s,2.26*s,1.76*s,.18*s);ctx!.stroke();
   ctx!.fillStyle=wall;roundedRect(ctx!,-1.02*s,-.75*s,2.04*s,1.58*s,.13*s);ctx!.fill();
   ctx!.fillStyle=roof;
   ctx!.beginPath();ctx!.moveTo(-1.13*s,-.78*s);ctx!.lineTo(-.72*s,-1.02*s);ctx!.lineTo(.73*s,-1.02*s);ctx!.lineTo(1.13*s,-.78*s);ctx!.lineTo(1.13*s,.77*s);ctx!.lineTo(.72*s,1.02*s);ctx!.lineTo(-.73*s,1.02*s);ctx!.lineTo(-1.13*s,.77*s);ctx!.closePath();ctx!.fill();
   ctx!.strokeStyle='#a85f57';ctx!.lineWidth=Math.max(1,.045*s);ctx!.stroke();
+  ctx!.strokeStyle='rgba(255,246,222,.42)';ctx!.lineWidth=Math.max(1,.045*s);ctx!.beginPath();
+  ctx!.moveTo(-.98*s,-.72*s);ctx!.lineTo(-.68*s,-.91*s);ctx!.lineTo(.68*s,-.91*s);ctx!.stroke();
   // Roof panels, ridge cap and warm reflected light.
   ctx!.strokeStyle='#ffffff';ctx!.globalAlpha=.19;ctx!.lineWidth=Math.max(1,.07*s);
   for(const yy of [-.56,-.28,0,.28,.56]){ctx!.beginPath();ctx!.moveTo(-.91*s,yy*s);ctx!.lineTo(.91*s,yy*s);ctx!.stroke();}
@@ -632,6 +654,7 @@ function drawShop(x:number,y:number){
   ctx!.fillStyle='#e8dfc8';roundedRect(ctx!,-1.78*s,-1.36*s,3.56*s,2.62*s,.18*s);ctx!.fill();
   ctx!.fillStyle='#648c86';ctx!.beginPath();ctx!.moveTo(-1.62*s,-1.1*s);ctx!.lineTo(-1.22*s,-1.48*s);ctx!.lineTo(1.22*s,-1.48*s);ctx!.lineTo(1.62*s,-1.1*s);ctx!.lineTo(1.62*s,1.08*s);ctx!.lineTo(-1.62*s,1.08*s);ctx!.closePath();ctx!.fill();
   ctx!.strokeStyle='#416e6c';ctx!.lineWidth=Math.max(1,.05*s);ctx!.stroke();
+  ctx!.strokeStyle='rgba(255,246,222,.36)';ctx!.lineWidth=Math.max(1,.045*s);ctx!.beginPath();ctx!.moveTo(-1.42*s,-1.12*s);ctx!.lineTo(-1.12*s,-1.39*s);ctx!.lineTo(1.12*s,-1.39*s);ctx!.stroke();
   // Roof seams and a bright shop canopy.
   ctx!.strokeStyle='#a9c7b9';ctx!.globalAlpha=.55;ctx!.lineWidth=Math.max(1,.055*s);
   for(let i=-2;i<=2;i++){ctx!.beginPath();ctx!.moveTo(i*.48*s,-1.18*s);ctx!.lineTo(i*.48*s,.88*s);ctx!.stroke();}
@@ -656,6 +679,7 @@ function drawBarn(x:number,y:number){
   ctx!.fillStyle='#d7a08a';roundedRect(ctx!,-1.96*s,-1.28*s,3.92*s,2.56*s,.14*s);ctx!.fill();
   ctx!.fillStyle='#bd7567';ctx!.beginPath();ctx!.moveTo(-1.83*s,-1.12*s);ctx!.lineTo(-1.45*s,-1.42*s);ctx!.lineTo(1.45*s,-1.42*s);ctx!.lineTo(1.83*s,-1.12*s);ctx!.lineTo(1.83*s,1.12*s);ctx!.lineTo(-1.83*s,1.12*s);ctx!.closePath();ctx!.fill();
   ctx!.strokeStyle='#9e5e55';ctx!.lineWidth=Math.max(1,.055*s);ctx!.stroke();
+  ctx!.strokeStyle='rgba(255,244,220,.38)';ctx!.lineWidth=Math.max(1,.05*s);ctx!.beginPath();ctx!.moveTo(-1.62*s,-1.15*s);ctx!.lineTo(-1.38*s,-1.34*s);ctx!.lineTo(1.38*s,-1.34*s);ctx!.stroke();
   ctx!.strokeStyle='#e9b79d';ctx!.globalAlpha=.55;ctx!.lineWidth=Math.max(1,.045*s);
   for(let i=-3;i<=3;i++){ctx!.beginPath();ctx!.moveTo(i*.43*s,-1.1*s);ctx!.lineTo(i*.43*s,1.1*s);ctx!.stroke();}
   ctx!.globalAlpha=1;
