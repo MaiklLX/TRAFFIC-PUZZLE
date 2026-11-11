@@ -227,15 +227,21 @@ function strokeRoadNetworkGroup(roads:{points:Point[];progress:number;width:numb
   for(const road of roads)appendRoadRibbon(road.points,road.width*.35);
   for(const junction of junctions)appendJunctionSurface(junction,.08);
   ctx!.fill();
-  // Fine inner edge glints keep the road silhouette crisp against the meadow.
+  // Fine edge glints stop before junction mouths. This removes the crossed
+  // seam-lines that made otherwise connected T/X junctions look like overlaps.
   ctx!.strokeStyle='rgba(247,241,220,.17)';ctx!.lineWidth=Math.max(.65,.026*camera.zoom);
   for(const road of roads){
     const edge=ribbonOffsets(road.points,road.width*.335);
     for(const side of [edge.left,edge.right]){
-      if(side.length<2)continue;
-      ctx!.beginPath();const first=worldToScreen(side[0]!);ctx!.moveTo(first.x,first.y);
-      for(let i=1;i<side.length;i++){const p=worldToScreen(side[i]!);ctx!.lineTo(p.x,p.y);}
-      ctx!.stroke();
+      for(let i=1;i<side.length;i++){
+        const a=side[i-1]!,b=side[i]!;
+        const insideJunction=junctions.some(junction=>
+          distanceToSegment(junction.center,a,b)<Math.max(...junction.arms.map(arm=>arm.width/2))+.52
+        );
+        if(insideJunction)continue;
+        const p=worldToScreen(a),q=worldToScreen(b);
+        ctx!.beginPath();ctx!.moveTo(p.x,p.y);ctx!.lineTo(q.x,q.y);ctx!.stroke();
+      }
     }
   }
   ctx!.restore();
@@ -1515,7 +1521,7 @@ function resolveRouteAnchor(raw:Point):RouteAnchor|null{
   if(network&&distance(raw,network)<1.8)return{point:network,kind:'network',name:'Дорожная сеть'};
   return null;
 }
-function routeCellBlocked(point:Point,start:Point,end:Point,allowStartNetwork=false,allowEndNetwork=false){
+function routeCellBlocked(point:Point,start:Point,end:Point,allowStartNetwork=false,allowEndNetwork=false,movement?:{a:Point;b:Point}){
   for(const obstacle of obstacles){
     const clearance=obstacle.r+roadHalfWidth+.42;
     const d=distance(point,obstacle);
@@ -1526,28 +1532,41 @@ function routeCellBlocked(point:Point,start:Point,end:Point,allowStartNetwork=fa
     if(nearEnd&&d>=distance(end,obstacle)-.08)continue;
     return true;
   }
-  // Roads must not be laid across cultivated parcels or the orchard.
+  // Cultivated parcels and the orchard remain hard no-build areas.
   if(isPointInTerrainZone(point,roadHalfWidth+.42))return true;
-  // Existing road corridors are reserved. A short exit/entry apron is allowed
-  // only at a deliberately selected road-network anchor.
-  // Leave enough room for the full road corridor and the A* grid step
-  // around a deliberately selected junction anchor.
-  // A selected junction may open a short approach only through the exact
-  // road segment under that anchor. Never open a circular area across nearby
-  // parallel roads: that was the source of accidental overlaps.
-  const endpointApron=2.6;
   const roads=[
     ...staticRoads.map((road,index)=>({id:'static-'+index,points:smoothPoints(staticRoadPath(road)),width:road.width})),
     ...builtRoads.map((road,index)=>({id:'built-'+index,points:smoothPoints(road.points),width:road.width}))
   ];
+  const move=movement?{x:movement.b.x-movement.a.x,y:movement.b.y-movement.a.y}:null;
+  const moveLength=move?Math.hypot(move.x,move.y):0;
   for(const road of roads){
     const clearance=roadHalfWidth+road.width/2+.34;
     for(let i=1;i<road.points.length;i++){
       const a=road.points[i-1]!,b=road.points[i]!;
       if(distanceToSegment(point,a,b)>=clearance)continue;
-      const selectedStart=allowStartNetwork&&distance(point,start)<endpointApron&&distanceToSegment(start,a,b)<.34;
-      const selectedEnd=allowEndNetwork&&distance(point,end)<endpointApron&&distanceToSegment(end,a,b)<.34;
-      if(selectedStart||selectedEnd)continue;
+      // A road may cross another road, but it may not travel inside its corridor.
+      // Test the crossing angle against the infinite local movement ray so every
+      // A* cell through the asphalt width belongs to one deliberate crossing.
+      let crossingAllowed=false;
+      if(move&&moveLength>.001){
+        const roadDx=b.x-a.x,roadDy=b.y-a.y,roadLength=Math.hypot(roadDx,roadDy);
+        if(roadLength>.001){
+          const sine=Math.abs(move.x*roadDy-move.y*roadDx)/(moveLength*roadLength);
+          if(sine>=.42){
+            const ux=move.x/moveLength,uy=move.y/moveLength,reach=clearance*2.4+1;
+            const extended={a:{x:movement!.a.x-ux*reach,y:movement!.a.y-uy*reach},b:{x:movement!.b.x+ux*reach,y:movement!.b.y+uy*reach}};
+            const crossing=segmentIntersection(extended.a,extended.b,a,b);
+            crossingAllowed=!!crossing&&distance(point,crossing)<clearance+.42;
+            if(!crossingAllowed){
+              const selectedStart=allowStartNetwork&&distance(start,point)<clearance+.35&&distanceToSegment(start,a,b)<.28;
+              const selectedEnd=allowEndNetwork&&distance(end,point)<clearance+.35&&distanceToSegment(end,a,b)<.28;
+              crossingAllowed=selectedStart||selectedEnd;
+            }
+          }
+        }
+      }
+      if(crossingAllowed)continue;
       return true;
     }
   }
@@ -1557,7 +1576,7 @@ function routeSegmentIsClear(a:Point,b:Point,start:Point,end:Point,allowStartNet
   const length=distance(a,b),steps=Math.max(1,Math.ceil(length/.28));
   for(let i=0;i<=steps;i++){
     const t=i/steps;
-    if(routeCellBlocked({x:lerp(a.x,b.x,t),y:lerp(a.y,b.y,t)},start,end,allowStartNetwork,allowEndNetwork))return false;
+    if(routeCellBlocked({x:lerp(a.x,b.x,t),y:lerp(a.y,b.y,t)},start,end,allowStartNetwork,allowEndNetwork,{a,b}))return false;
   }
   return true;
 }
@@ -1582,7 +1601,11 @@ function findAutoRoadPath(start:Point,end:Point,allowStartNetwork=false,allowEnd
   const coords=(id:string)=>id.split(',').map(Number) as [number,number];
   const directions=[[-1,0,1],[1,0,1],[0,-1,1],[0,1,1],[-1,-1,Math.SQRT2],[1,-1,Math.SQRT2],[-1,1,Math.SQRT2],[1,1,Math.SQRT2]] as const;
   const heuristic=(x:number,y:number)=>{const dx=Math.abs(ix1-x),dy=Math.abs(iy1-y);return Math.max(dx,dy)+(Math.SQRT2-1)*Math.min(dx,dy);};
-  const blocked=(x:number,y:number)=>routeCellBlocked({x:x*step,y:y*step},start,end,allowStartNetwork,allowEndNetwork);
+  const blocked=(x:number,y:number,fromX?:number,fromY?:number)=>{
+    const point={x:x*step,y:y*step};
+    const movement=fromX===undefined||fromY===undefined?undefined:{a:{x:fromX*step,y:fromY*step},b:point};
+    return routeCellBlocked(point,start,end,allowStartNetwork,allowEndNetwork,movement);
+  };
   let found=false,iterations=0;
   while(open.size&&iterations++<9000){
     let current:string|null=null,best=Infinity;
@@ -1595,8 +1618,8 @@ function findAutoRoadPath(start:Point,end:Point,allowStartNetwork=false,allowEnd
     for(const [dx,dy,cost] of directions){
       const nx=x+dx,ny=y+dy;
       if(nx*step<WORLD.minX+1||nx*step>WORLD.maxX-1||ny*step<WORLD.minY+1||ny*step>WORLD.maxY-1)continue;
-      if(blocked(nx,ny))continue;
-      if(dx!==0&&dy!==0&&(blocked(x+dx,y)||blocked(x,y+dy)))continue;
+      if(blocked(nx,ny,x,y))continue;
+      if(dx!==0&&dy!==0&&(blocked(x+dx,y,x,y)||blocked(x,y+dy,x,y)))continue;
       const next=key(nx,ny);
       let turnPenalty=0;
       if(previousCoords){
