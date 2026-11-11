@@ -36,6 +36,7 @@ A mobile-first, strictly top-down 2D traffic-planning puzzle. Connect a growing 
 - КТ-067 — first staged settlement expansion: a new residential site appears after the initial network is connected and adds real origin/destination demand.
 - КТ-068 — second growth stage adds a village school after the new home is connected; the school becomes a real service endpoint and opens bidirectional home-to-school traffic.
 - КТ-069 — scenario progress is calculated from four actual network conditions (farm, initial homes, new home, school); the dispatcher and map objective update from the same live state.
+- КТ-070 — after the first scenario, a medical center appears on the eastern edge as a second transport call; it generates real home-to-service demand and must be connected by the player.
 - Growth buildings are collision-checked, join the road graph only through player-built access, and never appear as random map clutter.
 
 ## Run locally
