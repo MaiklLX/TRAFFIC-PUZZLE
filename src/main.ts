@@ -36,7 +36,7 @@ function staticRoadPath(road:{a:Point;b:Point;points?:Point[]}):Point[]{return r
 const obstacles = [
   {x:-6.5,y:-3.2,r:2.15,type:'house'},{x:7.7,y:1.7,r:1.95,type:'house'},{x:-10.4,y:5.8,r:1.85,type:'house'},{x:2.8,y:8.3,r:1.75,type:'house'},{x:-5,y:-9,r:1.55,type:'house'},
   {x:11,y:-5,r:2.25,type:'shop'},{x:-13,y:-4,r:2.35,type:'barn'},
-  {x:-14,y:-10,r:1.25,type:'tree'},{x:-17,y:-4,r:1.05,type:'tree'},{x:-16,y:1,r:1.15,type:'tree'},{x:-12,y:10,r:1.1,type:'tree'},{x:-4,y:12,r:1.05,type:'tree'},{x:4,y:12,r:1.05,type:'tree'},{x:12,y:9,r:1.05,type:'tree'},{x:15,y:4,r:1.05,type:'tree'},{x:14,y:-9,r:1.05,type:'tree'},{x:6,y:-5,r:1.05,type:'tree'},{x:-9,y:-1,r:1.05,type:'tree'},{x:17,y:0,r:1.05,type:'tree'},{x:16,y:7,r:4,type:'pond'}
+  {x:-14,y:-10,r:1.25,type:'tree'},{x:-17,y:-4,r:1.05,type:'tree'},{x:-16,y:1,r:1.15,type:'tree'},{x:-12,y:10,r:1.1,type:'tree'},{x:-4,y:12,r:1.05,type:'tree'},{x:4,y:12,r:1.05,type:'tree'},{x:12,y:9,r:1.05,type:'tree'},{x:15,y:4,r:1.05,type:'tree'},{x:14,y:-9,r:1.05,type:'tree'},{x:6,y:-5,r:1.05,type:'tree'},{x:-9,y:-1,r:1.05,type:'tree'},{x:17,y:0,r:1.05,type:'tree'},{x:16,y:7,r:4,type:'pond'},{x:-8,y:-16.1,r:2.5,type:'fuel'}
 ];
 const builtRoads: Road[] = [];
 const constructionJobs: Road[] = [];
@@ -1156,6 +1156,8 @@ function updateMission(){
 }
 type RouteAnchor={point:Point;kind:'building'|'network';name:string};
 function resolveRouteAnchor(raw:Point):RouteAnchor|null{
+  const network=nearestNetworkPoint(raw);
+  if(network&&distance(raw,network)<.95)return{point:network,kind:'network',name:'Дорожная сеть'};
   let nearestBuilding:TrafficDestination|null=null,buildingDistance=2.75;
   for(const destination of trafficDestinations){
     const d=distance(raw,destination.access);
@@ -1166,7 +1168,6 @@ function resolveRouteAnchor(raw:Point):RouteAnchor|null{
     if(d<buildingDistance){buildingDistance=d;nearestBuilding={id:station.id,name:station.name,access:station.access,color:'#83a98b',weight:1};}
   }
   if(nearestBuilding)return{point:{...nearestBuilding.access},kind:'building',name:nearestBuilding.name};
-  const network=nearestNetworkPoint(raw);
   if(network&&distance(raw,network)<1.8)return{point:network,kind:'network',name:'Дорожная сеть'};
   return null;
 }
@@ -1275,7 +1276,7 @@ const toolButtons=[...document.querySelectorAll<HTMLButtonElement>('.tool')];
 toolButtons.forEach(button=>button.addEventListener('click',()=>{
   selectedTool=button.dataset.tool??'inspect';document.querySelector('.tool.active')?.classList.remove('active');button.classList.add('active');
   const hud=document.querySelector<HTMLElement>('#build-hud');if(hud)hud.hidden=selectedTool!=='road';
-  routeSelection=[];routeHover=null;
+  routeSelection=[];
   if(buildMessage)buildMessage.textContent=selectedTool==='road'?'Выбери две точки: сначала объект, затем трассу или существующую дорогу.':'Обзор карты. Перетаскивай поле и приближай его жестом.';
   canvas.style.cursor=selectedTool==='road'?'pointer':'grab';render();
 }));
