@@ -31,6 +31,7 @@ A mobile-first, strictly top-down 2D traffic-planning puzzle. Connect a growing 
 
 ## Current milestones
 
+- КТ-080 — corrected building-access clearance: endpoint exemptions now form a short outward-facing corridor instead of opening an entire obstacle half-plane; exact access points are validated against their snapped grid points, the route grid is refined from 0.75 to 0.5 units, and both snapped endpoints remain in the reconstructed path.
 - КТ-065 — unified interface, mobile dispatcher and consistent controls.
 - КТ-066 — readable road states and congestion based on actual traffic constraints.
 - КТ-067 — first staged settlement expansion: a new residential site appears after the initial network is connected and adds real origin/destination demand.
