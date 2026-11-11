@@ -288,6 +288,24 @@ function drawRoadCentreLinePath(points:Point[],subtle:boolean,junctions:{center:
 type JunctionArm = { direction:Point; width:number };
 type RoadSegment = { a:Point; b:Point; width:number; source:string };
 type JunctionGroup = { center:Point; arms:JunctionArm[]; samples:number };
+let cachedRoadJunctions:{center:Point;arms:JunctionArm[]}[]|null=null;
+function collectSegmentPairs(segments:RoadSegment[],skipSameSource=false):[number,number][]{
+  const cellSize=3,buckets=new Map<string,number[]>(),pairs:[number,number][]=[],seen=new Set<string>();
+  for(let index=0;index<segments.length;index++){
+    const segment=segments[index]!;
+    const minX=Math.floor(Math.min(segment.a.x,segment.b.x)/cellSize),maxX=Math.floor(Math.max(segment.a.x,segment.b.x)/cellSize);
+    const minY=Math.floor(Math.min(segment.a.y,segment.b.y)/cellSize),maxY=Math.floor(Math.max(segment.a.y,segment.b.y)/cellSize);
+    for(let x=minX;x<=maxX;x++)for(let y=minY;y<=maxY;y++){
+      const key=x+','+y,nearby=buckets.get(key);
+      if(nearby)for(const otherIndex of nearby){
+        const other=segments[otherIndex]!;if(skipSameSource&&other.source===segment.source)continue;
+        const pairKey=otherIndex+':'+index;if(seen.has(pairKey))continue;seen.add(pairKey);pairs.push([otherIndex,index]);
+      }
+      if(nearby)nearby.push(index);else buckets.set(key,[index]);
+    }
+  }
+  return pairs;
+}
 function collectRoadJunctions():{center:Point;arms:JunctionArm[]}[]{
   // Keep each road as a separate source: neighbouring samples of one curved
   // road must never be interpreted as a junction with itself.
@@ -299,10 +317,17 @@ function collectRoadJunctions():{center:Point;arms:JunctionArm[]}[]{
     a:source.points[index]!,b:point,width:source.width,source:source.id
   })));
   const junctions:JunctionGroup[]=[];
+  const junctionBuckets=new Map<string,JunctionGroup[]>();
   const getJunction=(point:Point)=>{
-    let junction=junctions.find(item=>distance(item.center,point)<.2);
-    if(!junction){junction={center:{...point},arms:[],samples:1};junctions.push(junction);}
-    else{
+    const cell=.2,cx=Math.floor(point.x/cell),cy=Math.floor(point.y/cell);
+    let junction:JunctionGroup|undefined;
+    for(let x=cx-1;x<=cx+1&&!junction;x++)for(let y=cy-1;y<=cy+1&&!junction;y++){
+      junction=junctionBuckets.get(x+','+y)?.find(item=>distance(item.center,point)<.2);
+    }
+    if(!junction){
+      junction={center:{...point},arms:[],samples:1};junctions.push(junction);
+      const key=cx+','+cy,items=junctionBuckets.get(key);if(items)items.push(junction);else junctionBuckets.set(key,[junction]);
+    }else{
       junction.center.x+=(point.x-junction.center.x)/(junction.samples+1);
       junction.center.y+=(point.y-junction.center.y)/(junction.samples+1);
       junction.samples++;
@@ -316,20 +341,16 @@ function collectRoadJunctions():{center:Point;arms:JunctionArm[]}[]{
     if(existing){existing.width=Math.max(existing.width,width);return;}
     junction.arms.push({direction,width});
   };
-  for(let i=0;i<segments.length;i++){
-    const first=segments[i]!;
-    for(let j=i+1;j<segments.length;j++){
-      const second=segments[j]!;
-      if(first.source===second.source)continue;
-      const crossing=segmentIntersection(first.a,first.b,second.a,second.b);
-      const shared=distance(first.a,second.a)<.06||distance(first.a,second.b)<.06||distance(first.b,second.a)<.06||distance(first.b,second.b)<.06;
-      const point=crossing??(shared?[first.a,first.b].find(p=>distance(p,second.a)<.06||distance(p,second.b)<.06):null);
-      if(!point)continue;
-      const junction=getJunction(point);
-      for(const segment of [first,second]){
-        if(distance(segment.a,point)>.06)addArm(junction,point,segment.a,segment.width);
-        if(distance(segment.b,point)>.06)addArm(junction,point,segment.b,segment.width);
-      }
+  for(const [i,j] of collectSegmentPairs(segments,true)){
+    const first=segments[i]!,second=segments[j]!;
+    const crossing=segmentIntersection(first.a,first.b,second.a,second.b);
+    const shared=distance(first.a,second.a)<.06||distance(first.a,second.b)<.06||distance(first.b,second.a)<.06||distance(first.b,second.b)<.06;
+    const point=crossing??(shared?[first.a,first.b].find(p=>distance(p,second.a)<.06||distance(p,second.b)<.06):null);
+    if(!point)continue;
+    const junction=getJunction(point);
+    for(const segment of [first,second]){
+      if(distance(segment.a,point)>.06)addArm(junction,point,segment.a,segment.width);
+      if(distance(segment.b,point)>.06)addArm(junction,point,segment.b,segment.width);
     }
   }
   return junctions.filter(junction=>junction.arms.length>=3).map(({center,arms})=>({center,arms}));
@@ -362,10 +383,9 @@ function drawOneWayMarkers(road:Road){
   ctx!.restore();
 }
 function drawRoadNetwork(){
-  const junctions=collectRoadJunctions();
+  const junctions=cachedRoadJunctions??(cachedRoadJunctions=collectRoadJunctions());
   const base=staticRoads.map(road=>({points:staticRoadPath(road),progress:1,width:road.width}));
   const complete=builtRoads.filter(road=>road.progress>=.999);
-  const construction=builtRoads.filter(road=>road.progress<.999);
   const activeSources=new Set(roadGraph.edges.filter(edge=>edge.active).map(edge=>edge.source));
   // Keep a single continuous asphalt surface; communicate network state with
   // restrained centre strokes so branches never appear physically disconnected.
@@ -382,10 +402,10 @@ function drawRoadNetwork(){
     else drawRoadStateLine(road.points,'#d8dfd1',[.16,.68],.82);
     drawOneWayMarkers(road);
   }
-  for(const road of construction){
-    strokeRoad(road.points,road.progress,'#c49a59',1,road.width);
-  }
   if(staticRoads[0])drawRoadCentreLinePath(staticRoadPath(staticRoads[0]),true,junctions);
+}
+function drawConstructionRoads(){
+  for(const road of builtRoads)if(road.progress<.999)strokeRoad(road.points,road.progress,'#c49a59',1,road.width);
 }
 function drawRoadDetails(){
   const highway=staticRoads[0];
@@ -883,6 +903,7 @@ function render(){
     const trees=[[-14,-10,1.1],[-17,-4,.85],[-16,1,.9],[-12,10,1.05],[4,12,.9],[15,4,1.05],[14,-9,.85],[-19,-12,.75],[20,12,1],[19,-10,.8]] as const;
     for(const [x,y,size] of trees)drawTree(x,y,size);
   }
+  drawConstructionRoads();
   for(const vehicle of vehicles)drawCar(vehicle,congestedVehicles.has(vehicle));
   drawMapLabels();drawRoutePreview();drawRouteAnchors();
   if(routeSelection.length){
@@ -901,9 +922,8 @@ function segmentIntersection(a:Point,b:Point,c:Point,d:Point):Point|null{
 }
 const roadGraph:RoadGraph={nodes:[],edges:[]};
 const networkStatus=document.querySelector<HTMLElement>('#network-status');
-let cachedTrafficJunctions:{center:Point;arms:JunctionArm[]}[]|null=null;
 function rebuildRoadGraph(){
-  cachedTrafficJunctions=null;
+  cachedRoadJunctions=null;cachedTrafficJunctions=null;
   roadGraph.nodes.length=0;roadGraph.edges.length=0;
   const sources:{id:string;points:Point[];width:number;kind:'highway'|'local';direction:'both'|'forward'}[]=[
     ...staticRoads.map((r,i)=>({id:'base-'+i,points:smoothPoints(staticRoadPath(r)),width:r.width,kind:r.width>1.45?'highway' as const:'local' as const,direction:r.direction??'both'})),
@@ -1624,7 +1644,6 @@ function animate(time:number){
     const job=constructionJobs[i]!;
     const before=job.progress;
     job.progress=clamp(job.progress+delta/Math.max(1.2,job.points.length*.32),0,1);
-    if(job.progress!==before)staticLayerDirty=true;
     if(before<1&&job.progress>=1){constructionJobs.splice(i,1);networkChanged=true;}
   }
   if(networkChanged){rebuildRoadGraph();refreshVehicleRoutes();updateMission();}
