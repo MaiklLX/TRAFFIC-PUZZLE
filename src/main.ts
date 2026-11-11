@@ -511,12 +511,17 @@ function vehiclePose(vehicle:Vehicle):{x:number;y:number;angle:number;heading:Po
   const heading={x:(end.x-previous.x)/length,y:(end.y-previous.y)/length};
   return{x:end.x,y:end.y,angle:Math.atan2(heading.y,heading.x),heading};
 }
-function drawCar(vehicle:Vehicle){
+function drawCar(vehicle:Vehicle,isCongested=false){
   const pose=vehiclePose(vehicle),p=worldToScreen({x:pose.x,y:pose.y}),s=camera.zoom;
-  // A tiny colored traffic token: one tapered body and one direction marker.
-  // Flat fills only; deliberately no wheels, shadows, gradients or signal lamps.
+  // A restrained amber ring marks a vehicle that is measurably constrained
+  // by a queue or a junction; ordinary slow acceleration stays unmarked.
   const length=1.08*s,halfWidth=.22*s;
-  ctx!.save();ctx!.translate(p.x,p.y);ctx!.rotate(pose.angle);
+  ctx!.save();
+  if(isCongested){
+    ctx!.strokeStyle='rgba(190,139,73,.92)';ctx!.lineWidth=Math.max(1.4,s*.075);
+    ctx!.beginPath();ctx!.arc(p.x,p.y,Math.max(5,s*.34),0,Math.PI*2);ctx!.stroke();
+  }
+  ctx!.translate(p.x,p.y);ctx!.rotate(pose.angle);
   ctx!.fillStyle=vehicle.color;
   ctx!.beginPath();
   ctx!.moveTo(length*.5,0);
@@ -845,7 +850,7 @@ function render(){
     const trees=[[-14,-10,1.1],[-17,-4,.85],[-16,1,.9],[-12,10,1.05],[4,12,.9],[15,4,1.05],[14,-9,.85],[-19,-12,.75],[20,12,1],[19,-10,.8]] as const;
     for(const [x,y,size] of trees)drawTree(x,y,size);
   }
-  for(const vehicle of vehicles)drawCar(vehicle);
+  for(const vehicle of vehicles)drawCar(vehicle,congestedVehicles.has(vehicle));
   drawMapLabels();drawRoutePreview();drawRouteAnchors();
   if(routeSelection.length){
     const p=worldToScreen(routeSelection[0]!);
@@ -1054,11 +1059,14 @@ function updateDestinationBoard(){
   const rows=trafficOrigins.flatMap(origin=>tripDestinations.filter(destination=>isValidTripPair(origin.id,destination.id)).map(destination=>{
     const id=origin.id+'-'+destination.id;
     const ready=reachableTrips.some(trip=>trip.id===id);
-    const active=vehicles.filter(vehicle=>vehicle.originId===origin.id&&vehicle.destinationId===destination.id).length;
-    const state=!ready?'НЕТ МАРШРУТА':active>=3?'ПЕРЕГРУЗКА':active>0?'В ПУТИ':'МАРШРУТ ОТКРЫТ';
-    return '<div class="destination-row '+(ready?'is-connected':'is-disconnected')+(active>=3?' is-busy':'')+'">'+
+    const routeVehicles=vehicles.filter(vehicle=>vehicle.originId===origin.id&&vehicle.destinationId===destination.id);
+    const active=routeVehicles.length;
+    const slowed=routeVehicles.filter(vehicle=>congestedVehicles.has(vehicle)).length;
+    const jammed=active>=2&&slowed>=2&&slowed/active>=.6;
+    const state=!ready?'НЕТ МАРШРУТА':jammed?'ЗАТОР':slowed>0?'ЗАМЕДЛЕНИЕ':active>0?'В ПУТИ':'МАРШРУТ ОТКРЫТ';
+    return '<div class="destination-row '+(ready?'is-connected':'is-disconnected')+(jammed?' is-busy':slowed>0?' is-slow':'')+'">'+
       '<i style="--destination-color:'+destination.color+'"></i>'+
-      '<span><b>'+origin.name+' → '+destination.name+'</b><small>'+(destination.weight>1?'Повышенный спрос':'Обычный спрос')+' · '+active+' '+(active===1?'машина':active>=2&&active<=4?'машины':'машин')+'</small></span>'+
+      '<span><b>'+origin.name+' → '+destination.name+'</b><small>'+(destination.weight>1?'Повышенный спрос':'Обычный спрос')+' · '+active+' '+(active===1?'машина':active>=2&&active<=4?'машины':'машин')+(slowed>0?' · '+slowed+' замедлено':'')+'</small></span>'+
       '<em>'+(ready?state:'НЕТ МАРШРУТА')+'</em></div>';
   }));
   board.innerHTML=rows.join('');
@@ -1168,9 +1176,10 @@ reachableDestinations=tripDestinations.filter(destination=>reachableTrips.some(t
 updateDestinationBoard();
 let trafficSpawnTimer=5.5;
 let trafficHudTimer=0;
-function countCongestedVehicles(poses=vehicles.map(vehicle=>vehiclePose(vehicle))){
+const congestedVehicles=new Set<Vehicle>();
+function refreshCongestionSnapshot(poses=vehicles.map(vehicle=>vehiclePose(vehicle))){
+  congestedVehicles.clear();
   const junctions=cachedTrafficJunctions??(cachedTrafficJunctions=collectRoadJunctions());
-  let count=0;
   for(let i=0;i<vehicles.length;i++){
     const vehicle=vehicles[i]!;
     if(vehicle.speed>=vehicle.cruiseSpeed*.72)continue;
@@ -1193,14 +1202,19 @@ function countCongestedVehicles(poses=vehicles.map(vehicle=>vehiclePose(vehicle)
         if(projection.lateral<2.35&&Math.abs(remaining)<2.15){constrained=true;break;}
       }
     }
-    if(constrained)count++;
+    if(constrained)congestedVehicles.add(vehicle);
   }
-  return count;
 }
 function updateTrafficCounter(){
+  refreshCongestionSnapshot();
   if(trafficCount)trafficCount.textContent=String(vehicles.length);
-  if(jamCount)jamCount.textContent=String(countCongestedVehicles());
+  if(jamCount)jamCount.textContent=String(congestedVehicles.size);
   if(fuelCount){const average=vehicles.length?vehicles.reduce((sum,vehicle)=>sum+vehicle.fuel/vehicle.fuelCapacity,0)/vehicles.length:1;fuelCount.textContent=vehicles.length?Math.round(average*100)+'%':'—';}
+  if(networkStatus){
+    const active=roadGraph.edges.filter(edge=>edge.active).length;
+    networkStatus.textContent=active+' активных / '+roadGraph.edges.length+' участков · '+congestedVehicles.size+' в заторе';
+  }
+  updateDestinationBoard();
 }
 function chooseTrafficTrip(){
   if(!reachableTrips.length)return null;
