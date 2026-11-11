@@ -1341,8 +1341,9 @@ updateTrafficCounter();
 
 function nearestNetworkPoint(p:Point):Point|null{
   let nearest=Infinity,best:Point|null=null;
+  // Any completed physical road is a valid connection target.
+  // Activity is a traffic-direction/status property, not a restriction on construction.
   for(const edge of roadGraph.edges){
-    if(!edge.active)continue;
     const a=roadGraph.nodes[edge.from]!,b=roadGraph.nodes[edge.to]!;
     const dx=b.x-a.x,dy=b.y-a.y;
     const t=clamp(((p.x-a.x)*dx+(p.y-a.y)*dy)/Math.max(dx*dx+dy*dy,.0001),0,1);
@@ -1500,7 +1501,7 @@ function updateMission(){
 type RouteAnchor={point:Point;kind:'building'|'network';name:string};
 function resolveRouteAnchor(raw:Point):RouteAnchor|null{
   const network=nearestNetworkPoint(raw);
-  if(network&&distance(raw,network)<.95)return{point:network,kind:'network',name:'Дорожная сеть'};
+  if(network&&distance(raw,network)<1.25)return{point:network,kind:'network',name:'Дорожная сеть'};
   let nearestBuilding:TrafficDestination|null=null,buildingDistance=2.75;
   for(const destination of trafficDestinations){
     const d=distance(raw,destination.access);
@@ -1529,7 +1530,9 @@ function routeCellBlocked(point:Point,start:Point,end:Point,allowStartNetwork=fa
   if(isPointInTerrainZone(point,roadHalfWidth+.42))return true;
   // Existing road corridors are reserved. A short exit/entry apron is allowed
   // only at a deliberately selected road-network anchor.
-  const endpointApron=2.35;
+  // Leave enough room for the full road corridor and the A* grid step
+  // around a deliberately selected junction anchor.
+  const endpointApron=3.1;
   const roads=[
     ...staticRoads.map(road=>({points:staticRoadPath(road),width:road.width})),
     ...builtRoads.map(road=>({points:road.points,width:road.width}))
