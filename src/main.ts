@@ -1609,7 +1609,7 @@ toolButtons.forEach(button=>button.addEventListener('click',()=>{
 }));
 document.querySelector<HTMLButtonElement>('#cancel-road')?.addEventListener('click',()=>{clearRouteSelection();if(buildMessage)buildMessage.textContent='Выбор точек сброшен. Начни с любой подсвеченной точки.';});
 document.querySelector<HTMLButtonElement>('#undo-road')?.addEventListener('click',()=>{
-  const road=builtRoads.pop();if(!road)return;const index=constructionJobs.indexOf(road);if(index>=0)constructionJobs.splice(index,1);rebuildRoadGraph();refreshVehicleRoutes();updateMission();if(buildMessage)buildMessage.textContent='Последний построенный участок удалён.';render();
+  const road=builtRoads.pop();if(!road)return;const index=constructionJobs.indexOf(road);if(index>=0)constructionJobs.splice(index,1);staticLayerDirty=true;rebuildRoadGraph();refreshVehicleRoutes();updateMission();if(buildMessage)buildMessage.textContent='Последний построенный участок удалён.';render();
 });
 window.addEventListener('keydown',event=>{
   if(event.key==='+'||event.key==='=')setZoom(1.12);if(event.key==='-')setZoom(.89);
