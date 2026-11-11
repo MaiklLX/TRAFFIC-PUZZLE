@@ -923,33 +923,54 @@ function segmentIntersection(a:Point,b:Point,c:Point,d:Point):Point|null{
 const roadGraph:RoadGraph={nodes:[],edges:[]};
 const networkStatus=document.querySelector<HTMLElement>('#network-status');
 function rebuildRoadGraph(){
-  cachedRoadJunctions=null;cachedTrafficJunctions=null;
+  cachedRoadJunctions=null;
   roadGraph.nodes.length=0;roadGraph.edges.length=0;
   const sources:{id:string;points:Point[];width:number;kind:'highway'|'local';direction:'both'|'forward'}[]=[
     ...staticRoads.map((r,i)=>({id:'base-'+i,points:smoothPoints(staticRoadPath(r)),width:r.width,kind:r.width>1.45?'highway' as const:'local' as const,direction:r.direction??'both'})),
     ...builtRoads.filter(r=>r.progress>=.999).map((r,i)=>({id:'built-'+i,points:smoothPoints(r.points),width:r.width,kind:r.width>1.45?'highway' as const:'local' as const,direction:r.direction}))
   ];
-  const getNode=(p:Point)=>{
-    let node=roadGraph.nodes.find(n=>Math.hypot(n.x-p.x,n.y-p.y)<.08);
-    if(!node){node={id:roadGraph.nodes.length,x:p.x,y:p.y,edgeIds:[]};roadGraph.nodes.push(node);}
+  const segments:RoadSegment[]=[],segmentsBySource:number[][]=sources.map(()=>[]);
+  const splitBySegment:{t:number;p:Point}[][]=[];
+  for(let sourceIndex=0;sourceIndex<sources.length;sourceIndex++){
+    const source=sources[sourceIndex]!;
+    for(let i=1;i<source.points.length;i++){
+      const index=segments.length;
+      segments.push({a:source.points[i-1]!,b:source.points[i]!,width:source.width,source:source.id});
+      segmentsBySource[sourceIndex]!.push(index);
+      splitBySegment.push([{t:0,p:source.points[i-1]!},{t:1,p:source.points[i]!}]);
+    }
+  }
+  // Broad-phase spatial buckets avoid testing every road segment against every other segment.
+  for(const [firstIndex,secondIndex] of collectSegmentPairs(segments)){
+    const first=segments[firstIndex]!,second=segments[secondIndex]!;
+    const hit=segmentIntersection(first.a,first.b,second.a,second.b);if(!hit)continue;
+    const addSplit=(index:number,segment:RoadSegment)=>{
+      const dx=segment.b.x-segment.a.x,dy=segment.b.y-segment.a.y;
+      const t=Math.abs(dx)>=Math.abs(dy)?(hit.x-segment.a.x)/(dx||1):(hit.y-segment.a.y)/(dy||1);
+      if(t>.0001&&t<.9999)splitBySegment[index]!.push({t,p:hit});
+    };
+    addSplit(firstIndex,first);addSplit(secondIndex,second);
+  }
+  const nodeBuckets=new Map<string,RoadGraphNode[]>();
+  const getNode=(point:Point)=>{
+    const cell=.08,cx=Math.floor(point.x/cell),cy=Math.floor(point.y/cell);
+    for(let x=cx-1;x<=cx+1;x++)for(let y=cy-1;y<=cy+1;y++){
+      const nearby=nodeBuckets.get(x+','+y);
+      const node=nearby?.find(item=>Math.hypot(item.x-point.x,item.y-point.y)<.08);
+      if(node)return node;
+    }
+    const node:RoadGraphNode={id:roadGraph.nodes.length,x:point.x,y:point.y,edgeIds:[]};
+    roadGraph.nodes.push(node);
+    const key=cx+','+cy,items=nodeBuckets.get(key);if(items)items.push(node);else nodeBuckets.set(key,[node]);
     return node;
   };
-  for(const source of sources){
-    for(let i=1;i<source.points.length;i++){
-      const a=source.points[i-1]!,b=source.points[i]!;
-      const splits:{t:number;p:Point}[]=[{t:0,p:a},{t:1,p:b}];
-      for(const other of sources){
-        for(let j=1;j<other.points.length;j++){
-          const hit=segmentIntersection(a,b,other.points[j-1]!,other.points[j]!);
-          if(hit){
-            const dx=b.x-a.x,dy=b.y-a.y;
-            const t=Math.abs(dx)>=Math.abs(dy)?(hit.x-a.x)/(dx||1):(hit.y-a.y)/(dy||1);
-            if(t>.0001&&t<.9999)splits.push({t,p:hit});
-          }
-        }
-      }
-      splits.sort((x,y)=>x.t-y.t);
-      const unique=splits.filter((s,k)=>k===0||Math.abs(s.t-splits[k-1]!.t)>.0001);
+  for(let sourceIndex=0;sourceIndex<sources.length;sourceIndex++){
+    const source=sources[sourceIndex]!;
+    for(const segmentIndex of segmentsBySource[sourceIndex]!){
+      const splits=splitBySegment[segmentIndex]!;
+      splits.sort((a,b)=>a.t-b.t);
+      const unique=splits.filter((item,index)=>index===0||Math.abs(item.t-splits[index-1]!.t)>.0001);
+      const i=segmentsBySource[sourceIndex]!.indexOf(segmentIndex)+1;
       for(let k=1;k<unique.length;k++){
         const from=getNode(unique[k-1]!.p),to=getNode(unique[k]!.p);
         if(from.id===to.id)continue;
@@ -1243,7 +1264,7 @@ let trafficHudTimer=0;
 let trafficBoardTimer=.45;
 function refreshCongestionSnapshot(poses=vehicles.map(vehicle=>vehiclePose(vehicle))){
   congestedVehicles.clear();
-  const junctions=cachedTrafficJunctions??(cachedTrafficJunctions=collectRoadJunctions());
+  const junctions=cachedRoadJunctions??(cachedRoadJunctions=collectRoadJunctions());
   for(let i=0;i<vehicles.length;i++){
     const vehicle=vehicles[i]!;
     if(vehicle.speed>=vehicle.cruiseSpeed*.72)continue;
@@ -1609,7 +1630,7 @@ function routeProjectionToPoint(path:Point[],point:Point){
 }
 function junctionYieldSpeeds(poses:{x:number;y:number;angle:number;heading:Point}[]){
   const limits=vehicles.map(vehicle=>vehicle.cruiseSpeed);
-  const junctions=cachedTrafficJunctions??(cachedTrafficJunctions=collectRoadJunctions());
+  const junctions=cachedRoadJunctions??(cachedRoadJunctions=collectRoadJunctions());
   for(const junction of junctions){
     let winner=-1,winnerRemaining=Infinity,hasOccupant=false;
     const approaches:{index:number;remaining:number}[]=[];
@@ -1646,7 +1667,7 @@ function animate(time:number){
     job.progress=clamp(job.progress+delta/Math.max(1.2,job.points.length*.32),0,1);
     if(before<1&&job.progress>=1){constructionJobs.splice(i,1);networkChanged=true;}
   }
-  if(networkChanged){rebuildRoadGraph();refreshVehicleRoutes();updateMission();}
+  if(networkChanged){staticLayerDirty=true;rebuildRoadGraph();refreshVehicleRoutes();updateMission();}
   // Follow the vehicle directly ahead on the same lane. Braking is gradual,
   // and acceleration is slower than braking so gaps recover smoothly.
   const poses=vehicles.map(vehicle=>vehiclePose(vehicle));
