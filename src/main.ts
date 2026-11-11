@@ -1145,6 +1145,9 @@ function distanceToSegment(p:Point,a:Point,b:Point){
   const dx=b.x-a.x,dy=b.y-a.y,t=clamp(((p.x-a.x)*dx+(p.y-a.y)*dy)/Math.max(dx*dx+dy*dy,.0001),0,1);
   return distance(p,{x:a.x+dx*t,y:a.y+dy*t});
 }
+function pointerPosition(event:MouseEvent):Point{
+  const rect=canvas.getBoundingClientRect();return{x:event.clientX-rect.left,y:event.clientY-rect.top};
+}
 function clearRouteSelection(){routeSelection=[];render();}
 function updateMission(){
   const barn=trafficDestinations.find(item=>item.id==='farm');
@@ -1240,8 +1243,7 @@ function selectRoutePoint(raw:Point){
     const firstPoint=routeSelection[0]!;
     const first=resolveRouteAnchor(firstPoint);
     if(!first){routeSelection=[];return;}
-    commitRouteConnection(first,anchor);
-    routeSelection=[];
+    if(commitRouteConnection(first,anchor))routeSelection=[];
   }
   render();
 }
