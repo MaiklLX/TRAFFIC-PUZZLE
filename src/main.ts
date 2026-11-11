@@ -747,9 +747,9 @@ function drawRouteAnchors(){
   };
   for(const destination of trafficDestinations){
     const isConnected=connected(destination.id);
-    drawPin(destination.access,isConnected?'#78a486':destination.color,!!selected&&distance(selected,destination.access)<.12);
+    drawPin(destination.access,isConnected?'#78a486':'#d6ad70',!!selected&&distance(selected,destination.access)<.12);
   }
-  for(const station of fuelStations)drawPin(station.access,'#83a98b',!!selected&&distance(selected,station.access)<.12);
+  for(const station of fuelStations)drawPin(station.access,'#d6ad70',!!selected&&distance(selected,station.access)<.12);
   for(let x=-16;x<=16;x+=4){
     const point={x,y:-13};
     drawPin(point,'#f3f0df',!!selected&&distance(selected,point)<.12);
@@ -1151,11 +1151,16 @@ function pointerPosition(event:MouseEvent):Point{
 function clearRouteSelection(){routeSelection=[];render();}
 function updateMission(){
   const barn=trafficDestinations.find(item=>item.id==='farm');
-  const done=!!barn&&!!findRoadPath(barn.access,demoStart);
-  if(missionCount)missionCount.textContent=done?'ВЫПОЛНЕНО':'В РАБОТЕ';
-  if(missionProgress)missionProgress.style.width=done?'100%':'12%';
+  const farmConnected=!!barn&&!!findRoadPath(barn.access,demoStart);
+  const homeConnected=homeLocations.some(home=>!!findRoadPath(home.access,demoStart));
+  const complete=farmConnected&&homeConnected;
+  if(missionCount)missionCount.textContent=complete?'ВЫПОЛНЕНО':farmConnected?'ЭТАП 2':'В РАБОТЕ';
+  if(missionProgress)missionProgress.style.width=complete?'100%':farmConnected?'62%':'12%';
   const missionState=document.querySelector<HTMLElement>('#mission-state');
-  if(missionState)missionState.textContent=done?'Ферма связана с трассой — машины могут ехать':'Выбери въезд у амбара и точку на трассе';
+  if(missionState)missionState.textContent=complete
+    ?'Ферма и жилой район связаны. Машины получили рабочие маршруты.'
+    :farmConnected?'Ферма подключена. Теперь свяжи с трассой любой жилой дом.'
+    :'Выбери въезд у амбара и точку на трассе';
 }
 type RouteAnchor={point:Point;kind:'building'|'network';name:string};
 function resolveRouteAnchor(raw:Point):RouteAnchor|null{
