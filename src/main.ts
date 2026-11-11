@@ -817,8 +817,8 @@ function drawVillageLife(){
 
 function isRenderedRoutePathClear(path:Point[],start:RouteAnchor,end:RouteAnchor):boolean{
   const renderedPath=smoothPoints(path),blockingRoads=collectRouteBlockingRoads();
+  const startNetworkAnchor=getAnchorNetworkAccess(start),endNetworkAnchor=getAnchorNetworkAccess(end);
   for(let i=1;i<renderedPath.length;i++){
-    const startNetworkAnchor=getAnchorNetworkAccess(start),endNetworkAnchor=getAnchorNetworkAccess(end);
     if(!routeSegmentIsClear(renderedPath[i-1]!,renderedPath[i]!,start.point,end.point,!!startNetworkAnchor,!!endNetworkAnchor,blockingRoads,startNetworkAnchor,endNetworkAnchor))return false;
   }
   return true;
@@ -1449,7 +1449,7 @@ function advanceMedicalGrowth(){
   const template=growthSites.find(item=>item.id==='medical-center');
   const site=template?findGrowthSitePlacement(template):null;
   if(!site)return;
-  activeGrowthBuildings.push(site);obstacles.push({x:site.position.x,y:site.position.y,r:site.obstacleRadius,type:site.kind});
+  activeGrowthBuildings.push(site);routeNetworkRevision++;routePreviewCacheKey='';obstacles.push({x:site.position.x,y:site.position.y,r:site.obstacleRadius,type:site.kind});
   const destination:TrafficDestination={id:site.id,name:site.name,access:{...site.access},color:site.color,weight:site.weight};
   trafficDestinations.push(destination);serviceLocations.push(destination);
   trafficOrigins.push({id:destination.id,name:destination.name,access:{...destination.access},color:destination.color,weight:destination.weight});
