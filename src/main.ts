@@ -473,23 +473,23 @@ function vehiclePose(vehicle:Vehicle):{x:number;y:number;angle:number;heading:Po
 }
 function drawCar(vehicle:Vehicle){
   const pose=vehiclePose(vehicle),p=worldToScreen({x:pose.x,y:pose.y}),s=camera.zoom;
-  // Compact flat vehicle glyph: one body, one cabin and two signal marks.
-  // No per-frame gradients, soft shadows, wheel loops or decorative strokes.
-  const length=1.24*s,width=.39*s;
+  // A tiny colored traffic token: one tapered body and one direction marker.
+  // Flat fills only; deliberately no wheels, shadows, gradients or signal lamps.
+  const length=1.08*s,halfWidth=.22*s;
   ctx!.save();ctx!.translate(p.x,p.y);ctx!.rotate(pose.angle);
-  ctx!.fillStyle='#35494a';
-  roundedRect(ctx!,-length*.5,-width*.5,length,width,.11*s);ctx!.fill();
   ctx!.fillStyle=vehicle.color;
-  roundedRect(ctx!,-length*.43,-width*.43,length*.86,width*.86,.085*s);ctx!.fill();
-  ctx!.fillStyle='#a9c9c8';
-  roundedRect(ctx!,-.08*s,-width*.32,.39*s,width*.64,.055*s);ctx!.fill();
-  ctx!.fillStyle='#fff0c8';
-  ctx!.fillRect(length*.39,-width*.31,.07*s,.09*s);
-  ctx!.fillRect(length*.39,width*.22,.07*s,.09*s);
-  const braking=vehicle.speed<vehicle.cruiseSpeed*.72;
-  ctx!.fillStyle=braking?'#f07862':'#a85f55';
-  ctx!.fillRect(-length*.47,-width*.34,.065*s,.1*s);
-  ctx!.fillRect(-length*.47,width*.24,.065*s,.1*s);
+  ctx!.beginPath();
+  ctx!.moveTo(length*.5,0);
+  ctx!.quadraticCurveTo(length*.43,-halfWidth,length*.2,-halfWidth);
+  ctx!.lineTo(-length*.34,-halfWidth);
+  ctx!.quadraticCurveTo(-length*.5,-halfWidth,-length*.5,0);
+  ctx!.quadraticCurveTo(-length*.5,halfWidth,-length*.34,halfWidth);
+  ctx!.lineTo(length*.2,halfWidth);
+  ctx!.quadraticCurveTo(length*.43,halfWidth,length*.5,0);
+  ctx!.fill();
+  // A single pale dash marks the front without adding car-like detail.
+  ctx!.fillStyle='rgba(255,247,222,.82)';
+  ctx!.fillRect(length*.18,-halfWidth*.48,length*.13,halfWidth*.96);
   ctx!.restore();
 }
 let ambientClock=0;
