@@ -25,6 +25,7 @@ let panning = false;
 let lastPointer: Point | null = null;
 let routeSelection: Point[] = [];
 let pendingRouteTap: Point | null = null;
+let routePointerStart: Point | null = null;
 const activePointers = new Map<number, Point>();
 let pinchStart: { distance: number; zoom: number; center: Point } | null = null;
 
@@ -1264,21 +1265,25 @@ function selectRoutePoint(raw:Point){
 }
 canvas.addEventListener('pointerdown',event=>{
   const p=pointerPosition(event);activePointers.set(event.pointerId,p);
-  if(activePointers.size===2){panning=false;const pts=[...activePointers.values()];pinchStart={distance:distance(pts[0]!,pts[1]!),zoom:camera.zoom,center:{x:(pts[0]!.x+pts[1]!.x)/2,y:(pts[0]!.y+pts[1]!.y)/2}};return;}
+  if(activePointers.size===2){pendingRouteTap=null;routePointerStart=null;panning=false;const pts=[...activePointers.values()];pinchStart={distance:distance(pts[0]!,pts[1]!),zoom:camera.zoom,center:{x:(pts[0]!.x+pts[1]!.x)/2,y:(pts[0]!.y+pts[1]!.y)/2}};return;}
   if(selectedTool==='road'){
-    pendingRouteTap=screenToWorld(p);event.preventDefault();return;
+    pendingRouteTap=screenToWorld(p);routePointerStart=p;panning=false;event.preventDefault();return;
   }
   panning=true;lastPointer=p;canvas.setPointerCapture(event.pointerId);
 });
 canvas.addEventListener('pointermove',event=>{
   const p=pointerPosition(event);if(activePointers.has(event.pointerId))activePointers.set(event.pointerId,p);
   if(pinchStart&&activePointers.size>=2){pendingRouteTap=null;const pts=[...activePointers.values()],d=distance(pts[0]!,pts[1]!);const anchor=screenToWorld(pinchStart.center);camera.zoom=clamp(pinchStart.zoom*d/Math.max(pinchStart.distance,1),Math.min(width,height)/42,Math.min(width,height)/10);const after=screenToWorld(pinchStart.center);camera.x+=anchor.x-after.x;camera.y+=anchor.y-after.y;render();return;}
-  if(selectedTool==='road'){return;}
+  if(selectedTool==='road'){
+    if(routePointerStart&&pendingRouteTap&&distance(p,routePointerStart)>8){pendingRouteTap=null;panning=true;lastPointer=routePointerStart;routePointerStart=null;}
+    if(panning&&lastPointer){camera.x-=(p.x-lastPointer.x)/camera.zoom;camera.y-=(p.y-lastPointer.y)/camera.zoom;lastPointer=p;render();}
+    return;
+  }
   if(panning&&lastPointer){camera.x-=(p.x-lastPointer.x)/camera.zoom;camera.y-=(p.y-lastPointer.y)/camera.zoom;lastPointer=p;render();}
 });
 function releasePointer(event:PointerEvent){
   if(event.type==='pointerup'&&pendingRouteTap&&activePointers.size===1&&!pinchStart){selectRoutePoint(pendingRouteTap);}
-  pendingRouteTap=null;
+  pendingRouteTap=null;routePointerStart=null;
   activePointers.delete(event.pointerId);if(activePointers.size<2)pinchStart=null;
   panning=false;lastPointer=null;
 }
