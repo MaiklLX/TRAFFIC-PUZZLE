@@ -24,6 +24,7 @@ let selectedTool = 'inspect';
 let panning = false;
 let lastPointer: Point | null = null;
 let routeSelection: Point[] = [];
+let pendingRouteTap: Point | null = null;
 const activePointers = new Map<number, Point>();
 let pinchStart: { distance: number; zoom: number; center: Point } | null = null;
 
@@ -761,7 +762,6 @@ function drawRouteAnchors(){
 function render(){
   ctx!.clearRect(0,0,width,height);
   drawTerrain();drawDecor();drawRoadNetwork();drawRoadDetails();
-  drawFarmDetails();
   drawBarn(-13,-4);
   drawHouse(-6.5,-3.2,1.05,'#f3e6c8','#d98d75');
   drawHouse(7.7,1.7,.92,'#e8e4d0','#78a9a5');
@@ -769,10 +769,8 @@ function render(){
   drawHouse(2.8,8.3,.8,'#f2e9d5','#c98b76');
   drawHouse(-5,-9,.72,'#e8e4d0','#81a9a0');
   drawShop(11,-5);drawFuelStation(-8,-16.1);
-  drawVillageLife();
-  const trees=[[-14,-10,1.2],[-17,-4,.9],[-16,1,.9],[-12,10,1.2],[-4,12,.9],[4,12,.9],[12,9,.9],[15,4,1.2],[14,-9,.9],[6,-5,.9],[-9,-1,.9],[17,0,1.2],[-19,-12,.8],[-20,0,.9],[20,12,1.1],[19,-10,.9],[2,-17,.8],[4,-16,.7]] as const;
+  const trees=[[-14,-10,1.1],[-17,-4,.85],[-16,1,.9],[-12,10,1.05],[4,12,.9],[15,4,1.05],[14,-9,.85],[-19,-12,.75],[20,12,1],[19,-10,.8]] as const;
   for(const [x,y,size] of trees)drawTree(x,y,size);
-  for(const [x,y] of [[15.2,-3.8],[17.6,-3.7],[15.2,-5.8],[17.6,-5.8],[19,-4.8]] as const)drawTree(x,y,.58);
   for(const vehicle of vehicles)drawCar(vehicle);
   drawMapLabels();drawRouteAnchors();
   if(routeSelection.length){
@@ -1143,10 +1141,6 @@ function nearestNetworkPoint(p:Point):Point|null{
   }
   return best;
 }
-function nearestNetworkDistance(p:Point){
-  const nearest=nearestNetworkPoint(p);
-  return nearest?distance(p,nearest):Infinity;
-}
 function distanceToSegment(p:Point,a:Point,b:Point){
   const dx=b.x-a.x,dy=b.y-a.y,t=clamp(((p.x-a.x)*dx+(p.y-a.y)*dy)/Math.max(dx*dx+dy*dy,.0001),0,1);
   return distance(p,{x:a.x+dx*t,y:a.y+dy*t});
@@ -1223,16 +1217,17 @@ function findAutoRoadPath(start:Point,end:Point):Point[]|null{
   cells.push({x:ix0*step,y:iy0*step});cells.reverse();
   return [{...start},...cells.slice(1,-1),{...end}];
 }
-function commitRouteConnection(start:RouteAnchor,end:RouteAnchor){
-  if(distance(start.point,end.point)<1.05){if(buildMessage)buildMessage.textContent='Выбери две разные точки подключения.';return;}
+function commitRouteConnection(start:RouteAnchor,end:RouteAnchor):boolean{
+  if(distance(start.point,end.point)<1.05){if(buildMessage)buildMessage.textContent='Выбери две разные точки подключения.';return false;}
   const path=findAutoRoadPath(start.point,end.point);
-  if(!path||path.length<2){if(buildMessage)buildMessage.textContent='Здесь нельзя проложить дорогу. Выбери другой путь подключения.';return;}
+  if(!path||path.length<2){if(buildMessage)buildMessage.textContent='Здесь нельзя проложить дорогу. Выбери другую точку подключения.';return false;}
   const direction=(document.querySelector<HTMLSelectElement>('#road-direction')?.value??'both') as 'both'|'forward';
   const touchesHighway=(Math.abs(start.point.y+13)<1.25&&start.kind==='network')||(Math.abs(end.point.y+13)<1.25&&end.kind==='network');
   const connectsBuilding=start.kind==='building'||end.kind==='building';
   const road:Road={points:path,progress:0,width:roadHalfWidth*2,connectsVillageToHighway:touchesHighway&&connectsBuilding,direction};
   builtRoads.push(road);constructionJobs.push(road);rebuildRoadGraph();refreshVehicleRoutes();updateMission();
   if(buildMessage)buildMessage.textContent='Соединение создано: '+start.name+' — '+end.name+'. Дорога прокладывается автоматически.';
+  return true;
 }
 function selectRoutePoint(raw:Point){
   const anchor=resolveRouteAnchor(raw);
@@ -1245,7 +1240,7 @@ function selectRoutePoint(raw:Point){
     const first=resolveRouteAnchor(firstPoint);
     if(!first){routeSelection=[];return;}
     commitRouteConnection(first,anchor);
-    routeSelection=[];routeHover=null;
+    routeSelection=[];
   }
   render();
 }
@@ -1253,17 +1248,19 @@ canvas.addEventListener('pointerdown',event=>{
   const p=pointerPosition(event);activePointers.set(event.pointerId,p);
   if(activePointers.size===2){panning=false;const pts=[...activePointers.values()];pinchStart={distance:distance(pts[0]!,pts[1]!),zoom:camera.zoom,center:{x:(pts[0]!.x+pts[1]!.x)/2,y:(pts[0]!.y+pts[1]!.y)/2}};return;}
   if(selectedTool==='road'){
-    selectRoutePoint(screenToWorld(p));event.preventDefault();return;
+    pendingRouteTap=screenToWorld(p);event.preventDefault();return;
   }
   panning=true;lastPointer=p;canvas.setPointerCapture(event.pointerId);
 });
 canvas.addEventListener('pointermove',event=>{
   const p=pointerPosition(event);if(activePointers.has(event.pointerId))activePointers.set(event.pointerId,p);
-  if(pinchStart&&activePointers.size>=2){const pts=[...activePointers.values()],d=distance(pts[0]!,pts[1]!);const anchor=screenToWorld(pinchStart.center);camera.zoom=clamp(pinchStart.zoom*d/Math.max(pinchStart.distance,1),Math.min(width,height)/42,Math.min(width,height)/10);const after=screenToWorld(pinchStart.center);camera.x+=anchor.x-after.x;camera.y+=anchor.y-after.y;render();return;}
+  if(pinchStart&&activePointers.size>=2){pendingRouteTap=null;const pts=[...activePointers.values()],d=distance(pts[0]!,pts[1]!);const anchor=screenToWorld(pinchStart.center);camera.zoom=clamp(pinchStart.zoom*d/Math.max(pinchStart.distance,1),Math.min(width,height)/42,Math.min(width,height)/10);const after=screenToWorld(pinchStart.center);camera.x+=anchor.x-after.x;camera.y+=anchor.y-after.y;render();return;}
   if(selectedTool==='road'){return;}
   if(panning&&lastPointer){camera.x-=(p.x-lastPointer.x)/camera.zoom;camera.y-=(p.y-lastPointer.y)/camera.zoom;lastPointer=p;render();}
 });
 function releasePointer(event:PointerEvent){
+  if(event.type==='pointerup'&&pendingRouteTap&&activePointers.size===1&&!pinchStart){selectRoutePoint(pendingRouteTap);}
+  pendingRouteTap=null;
   activePointers.delete(event.pointerId);if(activePointers.size<2)pinchStart=null;
   panning=false;lastPointer=null;
 }
