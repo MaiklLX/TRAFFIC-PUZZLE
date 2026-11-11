@@ -26,6 +26,7 @@ let lastPointer: Point | null = null;
 let routeSelection: Point[] = [];
 let pendingRouteTap: Point | null = null;
 let routePointerStart: Point | null = null;
+let routeHoverPoint: Point | null = null;
 const activePointers = new Map<number, Point>();
 let pinchStart: { distance: number; zoom: number; center: Point } | null = null;
 
@@ -734,6 +735,19 @@ function drawVillageLife(){
   ctx!.globalAlpha=1;
 }
 
+function drawRoutePreview(){
+  if(selectedTool!=='road'||!routeSelection.length||!routeHoverPoint)return;
+  const end=resolveRouteAnchor(routeHoverPoint);
+  if(!end||distance(routeSelection[0]!,end.point)<1.05)return;
+  const path=findAutoRoadPath(routeSelection[0]!,end.point);
+  if(!path||path.length<2)return;
+  ctx!.save();ctx!.lineCap='round';ctx!.lineJoin='round';
+  ctx!.beginPath();const first=worldToScreen(path[0]!);ctx!.moveTo(first.x,first.y);
+  for(let i=1;i<path.length;i++){const p=worldToScreen(path[i]!);ctx!.lineTo(p.x,p.y);}
+  ctx!.strokeStyle='rgba(255,255,255,.9)';ctx!.lineWidth=Math.max(5,camera.zoom*.32);ctx!.stroke();
+  ctx!.strokeStyle='#d5a75f';ctx!.lineWidth=Math.max(2,camera.zoom*.12);ctx!.setLineDash([7,5]);ctx!.stroke();
+  ctx!.restore();
+}
 function drawRouteAnchors(){
   if(selectedTool!=='road')return;
   const selected=routeSelection[0]??null;
@@ -783,7 +797,7 @@ function render(){
   const trees=[[-14,-10,1.1],[-17,-4,.85],[-16,1,.9],[-12,10,1.05],[4,12,.9],[15,4,1.05],[14,-9,.85],[-19,-12,.75],[20,12,1],[19,-10,.8]] as const;
   for(const [x,y,size] of trees)drawTree(x,y,size);
   for(const vehicle of vehicles)drawCar(vehicle);
-  drawMapLabels();drawRouteAnchors();
+  drawMapLabels();drawRoutePreview();drawRouteAnchors();
   if(routeSelection.length){
     const p=worldToScreen(routeSelection[0]!);
     ctx!.save();ctx!.strokeStyle='#e3b768';ctx!.lineWidth=2;ctx!.setLineDash([4,4]);ctx!.beginPath();ctx!.arc(p.x,p.y,Math.max(11,camera.zoom*.42),0,Math.PI*2);ctx!.stroke();ctx!.restore();
@@ -1277,6 +1291,7 @@ canvas.addEventListener('pointermove',event=>{
   if(selectedTool==='road'){
     if(routePointerStart&&pendingRouteTap&&distance(p,routePointerStart)>8){pendingRouteTap=null;panning=true;lastPointer=routePointerStart;routePointerStart=null;}
     if(panning&&lastPointer){camera.x-=(p.x-lastPointer.x)/camera.zoom;camera.y-=(p.y-lastPointer.y)/camera.zoom;lastPointer=p;render();}
+    else {routeHoverPoint=screenToWorld(p);if(routeSelection.length)render();}
     return;
   }
   if(panning&&lastPointer){camera.x-=(p.x-lastPointer.x)/camera.zoom;camera.y-=(p.y-lastPointer.y)/camera.zoom;lastPointer=p;render();}
@@ -1296,7 +1311,7 @@ document.querySelector<HTMLButtonElement>('#zoom-in')?.addEventListener('click',
 document.querySelector<HTMLButtonElement>('#zoom-out')?.addEventListener('click',()=>setZoom(.84));
 const toolButtons=[...document.querySelectorAll<HTMLButtonElement>('.tool')];
 toolButtons.forEach(button=>button.addEventListener('click',()=>{
-  selectedTool=button.dataset.tool??'inspect';document.querySelector('.tool.active')?.classList.remove('active');button.classList.add('active');
+  selectedTool=button.dataset.tool??'inspect';routeHoverPoint=null;document.querySelector('.tool.active')?.classList.remove('active');button.classList.add('active');
   const hud=document.querySelector<HTMLElement>('#build-hud');if(hud)hud.hidden=selectedTool!=='road';
   routeSelection=[];
   if(buildMessage)buildMessage.textContent=selectedTool==='road'?'Выбери две точки: сначала объект, затем трассу или существующую дорогу.':'Обзор карты. Перетаскивай поле и приближай его жестом.';
