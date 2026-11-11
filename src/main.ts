@@ -1369,10 +1369,11 @@ function updateMission(){
   const medicalCenter=trafficDestinations.find(item=>item.id==='medical-center');
   const medicalConnected=!!medicalCenter&&!!findRoadPath(medicalCenter.access,demoStart);
   if(medicalConnected&&settlementGrowthStage===5)settlementGrowthStage=6;
+  if(!medicalConnected&&settlementGrowthStage===6)settlementGrowthStage=5;
 
   // Mission progress is derived from four real network conditions, never a timer or a guessed percentage.
   const completed=[farmConnected,initialHomeConnected,newHomeConnected,schoolConnected].filter(Boolean).length;
-  const secondPhase=schoolConnected;
+  const secondPhase=settlementGrowthStage>=4;
   const progress=secondPhase?(medicalConnected?100:0):Math.round(completed/4*100);
   if(missionCount)missionCount.textContent=secondPhase?(medicalConnected?'2/2 · ГОТОВО':'1/2 · В РАБОТЕ'):(completed===4?'4/4 · ГОТОВО':completed+'/4 · В РАБОТЕ');
   if(missionProgress)missionProgress.style.width=progress+'%';
