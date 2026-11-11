@@ -16,6 +16,7 @@ let ctx: CanvasRenderingContext2D | null = canvas.getContext('2d');
 if (!ctx) throw new Error('Canvas 2D context is not available');
 let staticLayerCanvas: HTMLCanvasElement | null = null;
 let staticLayerDirty = true;
+let staticLayerReady = false;
 let staticLayerCamera = { x: Number.NaN, y: Number.NaN, zoom: Number.NaN };
 let staticLayerWidth = 0, staticLayerHeight = 0, staticLayerDpr = 0;
 
@@ -769,7 +770,7 @@ function drawStaticMapLayer(){
   if(staticLayerCanvas.width!==pixelWidth)staticLayerCanvas.width=pixelWidth;
   if(staticLayerCanvas.height!==pixelHeight)staticLayerCanvas.height=pixelHeight;
   const layerContext=staticLayerCanvas.getContext('2d');
-  if(!layerContext)return;
+  if(!layerContext){staticLayerReady=false;return;}
 
   const visibleContext=ctx!;
   layerContext.setTransform(dpr,0,0,dpr,0,0);
@@ -791,12 +792,12 @@ function drawStaticMapLayer(){
   }
   staticLayerCamera={x:camera.x,y:camera.y,zoom:camera.zoom};
   staticLayerWidth=width;staticLayerHeight=height;staticLayerDpr=dpr;
-  staticLayerDirty=false;
+  staticLayerDirty=false;staticLayerReady=true;
 }
 function render(){
   ctx!.clearRect(0,0,width,height);
   drawStaticMapLayer();
-  if(staticLayerCanvas)ctx!.drawImage(staticLayerCanvas,0,0,width,height);
+  if(staticLayerReady&&staticLayerCanvas)ctx!.drawImage(staticLayerCanvas,0,0,width,height);
   else{
     // Safe fallback for browsers that cannot create an offscreen 2D context.
     drawTerrain();drawDecor();drawRoadNetwork();drawRoadDetails();
