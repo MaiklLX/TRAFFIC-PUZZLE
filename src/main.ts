@@ -1501,7 +1501,7 @@ function updateMission(){
 type RouteAnchor={point:Point;kind:'building'|'network';name:string};
 function resolveRouteAnchor(raw:Point):RouteAnchor|null{
   const network=nearestNetworkPoint(raw);
-  if(network&&distance(raw,network)<1.25)return{point:network,kind:'network',name:'Дорожная сеть'};
+  if(network&&distance(raw,network)<.95)return{point:network,kind:'network',name:'Дорожная сеть'};
   let nearestBuilding:TrafficDestination|null=null,buildingDistance=2.75;
   for(const destination of trafficDestinations){
     const d=distance(raw,destination.access);
@@ -1532,17 +1532,22 @@ function routeCellBlocked(point:Point,start:Point,end:Point,allowStartNetwork=fa
   // only at a deliberately selected road-network anchor.
   // Leave enough room for the full road corridor and the A* grid step
   // around a deliberately selected junction anchor.
-  const endpointApron=3.1;
+  // A selected junction may open a short approach only through the exact
+  // road segment under that anchor. Never open a circular area across nearby
+  // parallel roads: that was the source of accidental overlaps.
+  const endpointApron=2.6;
   const roads=[
-    ...staticRoads.map(road=>({points:staticRoadPath(road),width:road.width})),
-    ...builtRoads.map(road=>({points:road.points,width:road.width}))
+    ...staticRoads.map((road,index)=>({id:'static-'+index,points:staticRoadPath(road),width:road.width})),
+    ...builtRoads.map((road,index)=>({id:'built-'+index,points:road.points,width:road.width}))
   ];
   for(const road of roads){
     const clearance=roadHalfWidth+road.width/2+.34;
     for(let i=1;i<road.points.length;i++){
-      if(distanceToSegment(point,road.points[i-1]!,road.points[i]!)>=clearance)continue;
-      if(allowStartNetwork&&distance(point,start)<endpointApron)continue;
-      if(allowEndNetwork&&distance(point,end)<endpointApron)continue;
+      const a=road.points[i-1]!,b=road.points[i]!;
+      if(distanceToSegment(point,a,b)>=clearance)continue;
+      const selectedStart=allowStartNetwork&&distance(point,start)<endpointApron&&distanceToSegment(start,a,b)<.34;
+      const selectedEnd=allowEndNetwork&&distance(point,end)<endpointApron&&distanceToSegment(end,a,b)<.34;
+      if(selectedStart||selectedEnd)continue;
       return true;
     }
   }
