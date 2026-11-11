@@ -1424,8 +1424,16 @@ function animate(time:number){
         const longitudinal=dx*pose.heading.x+dy*pose.heading.y;
         const lateral=Math.abs(dx*pose.heading.y-dy*pose.heading.x);
         if(longitudinal>0&&lateral<.38){
+          // Estimate a safe speed from the actual closing distance. The buffer
+          // includes a short reaction interval plus physical stopping distance,
+          // so a stopped queue is approached progressively rather than late.
           const gap=longitudinal-1.28;
-          desiredSpeed=Math.min(desiredSpeed,clamp((gap-1.1)*2.2,0,vehicle.cruiseSpeed));
+          const leaderSpeed=vehicles[j]!.speed;
+          const minimumGap=.3;
+          const reactionDistance=vehicle.speed*.42;
+          const usableGap=Math.max(0,gap-minimumGap-reactionDistance);
+          const safeSpeed=Math.sqrt(leaderSpeed*leaderSpeed+2*5.8*usableGap);
+          desiredSpeed=Math.min(desiredSpeed,clamp(safeSpeed,0,vehicle.cruiseSpeed));
         }
       }
     }
