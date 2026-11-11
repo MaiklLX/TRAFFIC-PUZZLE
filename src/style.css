@@ -306,3 +306,13 @@ button:active:not(:disabled){transform:translateY(1px)}
 @media(prefers-reduced-motion:reduce){
   .command-panel,.dispatch-scrim,.view-button,.dispatch-toggle{transition:none}
 }
+
+
+/* KT-066/067 — map legend and truthful live queue feedback. */
+.road-legend{display:flex;flex-wrap:wrap;gap:7px 12px;margin-top:9px;padding-top:8px;border-top:1px solid #e4eae0;color:#7c8b7d;font-size:8px;line-height:1.2}
+.road-legend span{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.road-legend i{display:inline-block;flex:0 0 7px;width:7px;height:7px;border-radius:50%}
+.road-legend .legend-active{background:#d6bd82;box-shadow:0 0 0 2px #d6bd8228}
+.road-legend .legend-idle{background:#b9c4b7}
+.road-legend .legend-build{background:#c99b58;box-shadow:0 0 0 2px #c99b5828}
+.road-legend .legend-oneway{display:grid;place-items:center;width:12px;height:12px;border-radius:3px;background:#e9eee3;color:#718d75;font-size:12px;font-style:normal;font-weight:900}
