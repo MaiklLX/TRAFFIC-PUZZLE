@@ -1177,6 +1177,7 @@ reachableDestinations=tripDestinations.filter(destination=>reachableTrips.some(t
 updateDestinationBoard();
 let trafficSpawnTimer=5.5;
 let trafficHudTimer=0;
+let trafficBoardTimer=.45;
 function refreshCongestionSnapshot(poses=vehicles.map(vehicle=>vehiclePose(vehicle))){
   congestedVehicles.clear();
   const junctions=cachedTrafficJunctions??(cachedTrafficJunctions=collectRoadJunctions());
@@ -1214,7 +1215,6 @@ function updateTrafficCounter(){
     const active=roadGraph.edges.filter(edge=>edge.active).length;
     networkStatus.textContent=active+' активных / '+roadGraph.edges.length+' участков · '+congestedVehicles.size+' в заторе';
   }
-  updateDestinationBoard();
 }
 function chooseTrafficTrip(){
   if(!reachableTrips.length)return null;
@@ -1544,6 +1544,8 @@ function animate(time:number){
   if(vehiclesRemoved){updateTrafficCounter();updateDestinationBoard();}
   trafficHudTimer-=delta;
   if(trafficHudTimer<=0){updateTrafficCounter();trafficHudTimer=.25;}
+  trafficBoardTimer-=delta;
+  if(trafficBoardTimer<=0){updateDestinationBoard();trafficBoardTimer=.65;}
   trafficSpawnTimer-=delta;
   if(trafficSpawnTimer<=0){spawnTrafficVehicle();trafficSpawnTimer=getTrafficSpawnInterval();}
   render();requestAnimationFrame(animate);
