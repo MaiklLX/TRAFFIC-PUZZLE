@@ -1328,6 +1328,17 @@ function setZoom(factor:number){const center={x:width/2,y:height/2},before=scree
 document.querySelector<HTMLButtonElement>('#reset-camera')?.addEventListener('click',()=>{camera={x:0,y:-1,zoom:getFitCameraZoom()};render();});
 document.querySelector<HTMLButtonElement>('#zoom-in')?.addEventListener('click',()=>setZoom(1.18));
 document.querySelector<HTMLButtonElement>('#zoom-out')?.addEventListener('click',()=>setZoom(.84));
+const appRoot=document.querySelector<HTMLElement>('#app');
+const dispatchToggle=document.querySelector<HTMLButtonElement>('#mobile-dispatch-toggle');
+const dispatchScrim=document.querySelector<HTMLButtonElement>('#dispatch-scrim');
+const dispatchClose=document.querySelector<HTMLButtonElement>('#dispatch-close');
+function setDispatcherOpen(open:boolean){
+  appRoot?.classList.toggle('dispatcher-open',open);
+  dispatchToggle?.setAttribute('aria-expanded',String(open));
+}
+dispatchToggle?.addEventListener('click',()=>setDispatcherOpen(!appRoot?.classList.contains('dispatcher-open')));
+dispatchScrim?.addEventListener('click',()=>setDispatcherOpen(false));
+dispatchClose?.addEventListener('click',()=>setDispatcherOpen(false));
 const toolButtons=[...document.querySelectorAll<HTMLButtonElement>('.tool')];
 toolButtons.forEach(button=>button.addEventListener('click',()=>{
   selectedTool=button.dataset.tool??'inspect';routeHoverPoint=null;document.querySelector('.tool.active')?.classList.remove('active');button.classList.add('active');
@@ -1343,7 +1354,7 @@ document.querySelector<HTMLButtonElement>('#undo-road')?.addEventListener('click
 window.addEventListener('keydown',event=>{
   if(event.key==='+'||event.key==='=')setZoom(1.12);if(event.key==='-')setZoom(.89);
   if(event.key.toLowerCase()==='r'){camera={x:0,y:-1,zoom:Math.min(width/(WORLD.maxX-WORLD.minX),height/(WORLD.maxY-WORLD.minY))*.92};render();}
-  if(event.key==='Escape'&&routeSelection.length)clearRouteSelection();
+  if(event.key==='Escape'){if(appRoot?.classList.contains('dispatcher-open'))setDispatcherOpen(false);if(routeSelection.length)clearRouteSelection();}
 });
 let previousTime=0;
 function routeProjectionToPoint(path:Point[],point:Point){
