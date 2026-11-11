@@ -1521,7 +1521,14 @@ function resolveRouteAnchor(raw:Point):RouteAnchor|null{
   if(network&&distance(raw,network)<1.8)return{point:network,kind:'network',name:'Дорожная сеть'};
   return null;
 }
-function routeCellBlocked(point:Point,start:Point,end:Point,allowStartNetwork=false,allowEndNetwork=false,movement?:{a:Point;b:Point}){
+type RouteBlockingRoad={id:string;points:Point[];width:number};
+function collectRouteBlockingRoads():RouteBlockingRoad[]{
+  return [
+    ...staticRoads.map((road,index)=>({id:'static-'+index,points:smoothPoints(staticRoadPath(road)),width:road.width})),
+    ...builtRoads.map((road,index)=>({id:'built-'+index,points:smoothPoints(road.points),width:road.width}))
+  ];
+}
+function routeCellBlocked(point:Point,start:Point,end:Point,allowStartNetwork=false,allowEndNetwork=false,movement?:{a:Point;b:Point},blockingRoads?:RouteBlockingRoad[]){
   for(const obstacle of obstacles){
     const clearance=obstacle.r+roadHalfWidth+.42;
     const d=distance(point,obstacle);
@@ -1572,29 +1579,29 @@ function routeCellBlocked(point:Point,start:Point,end:Point,allowStartNetwork=fa
   }
   return false;
 }
-function routeSegmentIsClear(a:Point,b:Point,start:Point,end:Point,allowStartNetwork:boolean,allowEndNetwork:boolean){
+function routeSegmentIsClear(a:Point,b:Point,start:Point,end:Point,allowStartNetwork:boolean,allowEndNetwork:boolean,blockingRoads?:RouteBlockingRoad[]){
   const length=distance(a,b),steps=Math.max(1,Math.ceil(length/.28));
   for(let i=0;i<=steps;i++){
     const t=i/steps;
-    if(routeCellBlocked({x:lerp(a.x,b.x,t),y:lerp(a.y,b.y,t)},start,end,allowStartNetwork,allowEndNetwork,{a,b}))return false;
+    if(routeCellBlocked({x:lerp(a.x,b.x,t),y:lerp(a.y,b.y,t)},start,end,allowStartNetwork,allowEndNetwork,{a,b},blockingRoads))return false;
   }
   return true;
 }
-function simplifyAutoRoadPath(path:Point[],start:Point,end:Point,allowStartNetwork:boolean,allowEndNetwork:boolean){
+function simplifyAutoRoadPath(path:Point[],start:Point,end:Point,allowStartNetwork:boolean,allowEndNetwork:boolean,blockingRoads?:RouteBlockingRoad[]){
   if(path.length<3)return path;
   const simplified:Point[]=[path[0]!];
   let index=0;
   while(index<path.length-1){
     let next=index+1;
     for(let candidate=path.length-1;candidate>index+1;candidate--){
-      if(routeSegmentIsClear(path[index]!,path[candidate]!,start,end,allowStartNetwork,allowEndNetwork)){next=candidate;break;}
+      if(routeSegmentIsClear(path[index]!,path[candidate]!,start,end,allowStartNetwork,allowEndNetwork,blockingRoads)){next=candidate;break;}
     }
     simplified.push(path[next]!);index=next;
   }
   return simplified;
 }
 function findAutoRoadPath(start:Point,end:Point,allowStartNetwork=false,allowEndNetwork=false):Point[]|null{
-  const step=.75,ix0=Math.round(start.x/step),iy0=Math.round(start.y/step),ix1=Math.round(end.x/step),iy1=Math.round(end.y/step);
+  // Road geometry is immutable during one search; smooth it once, not thousands of times per A* cell.\n  const blockingRoads=collectRouteBlockingRoads();\n  const step=.75,ix0=Math.round(start.x/step),iy0=Math.round(start.y/step),ix1=Math.round(end.x/step),iy1=Math.round(end.y/step);
   const key=(x:number,y:number)=>x+','+y;
   const startKey=key(ix0,iy0),endKey=key(ix1,iy1);
   const coords=(id:string)=>id.split(',').map(Number) as [number,number];
@@ -1608,7 +1615,7 @@ function findAutoRoadPath(start:Point,end:Point,allowStartNetwork=false,allowEnd
     for(let i=0;i<=samples;i++){
       const t=i/samples;
       const point={x:lerp(a.x,b.x,t),y:lerp(a.y,b.y,t)};
-      if(routeCellBlocked(point,start,end,allowStartNetwork,allowEndNetwork,{a,b}))return false;
+      if(routeCellBlocked(point,start,end,allowStartNetwork,allowEndNetwork,{a,b},blockingRoads))return false;
     }
     return true;
   };
@@ -1652,7 +1659,7 @@ function findAutoRoadPath(start:Point,end:Point,allowStartNetwork=false,allowEnd
   while(cursor!==startKey){const [x,y]=coords(cursor);cells.push({x:x*step,y:y*step});const previous=came.get(cursor);if(!previous)return null;cursor=previous;}
   cells.push({x:ix0*step,y:iy0*step});cells.reverse();
   const raw=[{...start},...cells.slice(1,-1),{...end}];
-  return simplifyAutoRoadPath(raw,start,end,allowStartNetwork,allowEndNetwork);
+  return simplifyAutoRoadPath(raw,start,end,allowStartNetwork,allowEndNetwork,blockingRoads);
 }
 function commitRouteConnection(start:RouteAnchor,end:RouteAnchor):boolean{
   if(distance(start.point,end.point)<1.05){if(buildMessage)buildMessage.textContent='Выбери две разные точки подключения.';return false;}
@@ -1662,8 +1669,8 @@ function commitRouteConnection(start:RouteAnchor,end:RouteAnchor):boolean{
   const touchesHighway=(Math.abs(start.point.y+13)<1.25&&start.kind==='network')||(Math.abs(end.point.y+13)<1.25&&end.kind==='network');
   const connectsBuilding=start.kind==='building'||end.kind==='building';
   // Validate the exact rounded centreline that will be rendered, not only the A* polyline.
-  const renderedPath=smoothPoints(path);
-  for(let i=1;i<renderedPath.length;i++)if(!routeSegmentIsClear(renderedPath[i-1]!,renderedPath[i]!,start.point,end.point,start.kind==='network',end.kind==='network')){if(buildMessage)buildMessage.textContent='Плавный маршрут задевает занятую территорию. Выбери другие точки.';return false;}
+  const renderedPath=smoothPoints(path),blockingRoads=collectRouteBlockingRoads();
+  for(let i=1;i<renderedPath.length;i++)if(!routeSegmentIsClear(renderedPath[i-1]!,renderedPath[i]!,start.point,end.point,start.kind==='network',end.kind==='network',blockingRoads)){if(buildMessage)buildMessage.textContent='Плавный маршрут задевает занятую территорию. Выбери другие точки.';return false;}
   const road:Road={points:path,progress:0,width:roadHalfWidth*2,connectsVillageToHighway:touchesHighway&&connectsBuilding,direction};
   builtRoads.push(road);staticLayerDirty=true;constructionJobs.push(road);rebuildRoadGraph();refreshVehicleRoutes();updateMission();
   if(buildMessage)buildMessage.textContent='Соединение создано: '+start.name+' — '+end.name+'. Дорога прокладывается автоматически.';
