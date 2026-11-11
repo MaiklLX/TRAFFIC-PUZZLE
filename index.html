@@ -10,39 +10,35 @@
 <body>
 <div id="app">
   <header class="topbar">
-    <a class="brand" href="#" aria-label="TRAFFIC PUZZLE"><span class="brand-mark"><i></i><i></i><i></i></span><span><b>TRAFFIC PUZZLE</b><small>ЖИВАЯ ДОЛИНА · ТРАНСПОРТНАЯ ГОЛОВОЛОМКА</small></span></a>
+    <a class="brand" href="#" aria-label="TRAFFIC PUZZLE"><span class="brand-mark"><i></i><i></i><i></i></span><span><b>TRAFFIC PUZZLE</b><small>ДОЛИНА · МАРШРУТНАЯ ГОЛОВОЛОМКА</small></span></a>
     <div class="chapter-line"><span class="chapter-dot"></span> СЦЕНАРИЙ 01 <b>ПЕРВОЕ СОЕДИНЕНИЕ</b></div>
     <button id="reset-camera" class="view-button" title="Показать всю карту" aria-label="Показать всю карту">⌗</button>
   </header>
   <main class="workspace">
     <nav class="tool-rail" aria-label="Инструменты">
       <button class="tool active" data-tool="inspect" type="button" title="Обзор"><span class="tool-glyph">⌖</span><b>Обзор</b></button>
-      <button class="tool" data-tool="road" type="button" title="Построить дорогу"><span class="tool-glyph">╱</span><b>Дорога</b></button>
-      <div class="rail-divider"></div>
-      <button class="tool locked" type="button" disabled title="Будет доступно позже"><span class="tool-glyph">⤢</span><b>Узлы</b></button>
-      <button class="tool locked" type="button" disabled title="Будет доступно позже"><span class="tool-glyph">⇥</span><b>Знаки</b></button>
+      <button class="tool" data-tool="road" type="button" title="Соединить точки маршрута"><span class="tool-glyph">⌁</span><b>Маршрут</b></button>
     </nav>
     <section class="map-stage" aria-label="Игровая карта">
       <div id="world" role="img" aria-label="Карта долины с трассой, деревней, фермой и транспортом"></div>
       <div class="map-topline"><span><i></i> ДОЛИНА · РЕГИОН 01</span><span>ВИД СВЕРХУ · СВОБОДНАЯ КАМЕРА</span></div>
       <div class="map-location"><span>⌖</span><b>СЕВЕРНАЯ ДОЛИНА</b></div>
       <div class="map-live"><i></i> ДВИЖЕНИЕ</div>
-      <div class="map-objective"><span class="objective-index">01</span><span><small>ТВОЯ ЗАДАЧА</small><b>Свяжи долину с большой дорогой</b><em>Построй удобный маршрут для жителей</em></span></div>
+      <div class="map-objective"><span class="objective-index">01</span><span><small>ТВОЯ ЗАДАЧА</small><b>Подключи объекты к трассе</b><em>Выбери две точки — дорога появится сама</em></span></div>
       <div class="map-controls"><button id="zoom-in" aria-label="Приблизить">+</button><button id="zoom-out" aria-label="Отдалить">−</button></div>
       <div class="map-help"><span>DRAG</span> двигать карту <i></i><span>WHEEL</span> масштаб</div>
       <div id="build-hud" class="build-hud" hidden>
-        <div class="build-head"><span class="build-icon">╱</span><span><b>НОВАЯ ДОРОГА</b><small>Наметь маршрут на карте</small></span><button id="cancel-road" aria-label="Сбросить проект">×</button></div>
-        <p id="build-message">Проведи линию будущей дороги и проверь её соединения.</p>
-        <label class="road-direction-control" for="road-direction">ДВИЖЕНИЕ<select id="road-direction"><option value="both">Двустороннее</option><option value="forward">Одностороннее →</option></select></label>
+        <div class="build-head"><span class="build-icon">⌁</span><span><b>СОЗДАТЬ МАРШРУТ</b><small>Два касания вместо рисования</small></span><button id="cancel-road" aria-label="Сбросить выбор">×</button></div>
+        <p id="build-message">1. Выбери точку у объекта. 2. Выбери трассу или существующую дорогу.</p>
         <button id="undo-road" class="undo-road" type="button">↶ Отменить последний участок</button>
       </div>
     </section>
     <aside class="command-panel">
-      <section class="panel-intro"><div class="panel-kicker">ДИСПЕТЧЕРСКАЯ</div><h1>Ты задаёшь ритм<br/><span>жизни долины.</span></h1><p>Долина живёт своей жизнью. Соединяй дома и службы, строй понятные перекрёстки и помогай машинам двигаться без лишних остановок.</p></section>
+      <section class="panel-intro"><div class="panel-kicker">ДИСПЕТЧЕРСКАЯ</div><h1>Ты задаёшь ритм<br/><span>жизни долины.</span></h1><p>Выбирай точки подключения. Дороги прокладываются автоматически, а машины сами находят доступный путь между домами и службами.</p></section>
       <section class="mission-card">
         <div class="card-top"><span>ТЕКУЩИЙ СЦЕНАРИЙ</span><b class="mission-count">В РАБОТЕ</b></div>
         <div class="mission-title"><span>01</span><h2>Первое соединение</h2></div>
-        <p id="mission-state">Соедини федеральную трассу с дорожной сетью поселения.</p>
+        <p id="mission-state">Выбери въезд у амбара и точку на трассе.</p>
         <div class="mission-progress"><span class="progress"><span></span></span><small>ПРОГРЕСС</small></div>
         <div class="mission-reward"><span>ДАЛЬШЕ</span><b>НОВЫЕ МАРШРУТЫ И ЗАДАЧИ</b></div>
       </section>
@@ -59,7 +55,7 @@
       <section class="destinations-card"><div class="section-head"><span>МАРШРУТЫ СПРОСА</span><small>ДОЛИНА</small></div>
         <div class="destination-list" id="destination-board"><div class="destination-row"><span>Проверяем маршруты…</span></div></div><div id="destination-summary" class="destination-summary">Доступность объектов</div>
       </section>
-      <section class="strategy-note"><span>i</span><p><b>Думай о потоке.</b> Полезная дорога соединяет объекты или открывает более короткий сквозной маршрут.</p></section>
+      <section class="strategy-note"><span>i</span><p><b>Принцип игры.</b> Каждое соединение открывает новые поездки. Не строй лишнего — думай о связности.</p></section>
       <footer class="panel-footer"><span>TRAFFIC PUZZLE</span><span>ДОЛИНА · ВЕРСИЯ 0.52</span></footer>
     </aside>
   </main>
