@@ -1267,7 +1267,7 @@ canvas.addEventListener('pointerdown',event=>{
   const p=pointerPosition(event);activePointers.set(event.pointerId,p);
   if(activePointers.size===2){pendingRouteTap=null;routePointerStart=null;panning=false;const pts=[...activePointers.values()];pinchStart={distance:distance(pts[0]!,pts[1]!),zoom:camera.zoom,center:{x:(pts[0]!.x+pts[1]!.x)/2,y:(pts[0]!.y+pts[1]!.y)/2}};return;}
   if(selectedTool==='road'){
-    pendingRouteTap=screenToWorld(p);routePointerStart=p;panning=false;event.preventDefault();return;
+    pendingRouteTap=screenToWorld(p);routePointerStart=p;panning=false;canvas.setPointerCapture(event.pointerId);event.preventDefault();return;
   }
   panning=true;lastPointer=p;canvas.setPointerCapture(event.pointerId);
 });
