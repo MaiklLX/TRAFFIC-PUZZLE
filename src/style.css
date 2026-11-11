@@ -218,3 +218,100 @@ body{background:#e8ede0;color:var(--ink)}
   .tool-rail{gap:5px}
   .tool{min-width:69px;width:69px}
 }
+
+
+/* KT-065 — unified controls, readable type and responsive dispatcher. */
+:root{
+  --ui-ink:#365346;--ui-muted:#7d8d80;--ui-line:#d7e1d3;
+  --ui-surface:#fbfcf6;--ui-soft:#edf3e8;--ui-accent:#6f9a78;
+  --ui-warn:#c49355;--ui-danger:#b97862;
+}
+button,select{color:var(--ui-ink)}
+button{cursor:pointer}
+button:disabled{opacity:.42;cursor:not-allowed}
+.topbar-actions{display:flex;align-items:center;gap:8px}
+.view-button,.dispatch-toggle,.dispatch-close{
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  border:1px solid var(--ui-line);background:var(--ui-surface);color:#557762;
+  box-shadow:0 3px 10px #536b5010;transition:background .16s,border-color .16s,transform .16s;
+}
+.view-button svg,.dispatch-toggle svg,.dispatch-close svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.view-button{width:38px;height:38px;border-radius:12px;font-size:0}
+.dispatch-toggle{display:none;min-height:38px;padding:0 12px;border-radius:12px;font-size:11px;font-weight:800}
+.dispatch-toggle svg{width:16px;height:16px}
+.dispatch-close{display:none;width:32px;height:32px;border-radius:10px;font-size:22px;line-height:1;box-shadow:none}
+.panel-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.panel-kicker{font-size:9px;letter-spacing:1.35px}
+.panel-intro p{font-size:11px;line-height:1.6}
+.mission-card>p{font-size:10px;line-height:1.5}
+.card-top,.section-head{font-size:9px}
+.metric small{font-size:8px}
+.metric-icon svg,.tool-glyph svg,.build-icon svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.metric-icon{font-size:0}
+.destination-row b{font-size:10px}
+.destination-row small{font-size:9px}
+.destination-row>em{font-size:8px}
+.network-status{font-size:9px}
+.panel-footer{font-size:8px}
+.tool-glyph{display:grid;place-items:center;font-size:0}
+.tool-glyph svg{width:21px;height:21px}
+.tool b{font-size:10px}
+.map-location,.map-live{font-size:9px}
+.map-objective small{font-size:8px}
+.map-objective em{font-size:9px}
+.build-icon{font-size:0}
+.road-direction-control{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;color:#75877a;font-size:9px;font-weight:850;letter-spacing:.5px}
+.road-direction-control select{min-height:36px;padding:7px 28px 7px 10px;border:1px solid #d6e2d2;border-radius:9px;background:#f8faf3;color:#526c5b;font-size:10px;font-weight:750}
+.undo-road{min-height:38px;font-size:10px}
+.dispatch-scrim{display:none}
+button:hover:not(:disabled){border-color:#b9cfb8}
+button:active:not(:disabled){transform:translateY(1px)}
+.tool:focus-visible,.dispatch-toggle:focus-visible,.dispatch-close:focus-visible,.view-button:focus-visible,.map-controls button:focus-visible,.undo-road:focus-visible{outline:3px solid #a8c5a4;outline-offset:2px}
+@media(max-width:800px){
+  .topbar-actions{gap:6px}
+  .dispatch-toggle{display:inline-flex}
+  .view-button{width:38px;height:38px}
+  .dispatch-scrim{
+    display:block;position:fixed;z-index:18;inset:0;border:0;border-radius:0;
+    background:#263c3038;opacity:0;visibility:hidden;pointer-events:none;
+    transition:opacity .18s,visibility .18s
+  }
+  .command-panel{
+    display:flex;position:fixed;z-index:19;top:calc(env(safe-area-inset-top) + 56px);
+    right:8px;bottom:calc(env(safe-area-inset-bottom) + 8px);
+    width:min(370px,calc(100vw - 16px));max-height:none;min-height:0;
+    overflow:auto;overscroll-behavior:contain;padding:16px;
+    border:1px solid #d1ddce;border-radius:18px;
+    background:linear-gradient(165deg,#fbfcf6 0%,#f1f5eb 100%);
+    box-shadow:0 18px 48px #263c3040;
+    opacity:0;visibility:hidden;pointer-events:none;transform:translateX(12px);
+    transition:opacity .18s,transform .18s,visibility .18s
+  }
+  #app.dispatcher-open .command-panel{opacity:1;visibility:visible;pointer-events:auto;transform:translateX(0)}
+  #app.dispatcher-open .dispatch-scrim{opacity:1;visibility:visible;pointer-events:auto}
+  .dispatch-close{display:inline-flex;flex:0 0 32px}
+  .panel-intro h1{font-size:23px}
+  .panel-intro p{font-size:11px}
+  .mission-card>p{font-size:10px}
+  .metric{min-height:48px}
+  .metric small{font-size:8px}
+  .destination-row b{font-size:10px}
+  .destination-row small{font-size:9px}
+  .strategy-note p{font-size:9px}
+  .panel-footer{font-size:8px}
+  .tool-rail{bottom:calc(env(safe-area-inset-bottom) + 12px)}
+  .map-controls{bottom:calc(env(safe-area-inset-bottom) + 92px)}
+  .build-hud{bottom:calc(env(safe-area-inset-bottom) + 86px)}
+}
+@media(max-width:420px){
+  .dispatch-toggle{padding:0 10px;font-size:10px}
+  .dispatch-toggle svg{width:15px;height:15px}
+  .command-panel{padding:14px}
+}
+@media(max-width:800px) and (orientation:landscape){
+  .command-panel{top:calc(env(safe-area-inset-top) + 54px);right:8px;bottom:calc(env(safe-area-inset-bottom) + 7px);width:min(350px,48vw)}
+  .tool-rail{bottom:calc(env(safe-area-inset-bottom) + 7px)}
+}
+@media(prefers-reduced-motion:reduce){
+  .command-panel,.dispatch-scrim,.view-button,.dispatch-toggle{transition:none}
+}
