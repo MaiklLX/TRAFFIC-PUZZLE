@@ -1555,15 +1555,26 @@ function collectRouteBlockingRoads():RouteCollisionIndex{
   }
   return{cellSize,buckets};
 }
+function isInsideEndpointApron(point:Point,anchor:Point,obstacle:{x:number;y:number},clearance:number):boolean{
+  // An access point may sit inside the inflated safety radius of its own building.
+  // Permit only a short, outward-facing corridor; never exempt the whole obstacle
+  // half-plane just because the route starts or ends nearby.
+  const ox=anchor.x-obstacle.x,oy=anchor.y-obstacle.y,anchorDistance=Math.hypot(ox,oy);
+  if(anchorDistance<.001)return false;
+  const ux=ox/anchorDistance,uy=oy/anchorDistance;
+  const dx=point.x-anchor.x,dy=point.y-anchor.y;
+  const outward=dx*ux+dy*uy;
+  const lateral=Math.abs(dx*uy-dy*ux);
+  const apronLength=Math.min(3.2,Math.max(1.05,clearance-anchorDistance+1.05));
+  return outward>=-.12&&outward<=apronLength&&lateral<=1.2;
+}
 function routeCellBlocked(point:Point,start:Point,end:Point,allowStartNetwork=false,allowEndNetwork=false,movement?:{a:Point;b:Point},blockingRoads?:RouteCollisionIndex):number{
   for(const obstacle of obstacles){
     const clearance=obstacle.r+roadHalfWidth+.42;
-    const d=distance(point,obstacle);
-    if(d>=clearance)continue;
-    const nearStart=distance(start,obstacle)<clearance+.2;
-    const nearEnd=distance(end,obstacle)<clearance+.2;
-    if(nearStart&&d>=distance(start,obstacle)-.08)continue;
-    if(nearEnd&&d>=distance(end,obstacle)-.08)continue;
+    if(distance(point,obstacle)>=clearance)continue;
+    const startApron=distance(start,obstacle)<clearance+.2&&isInsideEndpointApron(point,start,obstacle,clearance);
+    const endApron=distance(end,obstacle)<clearance+.2&&isInsideEndpointApron(point,end,obstacle,clearance);
+    if(startApron||endApron)continue;
     return 1;
   }
   // Cultivated parcels and the orchard remain hard no-build areas.
@@ -1626,7 +1637,27 @@ function simplifyAutoRoadPath(path:Point[],start:Point,end:Point,allowStartNetwo
 function findAutoRoadPath(start:Point,end:Point,allowStartNetwork=false,allowEndNetwork=false,diagnostics?:RouteSearchDiagnostics):Point[]|null{
   // Road geometry is immutable during one search; smooth it once, not thousands of times per A* cell.
   const blockingRoads=collectRouteBlockingRoads();
-  const step=.75,ix0=Math.round(start.x/step),iy0=Math.round(start.y/step),ix1=Math.round(end.x/step),iy1=Math.round(end.y/step);
+  // A half-unit grid is fine enough to negotiate road corridors without
+  // creating the coarse, visibly kinked paths produced by the old .75 grid.
+  const step=.5,ix0=Math.round(start.x/step),iy0=Math.round(start.y/step),ix1=Math.round(end.x/step),iy1=Math.round(end.y/step);
+  const gridStart={x:ix0*step,y:iy0*step},gridEnd={x:ix1*step,y:iy1*step};
+  const connectorClear=(a:Point,b:Point)=>{
+    const length=distance(a,b),samples=Math.max(1,Math.ceil(length/.18));
+    for(let i=0;i<=samples;i++){
+      const t=i/samples,point={x:lerp(a.x,b.x,t),y:lerp(a.y,b.y,t)};
+      const blocked=routeCellBlocked(point,start,end,allowStartNetwork,allowEndNetwork,{a,b},blockingRoads);
+      if(blocked){
+        if(diagnostics){if(blocked===1)diagnostics.obstacle++;else if(blocked===2)diagnostics.terrain++;else diagnostics.road++;}
+        return false;
+      }
+    }
+    return true;
+  };
+  // Exact access points must be physically connected to the lattice before A*
+  // is allowed to search. This catches snapped endpoints that land behind a
+  // building, inside a road corridor, or on the wrong side of a field.
+  if(distance(start,gridStart)>.015&&!connectorClear(start,gridStart))return null;
+  if(distance(end,gridEnd)>.015&&!connectorClear(gridEnd,end))return null;
   const key=(x:number,y:number)=>x+','+y;
   const startKey=key(ix0,iy0),endKey=key(ix1,iy1);
   const coords=(id:string)=>id.split(',').map(Number) as [number,number];
@@ -1685,7 +1716,7 @@ function findAutoRoadPath(start:Point,end:Point,allowStartNetwork=false,allowEnd
   const cells:Point[]=[];let cursor=endKey;
   while(cursor!==startKey){const [x,y]=coords(cursor);cells.push({x:x*step,y:y*step});const previous=came.get(cursor);if(!previous)return null;cursor=previous;}
   cells.push({x:ix0*step,y:iy0*step});cells.reverse();
-  const raw=[{...start},...cells.slice(1,-1),{...end}];
+  const raw=[{...start},...cells,{...end}].filter((point,index,all)=>index===0||distance(point,all[index-1]!)>.015);
   return simplifyAutoRoadPath(raw,start,end,allowStartNetwork,allowEndNetwork,blockingRoads);
 }
 function commitRouteConnection(start:RouteAnchor,end:RouteAnchor):boolean{
