@@ -316,3 +316,10 @@ button:active:not(:disabled){transform:translateY(1px)}
 .road-legend .legend-idle{background:#b9c4b7}
 .road-legend .legend-build{background:#c99b58;box-shadow:0 0 0 2px #c99b5828}
 .road-legend .legend-oneway{display:grid;place-items:center;width:12px;height:12px;border-radius:3px;background:#e9eee3;color:#718d75;font-size:12px;font-style:normal;font-weight:900}
+
+/* KT-066 — congestion is shown only when a vehicle is constrained by traffic. */
+.road-legend .legend-jam{width:9px;height:9px;flex-basis:9px;border:2px solid #bd8b4d;background:transparent;box-shadow:0 0 0 2px #bd8b4d22}
+.destination-row.is-slow>em{color:#a77b45;background:#f4ead8}
+.destination-row.is-busy>em{color:#a65f4d;background:#f5e4dc}
+.destination-row.is-slow>i{box-shadow:0 0 0 3px #c99b5830}
+.destination-row.is-busy>i{box-shadow:0 0 0 3px #b9786238}
