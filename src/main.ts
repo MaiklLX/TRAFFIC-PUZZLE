@@ -1525,7 +1525,7 @@ function updateMission(){
 }
 type RouteAnchor={point:Point;kind:'building'|'network';name:string};
 function resolveRouteAnchor(raw:Point):RouteAnchor|null{
-  let nearestBuilding:TrafficDestination|null=null,buildingDistance=1.2;
+  let nearestBuilding:TrafficDestination|null=null,buildingDistance=Infinity;
   for(const destination of trafficDestinations){
     const d=distance(raw,destination.access);
     if(d<buildingDistance){buildingDistance=d;nearestBuilding=destination;}
@@ -1534,21 +1534,18 @@ function resolveRouteAnchor(raw:Point):RouteAnchor|null{
     const d=distance(raw,station.access);
     if(d<buildingDistance){buildingDistance=d;nearestBuilding={id:station.id,name:station.name,access:station.access,color:'#83a98b',weight:1};}
   }
-  if(nearestBuilding)return{point:{...nearestBuilding.access},kind:'building',name:nearestBuilding.name};
   const network=nearestNetworkPoint(raw);
-  if(network&&distance(raw,network)<.95)return{point:network,kind:'network',name:'Дорожная сеть'};
-  buildingDistance=2.75;
-  for(const destination of trafficDestinations){
-    const d=distance(raw,destination.access);
-    if(d<buildingDistance){buildingDistance=d;nearestBuilding=destination;}
+  const networkDistance=network?distance(raw,network):Infinity;
+  const buildingIsNear=!!nearestBuilding&&buildingDistance<=2.75;
+  const networkIsNear=!!network&&networkDistance<=1.8;
+  if(!buildingIsNear&&!networkIsNear)return null;
+  // Snap to the closest physical target. A nearby access pin must not steal a
+  // deliberate tap on asphalt; exact ties prefer the building access itself.
+  if(buildingIsNear&&(!networkIsNear||buildingDistance<=networkDistance+.12)){
+    return{point:{...nearestBuilding!.access},kind:'building',name:nearestBuilding!.name};
   }
-  for(const station of fuelStations){
-    const d=distance(raw,station.access);
-    if(d<buildingDistance){buildingDistance=d;nearestBuilding={id:station.id,name:station.name,access:station.access,color:'#83a98b',weight:1};}
-  }
-  if(nearestBuilding)return{point:{...nearestBuilding.access},kind:'building',name:nearestBuilding.name};
-  if(network&&distance(raw,network)<1.8)return{point:network,kind:'network',name:'Дорожная сеть'};
-  return null;
+  if(networkIsNear)return{point:network!,kind:'network',name:'Дорожная сеть'};
+  return buildingIsNear?{point:{...nearestBuilding!.access},kind:'building',name:nearestBuilding!.name}:null;
 }
 type RouteCollisionSegment={a:Point;b:Point;clearance:number};
 type RouteCollisionIndex={cellSize:number;buckets:Map<string,RouteCollisionSegment[]>};
