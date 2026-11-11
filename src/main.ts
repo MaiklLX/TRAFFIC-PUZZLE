@@ -216,8 +216,16 @@ function appendJunctionSurface(junction:{center:Point;arms:JunctionArm[]},extra:
   }
   const hull=convexHullPoints(points);
   if(hull.length<3)return;
-  const first=worldToScreen(hull[0]!);ctx!.moveTo(first.x,first.y);
-  for(let i=1;i<hull.length;i++){const p=worldToScreen(hull[i]!);ctx!.lineTo(p.x,p.y);}
+  // A quadratic contour through the hull midpoints rounds the meeting of
+  // asphalt ribbons without shrinking the usable road surface at the node.
+  const midpoint=(a:Point,b:Point):Point=>({x:(a.x+b.x)/2,y:(a.y+b.y)/2});
+  const start=worldToScreen(midpoint(hull[hull.length-1]!,hull[0]!));
+  ctx!.moveTo(start.x,start.y);
+  for(let i=0;i<hull.length;i++){
+    const control=worldToScreen(hull[i]!);
+    const end=worldToScreen(midpoint(hull[i]!,hull[(i+1)%hull.length]!));
+    ctx!.quadraticCurveTo(control.x,control.y,end.x,end.y);
+  }
   ctx!.closePath();
 }
 function strokeRoadNetworkGroup(roads:{points:Point[];progress:number;width:number}[],color:string,outerColor:string,junctions:{center:Point;arms:JunctionArm[]}[]=[]){
@@ -339,6 +347,14 @@ function drawRoadNetwork(){
   // All finished streets share one pair of filled surface layers. Junction
   // patches are calculated from their arms, so the asphalt is one connected shape.
   strokeRoadNetworkGroup([...base,...complete],'#707d79','#cbd5c7',junctions);
+  // A restrained warm edge catches the light around the connected asphalt
+  // and visually blends the branch mouths into one continuous junction.
+  if(junctions.length){
+    ctx!.save();ctx!.strokeStyle='rgba(245,239,218,.22)';
+    ctx!.lineWidth=Math.max(.8,.035*camera.zoom);ctx!.lineJoin='round';
+    for(const junction of junctions){ctx!.beginPath();appendJunctionSurface(junction,.17);ctx!.stroke();}
+    ctx!.restore();
+  }
   for(const road of constructing)strokeRoad(road.points,road.progress,'#69777d',1,road.width);
   if(staticRoads[0])drawRoadCentreLinePath(staticRoadPath(staticRoads[0]),true,junctions);
 }
