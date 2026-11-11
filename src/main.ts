@@ -1379,6 +1379,14 @@ function updateMission(){
 
   const missionState=document.querySelector<HTMLElement>('#mission-state');
   const settlementStatus=document.querySelector<HTMLElement>('#settlement-status');
+  const missionPhaseTitle=document.querySelector<HTMLElement>('.mission-title h2');
+  const missionPhaseIndex=document.querySelector<HTMLElement>('.mission-title > span');
+  const mapObjectiveIndex=document.querySelector<HTMLElement>('.objective-index');
+  const chapterTitle=document.querySelector<HTMLElement>('.chapter-line b');
+  if(missionPhaseTitle)missionPhaseTitle.textContent=schoolConnected?'Медицинский маршрут':'Первое соединение';
+  if(missionPhaseIndex)missionPhaseIndex.textContent=schoolConnected?'02':'01';
+  if(mapObjectiveIndex)mapObjectiveIndex.textContent=schoolConnected?'02':'01';
+  if(chapterTitle)chapterTitle.textContent=schoolConnected?'МЕДИЦИНСКИЙ МАРШРУТ':'ПЕРВОЕ СОЕДИНЕНИЕ';
   if(settlementGrowthStage===0){
     if(missionState)missionState.textContent=farmConnected
       ?'Ферма подключена. Осталось связать с трассой хотя бы один жилой дом.'
