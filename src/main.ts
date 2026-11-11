@@ -1659,18 +1659,6 @@ function findAutoRoadPath(start:Point,end:Point,allowStartNetwork=false,allowEnd
   // creating the coarse, visibly kinked paths produced by the old .75 grid.
   const step=.5,ix0=Math.round(start.x/step),iy0=Math.round(start.y/step),ix1=Math.round(end.x/step),iy1=Math.round(end.y/step);
   const gridStart={x:ix0*step,y:iy0*step},gridEnd={x:ix1*step,y:iy1*step};
-  const connectorClear=(a:Point,b:Point)=>{
-    const length=distance(a,b),samples=Math.max(1,Math.ceil(length/.18));
-    for(let i=0;i<=samples;i++){
-      const t=i/samples,point={x:lerp(a.x,b.x,t),y:lerp(a.y,b.y,t)};
-      const blocked=routeCellBlocked(point,start,end,allowStartNetwork,allowEndNetwork,{a,b},blockingRoads);
-      if(blocked){
-        if(diagnostics){if(blocked===1)diagnostics.obstacle++;else if(blocked===2)diagnostics.terrain++;else diagnostics.road++;}
-        return false;
-      }
-    }
-    return true;
-  };
   // Preserve exact endpoints in the final path; do not reject the whole search
   // because a sub-grid snap segment touches the selected endpoint's own apron.
   const key=(x:number,y:number)=>x+','+y;
