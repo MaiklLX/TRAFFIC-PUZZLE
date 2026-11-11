@@ -28,7 +28,11 @@ let cameraInitialized=false;
 let selectedTool = 'inspect';
 let panning = false;
 let lastPointer: Point | null = null;
-let routeSelection: Point[] = [];
+let routeSelection: RouteAnchor[] = [];
+let routeNetworkRevision=0;
+let routePreviewCacheKey='';
+let routePreviewCachePath:Point[]|null=null;
+let routePreviewCacheValid=false;
 let pendingRouteTap: Point | null = null;
 let routePointerStart: Point | null = null;
 let routeHoverPoint: Point | null = null;
@@ -811,12 +815,27 @@ function drawVillageLife(){
   ctx!.globalAlpha=1;
 }
 
+function isRenderedRoutePathClear(path:Point[],start:RouteAnchor,end:RouteAnchor):boolean{
+  const renderedPath=smoothPoints(path),blockingRoads=collectRouteBlockingRoads();
+  for(let i=1;i<renderedPath.length;i++){
+    if(!routeSegmentIsClear(renderedPath[i-1]!,renderedPath[i]!,start.point,end.point,start.kind==='network',end.kind==='network',blockingRoads))return false;
+  }
+  return true;
+}
 function drawRoutePreview(){
   if(selectedTool!=='road'||!routeSelection.length||!routeHoverPoint)return;
-  const end=resolveRouteAnchor(routeHoverPoint);
-  if(!end||distance(routeSelection[0]!,end.point)<1.05)return;
-  const path=findAutoRoadPath(routeSelection[0]!,end.point);
-  if(!path||path.length<2)return;
+  const start=routeSelection[0]!,end=resolveRouteAnchor(routeHoverPoint);
+  if(!end||distance(start.point,end.point)<1.05){routePreviewCacheKey='';routePreviewCachePath=null;routePreviewCacheValid=false;return;}
+  const key=[routeNetworkRevision,start.kind,start.point.x.toFixed(3),start.point.y.toFixed(3),end.kind,end.point.x.toFixed(3),end.point.y.toFixed(3)].join('|');
+  // render() runs with the traffic animation; route search must run only when
+  // the snapped endpoint or the road network actually changes, not 60 times/sec.
+  if(key!==routePreviewCacheKey){
+    routePreviewCacheKey=key;
+    routePreviewCachePath=findAutoRoadPath(start.point,end.point,start.kind==='network',end.kind==='network');
+    routePreviewCacheValid=!!routePreviewCachePath&&routePreviewCachePath.length>=2&&isRenderedRoutePathClear(routePreviewCachePath,start,end);
+  }
+  const path=routePreviewCachePath;
+  if(!path||path.length<2||!routePreviewCacheValid)return;
   ctx!.save();ctx!.lineCap='round';ctx!.lineJoin='round';
   ctx!.beginPath();const first=worldToScreen(path[0]!);ctx!.moveTo(first.x,first.y);
   for(let i=1;i<path.length;i++){const p=worldToScreen(path[i]!);ctx!.lineTo(p.x,p.y);}
@@ -826,7 +845,7 @@ function drawRoutePreview(){
 }
 function drawRouteAnchors(){
   if(selectedTool!=='road')return;
-  const selected=routeSelection[0]??null;
+  const selected=routeSelection[0]?.point??null;
   const connected=(id:string)=>reachableTrips.some(trip=>trip.origin.id===id||trip.destination.id===id);
   const drawPin=(point:Point,color:string,active:boolean,label?:string)=>{
     const p=worldToScreen(point),r=clamp(camera.zoom*.24,7,10);
@@ -917,7 +936,7 @@ function render(){
   for(const vehicle of vehicles)drawCar(vehicle,congestedVehicles.has(vehicle));
   drawMapLabels();drawRoutePreview();drawRouteAnchors();
   if(routeSelection.length){
-    const p=worldToScreen(routeSelection[0]!);
+    const p=worldToScreen(routeSelection[0]!.point);
     ctx!.save();ctx!.strokeStyle='#e3b768';ctx!.lineWidth=2;ctx!.setLineDash([4,4]);ctx!.beginPath();ctx!.arc(p.x,p.y,Math.max(11,camera.zoom*.42),0,Math.PI*2);ctx!.stroke();ctx!.restore();
   }
 }
@@ -1365,7 +1384,7 @@ function distanceToSegment(p:Point,a:Point,b:Point){
 function pointerPosition(event:MouseEvent):Point{
   const rect=canvas.getBoundingClientRect();return{x:event.clientX-rect.left,y:event.clientY-rect.top};
 }
-function clearRouteSelection(){routeSelection=[];render();}
+function clearRouteSelection(){routeSelection=[];routePreviewCacheKey='';routePreviewCachePath=null;routePreviewCacheValid=false;render();}
 function isPointInTerrainZone(point:Point,clearance=0){
   return terrainNoBuildZones.some(zone=>
     Math.abs(point.x-zone.x)<zone.halfWidth+clearance&&
@@ -1405,7 +1424,7 @@ function advanceSettlementGrowth(initialNetworkReady:boolean){
   const template=growthSites[0];
   const site=template?findGrowthSitePlacement(template):null;
   if(!site)return;
-  activeGrowthBuildings.push(site);
+  activeGrowthBuildings.push(site);routeNetworkRevision++;routePreviewCacheKey='';
   obstacles.push({x:site.position.x,y:site.position.y,r:site.obstacleRadius,type:site.kind});
   const destination:TrafficDestination={id:site.id,name:site.name,access:{...site.access},color:site.color,weight:site.weight};
   trafficDestinations.push(destination);
@@ -1417,7 +1436,7 @@ function advanceSettlementGrowth(initialNetworkReady:boolean){
 function advanceNextGrowthSite(index:number){
   if(settlementGrowthStage!==1)return;
   const template=growthSites[index];const site=template?findGrowthSitePlacement(template):null;if(!site)return;
-  activeGrowthBuildings.push(site);obstacles.push({x:site.position.x,y:site.position.y,r:site.obstacleRadius,type:site.kind});
+  activeGrowthBuildings.push(site);routeNetworkRevision++;routePreviewCacheKey='';obstacles.push({x:site.position.x,y:site.position.y,r:site.obstacleRadius,type:site.kind});
   const destination:TrafficDestination={id:site.id,name:site.name,access:{...site.access},color:site.color,weight:site.weight};
   trafficDestinations.push(destination);serviceLocations.push(destination);
   trafficOrigins.push({id:destination.id,name:destination.name,access:{...destination.access},color:destination.color,weight:destination.weight});
@@ -1734,11 +1753,10 @@ function commitRouteConnection(start:RouteAnchor,end:RouteAnchor):boolean{
   const direction=(document.querySelector<HTMLSelectElement>('#road-direction')?.value??'both') as 'both'|'forward';
   const touchesHighway=(Math.abs(start.point.y+13)<1.25&&start.kind==='network')||(Math.abs(end.point.y+13)<1.25&&end.kind==='network');
   const connectsBuilding=start.kind==='building'||end.kind==='building';
-  // Validate the exact rounded centreline that will be rendered, not only the A* polyline.
-  const renderedPath=smoothPoints(path),blockingRoads=collectRouteBlockingRoads();
-  for(let i=1;i<renderedPath.length;i++)if(!routeSegmentIsClear(renderedPath[i-1]!,renderedPath[i]!,start.point,end.point,start.kind==='network',end.kind==='network',blockingRoads)){if(buildMessage)buildMessage.textContent='Плавный маршрут задевает занятую территорию. Выбери другие точки.';return false;}
+  // The preview and committed road share the same final smoothed-centreline validation.
+  if(!isRenderedRoutePathClear(path,start,end)){if(buildMessage)buildMessage.textContent='Плавный маршрут задевает занятую территорию. Выбери другие точки.';return false;}
   const road:Road={points:path,progress:0,width:roadHalfWidth*2,connectsVillageToHighway:touchesHighway&&connectsBuilding,direction};
-  builtRoads.push(road);staticLayerDirty=true;constructionJobs.push(road);rebuildRoadGraph();refreshVehicleRoutes();updateMission();
+  builtRoads.push(road);routeNetworkRevision++;routePreviewCacheKey='';staticLayerDirty=true;constructionJobs.push(road);rebuildRoadGraph();refreshVehicleRoutes();updateMission();
   if(buildMessage)buildMessage.textContent='Соединение создано: '+start.name+' — '+end.name+'. Дорога прокладывается автоматически.';
   return true;
 }
@@ -1746,13 +1764,14 @@ function selectRoutePoint(raw:Point){
   const anchor=resolveRouteAnchor(raw);
   if(!anchor){if(buildMessage)buildMessage.textContent='Нажми на подсвеченный въезд объекта или на существующую дорогу.';return;}
   if(!routeSelection.length){
-    routeSelection=[anchor.point];
+    routeSelection=[anchor];routePreviewCacheKey='';
     if(buildMessage)buildMessage.textContent='Начало выбрано: '+anchor.name+'. Теперь выбери вторую точку подключения.';
   }else{
-    const firstPoint=routeSelection[0]!;
-    const first=resolveRouteAnchor(firstPoint);
-    if(!first){routeSelection=[];return;}
+    // Keep the original anchor kind. Re-snapping its coordinates could turn a
+    // selected road node into a nearby building entrance (or vice versa).
+    const first=routeSelection[0]!;
     if(commitRouteConnection(first,anchor))routeSelection=[];
+    routePreviewCacheKey='';
   }
   render();
 }
@@ -1803,13 +1822,13 @@ const toolButtons=[...document.querySelectorAll<HTMLButtonElement>('.tool')];
 toolButtons.forEach(button=>button.addEventListener('click',()=>{
   selectedTool=button.dataset.tool??'inspect';routeHoverPoint=null;document.querySelector('.tool.active')?.classList.remove('active');button.classList.add('active');
   const hud=document.querySelector<HTMLElement>('#build-hud');if(hud)hud.hidden=selectedTool!=='road';
-  routeSelection=[];
+  routeSelection=[];routePreviewCacheKey='';routePreviewCachePath=null;routePreviewCacheValid=false;
   if(buildMessage)buildMessage.textContent=selectedTool==='road'?'Выбери две точки: сначала объект, затем трассу или существующую дорогу.':'Обзор карты. Перетаскивай поле и приближай его жестом.';
   canvas.style.cursor=selectedTool==='road'?'pointer':'grab';render();
 }));
 document.querySelector<HTMLButtonElement>('#cancel-road')?.addEventListener('click',()=>{clearRouteSelection();if(buildMessage)buildMessage.textContent='Выбор точек сброшен. Начни с любой подсвеченной точки.';});
 document.querySelector<HTMLButtonElement>('#undo-road')?.addEventListener('click',()=>{
-  const road=builtRoads.pop();if(!road)return;const index=constructionJobs.indexOf(road);if(index>=0)constructionJobs.splice(index,1);staticLayerDirty=true;rebuildRoadGraph();refreshVehicleRoutes();updateMission();if(buildMessage)buildMessage.textContent='Последний построенный участок удалён.';render();
+  const road=builtRoads.pop();if(!road)return;routeNetworkRevision++;routePreviewCacheKey='';const index=constructionJobs.indexOf(road);if(index>=0)constructionJobs.splice(index,1);staticLayerDirty=true;rebuildRoadGraph();refreshVehicleRoutes();updateMission();if(buildMessage)buildMessage.textContent='Последний построенный участок удалён.';render();
 });
 window.addEventListener('keydown',event=>{
   if(event.key==='+'||event.key==='=')setZoom(1.12);if(event.key==='-')setZoom(.89);
