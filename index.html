@@ -11,9 +11,9 @@
 <div id="app">
   <header class="topbar">
     <a class="brand" href="#" aria-label="TRAFFIC PUZZLE"><span class="brand-mark"><i></i><i></i><i></i></span><span><b>TRAFFIC PUZZLE</b><small>ДОЛИНА · МАРШРУТНАЯ ГОЛОВОЛОМКА</small></span></a>
-    <div class="chapter-line"><span class="chapter-dot"></span> СЦЕНАРИЙ 01 <b>ПЕРВОЕ СОЕДИНЕНИЕ</b></div>
+    <div class="chapter-line"><span class="chapter-dot"></span><b>ДОЛИНА · СЦЕНАРИЙ</b></div>
     <div class="topbar-actions">
-      <button id="mobile-dispatch-toggle" class="dispatch-toggle" type="button" aria-controls="command-panel" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="1.5"/><circle cx="16" cy="12" r="1.5"/><circle cx="10" cy="18" r="1.5"/></svg><span>Поток</span></button>
+      <button id="mobile-dispatch-toggle" class="dispatch-toggle" type="button" aria-controls="command-panel" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="1.5"/><circle cx="16" cy="12" r="1.5"/><circle cx="10" cy="18" r="1.5"/></svg><span>Сводка</span></button>
       <button id="reset-camera" class="view-button" title="Показать всю карту" aria-label="Показать всю карту"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5M4 4l6 6m10-6-6 6M4 20l6-6m10 6-6-6"/></svg></button>
     </div>
   </header>
@@ -24,12 +24,12 @@
     </nav>
     <section class="map-stage" aria-label="Игровая карта">
       <div id="world" role="img" aria-label="Карта долины с трассой, деревней, фермой и транспортом"></div>
-      <div class="map-topline"><span><i></i> ДОЛИНА · РЕГИОН 01</span><span>ВИД СВЕРХУ · СВОБОДНАЯ КАМЕРА</span></div>
-      <div class="map-location"><span>⌖</span><b>СЕВЕРНАЯ ДОЛИНА</b></div>
-      <div class="map-live"><i></i> ДВИЖЕНИЕ</div>
+      <div class="map-topline"><span><i></i> ДОЛИНА · РЕГИОН 01</span></div>
+      
+      
       <div class="map-objective"><span class="objective-index">01</span><span><small>ТВОЯ ЗАДАЧА</small><b id="objective-title">Свяжи ферму и жилой район</b><em id="objective-hint">Нужны два реальных подключения к трассе</em></span></div>
       <div class="map-controls"><button id="zoom-in" aria-label="Приблизить">+</button><button id="zoom-out" aria-label="Отдалить">−</button></div>
-      <div class="map-help"><span>DRAG</span> двигать карту <i></i><span>WHEEL</span> масштаб</div>
+      
       <div id="build-hud" class="build-hud" hidden>
         <div class="build-head"><span class="build-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18 10 6l4 12 6-12"/></svg></span><span><b>СОЗДАТЬ МАРШРУТ</b><small>Два касания вместо рисования</small></span><button id="cancel-road" aria-label="Сбросить выбор">×</button></div>
         <p id="build-message">1. Выбери точку у объекта. 2. Выбери трассу или существующую дорогу.</p><label class="road-direction-control" for="road-direction"><span>НАПРАВЛЕНИЕ ДВИЖЕНИЯ</span><select id="road-direction"><option value="both">В обе стороны</option><option value="forward">В одну сторону</option></select></label>
@@ -38,7 +38,7 @@
     </section>
     <button id="dispatch-scrim" class="dispatch-scrim" type="button" aria-label="Закрыть диспетчерскую" tabindex="-1"></button>
     <aside id="command-panel" class="command-panel" aria-label="Диспетчерская">
-      <section class="panel-intro"><div class="panel-heading"><div class="panel-kicker">ДИСПЕТЧЕРСКАЯ</div><button id="dispatch-close" class="dispatch-close" type="button" aria-label="Закрыть диспетчерскую">×</button></div><h1>Ты задаёшь ритм<br/><span>жизни долины.</span></h1><p>Выбирай точки подключения. Дороги прокладываются автоматически, а машины сами находят доступный путь между домами и службами.</p></section>
+      <section class="panel-intro"><div class="panel-heading"><div class="panel-kicker">СВОДКА ДОЛИНЫ</div><button id="dispatch-close" class="dispatch-close" type="button" aria-label="Закрыть сводку">×</button></div><h1>Сеть дорог<br/><span>и движение.</span></h1></section>
       <section class="mission-card">
         <div class="card-top"><span>ТЕКУЩИЙ СЦЕНАРИЙ</span><b class="mission-count">В РАБОТЕ</b></div>
         <div class="mission-title"><span>01</span><h2>Первое соединение</h2></div>
@@ -60,7 +60,7 @@
         <div class="destination-list" id="destination-board"><div class="destination-row"><span>Проверяем маршруты…</span></div></div><div id="destination-summary" class="destination-summary">Доступность объектов</div>
       </section>
       <section class="strategy-note"><span>i</span><p><b>Принцип игры.</b> Каждое соединение открывает новые поездки. Не строй лишнего — думай о связности.</p></section>
-      <footer class="panel-footer"><span>TRAFFIC PUZZLE</span><span>ДОЛИНА · ВЕРСИЯ 0.69</span></footer>
+      <footer class="panel-footer"><span>TRAFFIC PUZZLE</span><span>ДОЛИНА · ВЕРСИЯ 0.70</span></footer>
     </aside>
   </main>
 </div>
