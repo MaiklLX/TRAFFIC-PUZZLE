@@ -1105,7 +1105,7 @@ const initialHomeLocations=[...homeLocations];
 type GrowthSite={id:string;name:string;position:Point;access:Point;color:string;weight:number;scale:number;wall:string;roof:string;obstacleRadius:number;kind:'house'|'school'|'clinic'};
 const growthSites:GrowthSite[]=[
   {id:'northwest-home',name:'Новый дом на опушке',position:{x:-19,y:13},access:{x:-19,y:14.65},color:'#9db8a0',weight:1,scale:.78,wall:'#eee6d2',roof:'#8ea88e',obstacleRadius:1.8,kind:'house'},
-  {id:'school',name:'Школа в долине',position:{x:-9.5,y:14.2},access:{x:-9.5,y:16.65},color:'#8fae91',weight:2,scale:.92,wall:'#e9e2ce',roof:'#8da68a',obstacleRadius:2.2,kind:'school'},
+  {id:'school',name:'Школа в долине',position:{x:-8.5,y:13},access:{x:-8.5,y:10.55},color:'#8fae91',weight:2,scale:.92,wall:'#e9e2ce',roof:'#8da68a',obstacleRadius:2.2,kind:'school'},
   {id:'medical-center',name:'Медпункт у восточной окраины',position:{x:19,y:-4},access:{x:19,y:-1.55},color:'#83a99b',weight:2,scale:.88,wall:'#eee8d8',roof:'#789b8a',obstacleRadius:1.9,kind:'clinic'}
 ];
 const activeGrowthBuildings:GrowthSite[]=[];
@@ -1356,7 +1356,9 @@ function pointerPosition(event:MouseEvent):Point{
 }
 function clearRouteSelection(){routeSelection=[];render();}
 function isGrowthSiteClear(site:GrowthSite){
+  // The building and its road access must both stay inside the A* construction envelope.
   if(site.position.x<WORLD.minX+2.8||site.position.x>WORLD.maxX-2.8||site.position.y<WORLD.minY+2.8||site.position.y>WORLD.maxY-2.8)return false;
+  if(site.access.x<WORLD.minX+1||site.access.x>WORLD.maxX-1||site.access.y<WORLD.minY+1||site.access.y>WORLD.maxY-1)return false;
   if(obstacles.some(obstacle=>distance(site.position,obstacle)<site.obstacleRadius+obstacle.r+1.15))return false;
   for(const road of staticRoads){
     const points=staticRoadPath(road);
